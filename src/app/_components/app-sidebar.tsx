@@ -12,7 +12,7 @@ import {
   Home,
   MessageSquare,
   Plus,
-  Settings,
+  // Settings,
   Users,
   Folder,
   FolderPlus,
@@ -38,7 +38,7 @@ import {
   SidebarSeparator,
 } from "~/app/_components/ui/sidebar"
 import { Button } from "~/app/_components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "~/app/_components/ui/avatar"
+// import { Avatar, AvatarFallback, AvatarImage } from "~/app/_components/ui/avatar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/app/_components/ui/collapsible"
 import { cn } from "~/lib/utils"
 import {
@@ -199,7 +199,7 @@ export function AppSidebar() {
           // Add to this page's children
           return {
             ...page,
-            pages: [...(page.pages || []), newPage],
+            pages: [...(page.pages ?? []), newPage],
           }
         } else if (page.pages) {
           // Check children
@@ -487,7 +487,20 @@ export function AppSidebar() {
         </SidebarContent>
         <SidebarFooter className="p-4">
           <div className="flex items-center gap-2">
-                <SignOutButton />
+            {/* TODO: Add User Info */}
+            <SignOutButton />
+            {/* <Avatar className="h-8 w-8">
+              <AvatarImage src="/placeholder.svg?height=32&width=32" alt="User" />
+              <AvatarFallback>U</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-1 flex-col">
+              <span className="text-sm font-medium">John Doe</span>
+              <span className="text-xs text-muted-foreground">Admin</span>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Settings size={16} />
+              <span className="sr-only">Settings</span>
+            </Button> */}
           </div>
         </SidebarFooter>
       </Sidebar>

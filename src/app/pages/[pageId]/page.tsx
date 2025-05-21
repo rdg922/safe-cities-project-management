@@ -64,22 +64,23 @@ const pagesData = {
 export default function PageView() {
   const params = useParams()
   const pageId = params.pageId as string
-  const page = pagesData[pageId] || {
+  const page = pagesData?.[pageId as keyof typeof pagesData] ?? {
     title: "Page Not Found",
     content: "# Page Not Found\n\nThe requested page could not be found.",
     permission: "view",
   }
 
   const [activeTab, setActiveTab] = useState<string>("editor")
-  const [permission, setPermission] = useState<string>(page.permission)
+  type PermissionType = "view" | "comment" | "edit";
+  const [permission, setPermission] = useState<PermissionType>(page.permission as PermissionType)
 
-  const permissionLabels = {
+  const permissionLabels: Record<PermissionType, string> = {
     view: "Can View",
     comment: "Can Comment",
     edit: "Can Edit",
   }
 
-  const permissionIcons = {
+  const permissionIcons: Record<PermissionType, React.ReactNode> = {
     view: <Eye size={16} />,
     comment: <MessageSquare size={16} />,
     edit: <PenSquare size={16} />,
@@ -93,18 +94,18 @@ export default function PageView() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">
-                {permissionIcons[permission as keyof typeof permissionIcons]}
-                {permissionLabels[permission as keyof typeof permissionLabels]}
+                {permissionIcons[permission]}
+                {permissionLabels[permission]}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setPermission("view")} className="gap-2">
+              <DropdownMenuItem onClick={() => setPermission("view" as PermissionType)} className="gap-2">
                 <Eye size={16} /> Can View
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setPermission("comment")} className="gap-2">
+              <DropdownMenuItem onClick={() => setPermission("comment" as PermissionType)} className="gap-2">
                 <MessageSquare size={16} /> Can Comment
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setPermission("edit")} className="gap-2">
+              <DropdownMenuItem onClick={() => setPermission("edit" as PermissionType)} className="gap-2">
                 <PenSquare size={16} /> Can Edit
               </DropdownMenuItem>
             </DropdownMenuContent>
