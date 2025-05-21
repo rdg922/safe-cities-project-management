@@ -8,6 +8,7 @@ import { PageChat } from "~/app/_components/page-chat"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/app/_components/ui/dropdown-menu"
 import { Eye, MessageSquare, MoreHorizontal, PenSquare, Share2, Users } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/app/_components/ui/tabs"
+import { SimpleEditor } from "~/components/tiptap-templates/simple/simple-editor"
 
 // Sample page data
 const pagesData = {
@@ -130,7 +131,8 @@ export default function PageView() {
           <TabsTrigger value="chat">Chat</TabsTrigger>
         </TabsList>
         <TabsContent value="editor" className="mt-0">
-          <PageEditor initialContent={page.content} readOnly={permission === "view"} />
+          {/* <PageEditor initialContent={page.content} readOnly={permission === "view"} /> */}
+          <SimpleEditor />
         </TabsContent>
         <TabsContent value="chat" className="mt-0">
           <PageChat pageTitle={page.title} />
