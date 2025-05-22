@@ -112,7 +112,7 @@ export default async function Home() {
                       <Database className="h-4 w-4" /> Database
                     </h3>
                     <p className="text-muted-foreground">
-                      SQLite with Drizzle ORM for type-safe database operations
+                      PostgreSQL with Drizzle ORM for type-safe database operations
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Schema defined in <code>src/server/db/schema.ts</code>
