@@ -1,7 +1,7 @@
-import { Button } from "~/app/_components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "~/app/_components/ui/card"
-import { ProgramCard } from "~/app/_components/program-card"
-import { RecentActivityList } from "~/app/_components/recent-activity-list"
+import { Button } from "~/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { ProgramCard } from "~/components/program-card"
+import { RecentActivityList } from "~/components/recent-activity-list"
 import { Plus } from "lucide-react"
 
 export default function DashboardPage() {

@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ExternalLink, Info, Server, Layers, Database, Code } from "lucide-react";
 
-import { LatestPost } from "~/app/_components/post";
+import { LatestPost } from "~/components/post";
 import { api, HydrateClient } from "~/trpc/server";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "~/app/_components/ui/card";
-import { Button } from "~/app/_components/ui/button";
-import { Separator } from "~/app/_components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/app/_components/ui/tabs";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "~/components/ui/card";
+import { Button } from "~/components/ui/button";
+import { Separator } from "~/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 
 export default async function Home() {
   const hello = await api.post.hello({ text: "from tRPC" });

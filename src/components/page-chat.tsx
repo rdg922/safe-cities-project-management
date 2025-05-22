@@ -3,13 +3,13 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
-import { Avatar, AvatarFallback, AvatarImage } from "~/app/_components/ui/avatar"
-import { Button } from "~/app/_components/ui/button"
-import { Card } from "~/app/_components/ui/card"
-import { Input } from "~/app/_components/ui/input"
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar"
+import { Button } from "~/components/ui/button"
+import { Card } from "~/components/ui/card"
+import { Input } from "~/components/ui/input"
 import { Send, Smile, Reply, MoreHorizontal } from "lucide-react"
-import { Textarea } from "~/app/_components/ui/textarea"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/app/_components/ui/dropdown-menu"
+import { Textarea } from "~/components/ui/textarea"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu"
 
 interface PageChatProps {
   pageTitle: string

@@ -1,7 +1,7 @@
-import { Avatar, AvatarFallback, AvatarImage } from "~/app/_components/ui/avatar"
-import { Button } from "~/app/_components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "~/app/_components/ui/card"
-import { Input } from "~/app/_components/ui/input"
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar"
+import { Button } from "~/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { Input } from "~/components/ui/input"
 import { MessageSquare, Plus, Search } from "lucide-react"
 
 // Sample chat data

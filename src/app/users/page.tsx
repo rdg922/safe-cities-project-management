@@ -1,10 +1,10 @@
-import { Avatar, AvatarFallback, AvatarImage } from "~/app/_components/ui/avatar"
-import { Button } from "~/app/_components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "~/app/_components/ui/card"
-import { Input } from "~/app/_components/ui/input"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/app/_components/ui/dropdown-menu"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/app/_components/ui/table"
-import { Badge } from "~/app/_components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar"
+import { Button } from "~/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { Input } from "~/components/ui/input"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table"
+import { Badge } from "~/components/ui/badge"
 import { MoreHorizontal, Search, UserPlus } from "lucide-react"
 
 // Sample user data

@@ -1,6 +1,6 @@
 import { FileText, Users } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/app/_components/ui/card"
-import { Button } from "~/app/_components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card"
+import { Button } from "~/components/ui/button"
 
 interface ProgramCardProps {
   title: string

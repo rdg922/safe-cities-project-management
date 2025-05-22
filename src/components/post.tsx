@@ -4,9 +4,9 @@ import { useState } from "react";
 import { SendIcon } from "lucide-react";
 
 import { api } from "~/trpc/react";
-import { Input } from "~/app/_components/ui/input";
-import { Button } from "~/app/_components/ui/button";
-import { Label } from "~/app/_components/ui/label";
+import { Input } from "~/components/ui/input";
+import { Button } from "~/components/ui/button";
+import { Label } from "~/components/ui/label";
 
 export function LatestPost() {
   const [latestPost] = api.post.getLatest.useSuspenseQuery();

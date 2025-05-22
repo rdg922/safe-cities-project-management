@@ -2,12 +2,12 @@
 
 import { useState } from "react"
 import { useParams } from "next/navigation"
-import { Button } from "~/app/_components/ui/button"
-import { PageEditor } from "~/app/_components/page-editor"
-import { PageChat } from "~/app/_components/page-chat"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/app/_components/ui/dropdown-menu"
+import { Button } from "~/components/ui/button"
+import { PageEditor } from "~/components/page-editor"
+import { PageChat } from "~/components/page-chat"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu"
 import { Eye, MessageSquare, MoreHorizontal, PenSquare, Share2, Users } from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/app/_components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 import { SimpleEditor } from "~/components/tiptap-templates/simple/simple-editor"
 
 // Sample page data

@@ -1,12 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Avatar, AvatarFallback, AvatarImage } from "~/app/_components/ui/avatar"
-import { Button } from "~/app/_components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "~/app/_components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/app/_components/ui/tabs"
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar"
+import { Button } from "~/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 import { Bell, CheckCheck, Archive, MoreHorizontal } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/app/_components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu"
 import { toast } from "~/hooks/use-toast"
 
 // Update the component to be client-side

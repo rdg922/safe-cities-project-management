@@ -3,11 +3,11 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import {ClerkProvider, RedirectToSignIn, SignedOut} from "@clerk/nextjs"
 import "~/styles/globals.css"
-import { ThemeProvider } from "~/app/_components/theme-provider"
+import { ThemeProvider } from "~/components/theme-provider"
 import { TRPCReactProvider } from "~/trpc/react"
-import { AppSidebar } from "~/app/_components/app-sidebar"
-import { SidebarProvider } from "~/app/_components/ui/sidebar"
-import { Toaster } from "~/app/_components/ui/toaster"
+import { AppSidebar } from "~/components/app-sidebar"
+import { SidebarProvider } from "~/components/ui/sidebar"
+import { Toaster } from "~/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { SidebarMenuAction } from "~/app/_components/ui/sidebar"
+import { SidebarMenuAction } from "~/components/ui/sidebar"
 
 import { useState } from "react"
 import Link from "next/link"
@@ -36,10 +36,10 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarSeparator,
-} from "~/app/_components/ui/sidebar"
-import { Button } from "~/app/_components/ui/button"
-// import { Avatar, AvatarFallback, AvatarImage } from "~/app/_components/ui/avatar"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/app/_components/ui/collapsible"
+} from "~/components/ui/sidebar"
+import { Button } from "~/components/ui/button"
+// import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/components/ui/collapsible"
 import { cn } from "~/lib/utils"
 import {
   Dialog,
@@ -49,10 +49,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "~/app/_components/ui/dialog"
-import { Input } from "~/app/_components/ui/input"
-import { Label } from "~/app/_components/ui/label"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/app/_components/ui/dropdown-menu"
+} from "~/components/ui/dialog"
+import { Input } from "~/components/ui/input"
+import { Label } from "~/components/ui/label"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu"
 import { SignOutButton } from "@clerk/nextjs"
 
 // Enhanced nested page type

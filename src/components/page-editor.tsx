@@ -3,9 +3,9 @@
 import type React from "react"
 
 import { useState, useRef } from "react"
-import { Button } from "~/app/_components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/app/_components/ui/tabs"
-import { Textarea } from "~/app/_components/ui/textarea"
+import { Button } from "~/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
+import { Textarea } from "~/components/ui/textarea"
 import {
   Bold,
   CheckSquare,
@@ -21,8 +21,8 @@ import {
   Table,
   Upload,
 } from "lucide-react"
-import { Separator } from "~/app/_components/ui/separator"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/app/_components/ui/tooltip"
+import { Separator } from "~/components/ui/separator"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip"
 import { toast } from "~/hooks/use-toast"
 
 interface PageEditorProps {
