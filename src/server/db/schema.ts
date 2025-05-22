@@ -19,9 +19,28 @@ export const posts = createTable(
     name: d.varchar({ length: 256 }),
     createdAt: d
       .timestamp()
-      .default(sql`CURRENT_TIMESTAMP`)
+      .defaultNow()
       .notNull(),
-    updatedAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: d.timestamp().defaultNow(),
   }),
   (t) => [index("name_idx").on(t.name)]
 );
+
+export type Post = {
+  id: number,
+  name: string,
+  createdAt: Date,
+  updatedAt: Date
+} 
+
+export const pages = createTable(
+  "page",
+  (d) => ({
+    id: d.serial().primaryKey(), // unchanging id
+    filename: d.varchar({ length: 256 }).unique(),
+    content: d.text().default(""),
+    createdAt: d.timestamp().notNull().defaultNow(),
+    updatedAt: d.timestamp().defaultNow()
+  })
+
+)

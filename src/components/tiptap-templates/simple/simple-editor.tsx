@@ -182,7 +182,13 @@ const MobileToolbarContent = ({
   </>
 )
 
-export function SimpleEditor() {
+interface SimpleEditorProps {
+  initialContent?: string;
+  readOnly?: boolean;
+  onUpdate?: (content: string) => void;
+}
+
+export function SimpleEditor({ initialContent, readOnly = false, onUpdate }: SimpleEditorProps) {
   const isMobile = useMobile()
   const windowSize = useWindowSize()
   const [mobileView, setMobileView] = React.useState<
@@ -192,6 +198,7 @@ export function SimpleEditor() {
 
   const editor = useEditor({
     immediatelyRender: false,
+    editable: !readOnly,
     editorProps: {
       attributes: {
         autocomplete: "off",
@@ -223,13 +230,36 @@ export function SimpleEditor() {
       TrailingNode,
       Link.configure({ openOnClick: false }),
     ],
-    content: content,
+    content: initialContent || content,
   })
 
   const bodyRect = useCursorVisibility({
     editor,
     overlayHeight: toolbarRef.current?.getBoundingClientRect().height ?? 0,
   })
+
+  // Add effect to handle content updates
+  React.useEffect(() => {
+    if (!editor || !onUpdate) return;
+
+    const handleUpdate = () => {
+      const htmlContent = editor.getHTML();
+      onUpdate(htmlContent);
+    };
+
+    editor.on('update', handleUpdate);
+
+    return () => {
+      editor.off('update', handleUpdate);
+    };
+  }, [editor, onUpdate]);
+
+  // Handle initialContent changes from parent
+  React.useEffect(() => {
+    if (editor && initialContent && editor.getHTML() !== initialContent) {
+      editor.commands.setContent(initialContent);
+    }
+  }, [editor, initialContent]);
 
   React.useEffect(() => {
     if (!isMobile && mobileView !== "main") {

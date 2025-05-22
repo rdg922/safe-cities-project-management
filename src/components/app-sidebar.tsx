@@ -1,25 +1,19 @@
 "use client"
 
-import { SidebarMenuAction } from "~/components/ui/sidebar"
-
 import { useState } from "react"
+import { Trash2, Edit2, MoreHorizontal } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { redirect, usePathname } from "next/navigation"
 import {
   Bell,
-  ChevronDown,
   FileText,
   Home,
   MessageSquare,
   Plus,
-  // Settings,
   Users,
-  Folder,
-  FolderPlus,
-  Edit,
-  Trash2,
-  MoreHorizontal,
+  File,
 } from "lucide-react"
+import { api } from "~/trpc/react"
 import {
   Sidebar,
   SidebarContent,
@@ -32,15 +26,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarSeparator,
 } from "~/components/ui/sidebar"
 import { Button } from "~/components/ui/button"
-// import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/components/ui/collapsible"
-import { cn } from "~/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -52,226 +40,67 @@ import {
 } from "~/components/ui/dialog"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu"
 import { SignOutButton } from "@clerk/nextjs"
-
-// Enhanced nested page type
-interface Page {
-  id: string
-  name: string
-  path: string
-  pages?: Page[] // Recursive structure for unlimited nesting
-}
-
-// Enhanced program type
-interface Program {
-  id: string
-  name: string
-  pages: Page[]
-}
-
-// Sample data for programs and pages with nested structure
-const programs: Program[] = [
-  {
-    id: "program-1",
-    name: "Community Outreach",
-    pages: [
-      {
-        id: "page-1",
-        name: "Overview",
-        path: "/pages/page-1",
-        pages: [
-          { id: "page-1-1", name: "Mission", path: "/pages/page-1-1" },
-          { id: "page-1-2", name: "Vision", path: "/pages/page-1-2" },
-        ],
-      },
-      {
-        id: "page-2",
-        name: "Goals",
-        path: "/pages/page-2",
-        pages: [
-          { id: "page-2-1", name: "Short-term", path: "/pages/page-2-1" },
-          { id: "page-2-2", name: "Long-term", path: "/pages/page-2-2" },
-        ],
-      },
-      { id: "page-3", name: "Timeline", path: "/pages/page-3" },
-    ],
-  },
-  {
-    id: "program-2",
-    name: "Education Initiative",
-    pages: [
-      { id: "page-4", name: "Curriculum", path: "/pages/page-4" },
-      { id: "page-5", name: "Resources", path: "/pages/page-5" },
-    ],
-  },
-  {
-    id: "program-3",
-    name: "Fundraising",
-    pages: [
-      { id: "page-6", name: "Donors", path: "/pages/page-6" },
-      { id: "page-7", name: "Events", path: "/pages/page-7" },
-      { id: "page-8", name: "Budget", path: "/pages/page-8" },
-    ],
-  },
-]
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu"
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const [programsData, setProgramsData] = useState<Program[]>(programs)
-  const [openPrograms, setOpenPrograms] = useState<Record<string, boolean>>(
-    Object.fromEntries(programs.map((program) => [program.id, true])),
-  )
-  const [openPages, setOpenPages] = useState<Record<string, boolean>>({})
-  const [isNewProgramDialogOpen, setIsNewProgramDialogOpen] = useState(false)
-  const [isEditProgramDialogOpen, setIsEditProgramDialogOpen] = useState(false)
   const [isNewPageDialogOpen, setIsNewPageDialogOpen] = useState(false)
-  const [newProgramName, setNewProgramName] = useState("")
-  const [editProgramName, setEditProgramName] = useState("")
-  const [editProgramId, setEditProgramId] = useState("")
   const [newPageName, setNewPageName] = useState("")
-  const [newPageParentId, setNewPageParentId] = useState("")
-  const [newPageProgramId, setNewPageProgramId] = useState("")
-
-  const toggleProgram = (programId: string) => {
-    setOpenPrograms((prev) => ({
-      ...prev,
-      [programId]: !prev[programId],
-    }))
+  
+  // Fetch all pages using tRPC
+  const { data: pages = [], isLoading, refetch: refetchPages } = api.pages.getAll.useQuery()
+  
+  // Handle new page creation
+  const createPageMutation = api.pages.create.useMutation({
+    onSuccess: async () => {
+      setNewPageName("")
+      setIsNewPageDialogOpen(false)
+      await refetchPages()
+    },
+  })
+  
+  // Handle renaming pages (frontend-only filename change)
+  const renamePageMutation = api.pages.update.useMutation({
+    onSuccess: async () => {
+      setIsRenameDialogOpen(false)
+      await refetchPages()
+    },
+  })
+  
+  // Handle deleting pages
+  const deletePageMutation = api.pages.delete.useMutation({
+    onSuccess: async () => {
+      await refetchPages()
+    },
+  })
+  
+  // Rename dialog state
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false)
+  const [renamePageId, setRenamePageId] = useState<number | null>(null)
+  const [renamePageName, setRenamePageName] = useState("")
+  const openRenameDialog = (id: number, filename: string) => {
+    setRenamePageId(id)
+    setRenamePageName(filename)
+    setIsRenameDialogOpen(true)
   }
-
-  const togglePage = (pageId: string) => {
-    setOpenPages((prev) => ({
-      ...prev,
-      [pageId]: !prev[pageId],
-    }))
-  }
-
-  const handleAddProgram = () => {
-    if (!newProgramName.trim()) return
-
-    const newProgram: Program = {
-      id: `program-${Date.now()}`,
-      name: newProgramName,
-      pages: [],
+  const handleRenamePage = () => {
+    if (renamePageId) {
+      renamePageMutation.mutate({ id: renamePageId, filename: renamePageName })
     }
-
-    setProgramsData([...programsData, newProgram])
-    setOpenPrograms((prev) => ({
-      ...prev,
-      [newProgram.id]: true,
-    }))
-    setNewProgramName("")
-    setIsNewProgramDialogOpen(false)
   }
-
-  const handleEditProgram = () => {
-    if (!editProgramName.trim() || !editProgramId) return
-
-    const updatedPrograms = programsData.map((program) =>
-      program.id === editProgramId ? { ...program, name: editProgramName } : program,
-    )
-
-    setProgramsData(updatedPrograms)
-    setEditProgramName("")
-    setEditProgramId("")
-    setIsEditProgramDialogOpen(false)
+  const handleDeletePage = (id: number) => {
+    if (confirm('Are you sure you want to delete this page?')) {
+      deletePageMutation.mutate({ id })
+    }
   }
-
-  const handleDeleteProgram = (programId: string) => {
-    const updatedPrograms = programsData.filter((program) => program.id !== programId)
-    setProgramsData(updatedPrograms)
-  }
-
+  
   const handleAddPage = () => {
-    if (!newPageName.trim() || !newPageProgramId) return
-
-    const newPage: Page = {
-      id: `page-${Date.now()}`,
-      name: newPageName,
-      path: `/pages/page-${Date.now()}`,
-    }
-
-    // Function to add page to the correct parent
-    const addPageToParent = (pages: Page[], parentId: string | null): Page[] => {
-      return pages.map((page) => {
-        if (!parentId && page.id === newPageParentId) {
-          // Add to this page's children
-          return {
-            ...page,
-            pages: [...(page.pages ?? []), newPage],
-          }
-        } else if (page.pages) {
-          // Check children
-          return {
-            ...page,
-            pages: addPageToParent(page.pages, parentId),
-          }
-        }
-        return page
-      })
-    }
-
-    const updatedPrograms = programsData.map((program) => {
-      if (program.id === newPageProgramId) {
-        if (!newPageParentId) {
-          // Add to program root
-          return {
-            ...program,
-            pages: [...program.pages, newPage],
-          }
-        } else {
-          // Add to a nested page
-          return {
-            ...program,
-            pages: addPageToParent(program.pages, null),
-          }
-        }
-      }
-      return program
+    if (!newPageName.trim()) return
+    
+    createPageMutation.mutate({ 
+      filename: newPageName 
     })
-
-    setProgramsData(updatedPrograms)
-    setNewPageName("")
-    setNewPageParentId("")
-    setNewPageProgramId("")
-    setIsNewPageDialogOpen(false)
-  }
-
-  // Recursive function to render nested pages
-  const renderPages = (pages: Page[] = [], programId: string) => {
-    return pages.map((page) => (
-      <div key={page.id}>
-        {page.pages && page.pages.length > 0 ? (
-          <Collapsible open={openPages[page.id]} onOpenChange={() => togglePage(page.id)} className="group/collapsible">
-            <SidebarMenuSubItem>
-              <CollapsibleTrigger asChild>
-                <SidebarMenuSubButton asChild isActive={pathname === page.path}>
-                  <div className="flex w-full items-center justify-between">
-                    <Link href={page.path} className="flex-1 truncate">
-                      {page.name}
-                    </Link>
-                    <ChevronDown
-                      size={14}
-                      className={cn("transition-transform", openPages[page.id] ? "rotate-180" : "")}
-                    />
-                  </div>
-                </SidebarMenuSubButton>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="pl-4 border-l border-sidebar-border">{renderPages(page.pages, programId)}</div>
-              </CollapsibleContent>
-            </SidebarMenuSubItem>
-          </Collapsible>
-        ) : (
-          <SidebarMenuSubItem>
-            <SidebarMenuSubButton asChild isActive={pathname === page.path}>
-              <Link href={page.path}>{page.name}</Link>
-            </SidebarMenuSubButton>
-          </SidebarMenuSubItem>
-        )}
-      </div>
-    ))
   }
 
   return (
@@ -287,10 +116,61 @@ export function AppSidebar() {
               <span className="text-xs text-muted-foreground">Project Management</span>
             </div>
           </div>
-          <Button size="sm" className="w-full justify-start gap-2">
-            <Plus size={16} />
-            New Page
-          </Button>
+          <Dialog open={isNewPageDialogOpen} onOpenChange={setIsNewPageDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="w-full justify-start gap-2">
+                <Plus size={16} />
+                New Page
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Page</DialogTitle>
+                <DialogDescription>Add a new page to the system.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="page-name">Page Name</Label>
+                  <Input
+                    id="page-name"
+                    value={newPageName}
+                    onChange={(e) => setNewPageName(e.target.value)}
+                    placeholder="Enter page name"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsNewPageDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddPage}>Create Page</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        {/* Rename Page Dialog */}
+        <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rename Page</DialogTitle>
+              <DialogDescription>Update the name of the page.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="rename-page-name">New Page Name</Label>
+                <Input
+                  id="rename-page-name"
+                  value={renamePageName}
+                  onChange={(e) => setRenamePageName(e.target.value)}
+                  placeholder="Enter new page name"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsRenameDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleRenamePage}>Rename Page</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         </SidebarHeader>
         <SidebarSeparator />
         <SidebarContent>
@@ -334,229 +214,56 @@ export function AppSidebar() {
           <SidebarGroup>
             <SidebarGroupLabel className="flex items-center justify-between">
               <span>Programs</span>
-              <Dialog open={isNewProgramDialogOpen} onOpenChange={setIsNewProgramDialogOpen}>
-                <DialogTrigger asChild>
-                  <SidebarGroupAction>
-                    <FolderPlus size={16} />
-                    <span className="sr-only">Add Program</span>
-                  </SidebarGroupAction>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Program</DialogTitle>
-                    <DialogDescription>Add a new program to organize your pages.</DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="program-name">Program Name</Label>
-                      <Input
-                        id="program-name"
-                        value={newProgramName}
-                        onChange={(e) => setNewProgramName(e.target.value)}
-                        placeholder="Enter program name"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsNewProgramDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleAddProgram}>Create Program</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <SidebarGroupAction onClick={() => setIsNewPageDialogOpen(true)}>
+                <Plus size={16} />
+                <span className="sr-only">Add Page</span>
+              </SidebarGroupAction>
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {programsData.map((program) => (
-                  <Collapsible
-                    key={program.id}
-                    open={openPrograms[program.id]}
-                    onOpenChange={() => toggleProgram(program.id)}
-                    className="group/collapsible"
-                  >
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton>
-                          <Folder size={18} />
-                          <span>{program.name}</span>
-                          <ChevronDown
-                            size={16}
-                            className={cn("ml-auto transition-transform", openPrograms[program.id] ? "rotate-180" : "")}
-                          />
+                {isLoading ? (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">Loading pages...</div>
+                ) : pages.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">No pages found</div>
+                ) : (
+                  pages.map((page) => (
+                    <SidebarMenuItem key={page.id}>
+                      <div className="flex items-center justify-between w-full">
+                        <SidebarMenuButton asChild isActive={pathname === `/pages/${page.id}`}>
+                          <Link href={`/pages/${page.id}`} className="flex items-center gap-2">
+                            <File size={18} />
+                            <span>{page.filename}</span>
+                          </Link>
                         </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <SidebarMenuAction showOnHover>
-                            <MoreHorizontal size={16} />
-                          </SidebarMenuAction>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <Dialog open={isEditProgramDialogOpen} onOpenChange={setIsEditProgramDialogOpen}>
-                            <DialogTrigger asChild>
-                              <DropdownMenuItem
-                                onSelect={(e) => {
-                                  e.preventDefault()
-                                  setEditProgramId(program.id)
-                                  setEditProgramName(program.name)
-                                }}
-                              >
-                                <Edit className="mr-2 h-4 w-4" />
-                                <span>Edit Program</span>
-                              </DropdownMenuItem>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Edit Program</DialogTitle>
-                                <DialogDescription>Update the program name.</DialogDescription>
-                              </DialogHeader>
-                              <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                  <Label htmlFor="edit-program-name">Program Name</Label>
-                                  <Input
-                                    id="edit-program-name"
-                                    value={editProgramName}
-                                    onChange={(e) => setEditProgramName(e.target.value)}
-                                  />
-                                </div>
-                              </div>
-                              <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsEditProgramDialogOpen(false)}>
-                                  Cancel
-                                </Button>
-                                <Button onClick={handleEditProgram}>Save Changes</Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                          <Dialog open={isNewPageDialogOpen} onOpenChange={setIsNewPageDialogOpen}>
-                            <DialogTrigger asChild>
-                              <DropdownMenuItem
-                                onSelect={(e) => {
-                                  e.preventDefault()
-                                  setNewPageProgramId(program.id)
-                                  setNewPageParentId("")
-                                }}
-                              >
-                                <Plus className="mr-2 h-4 w-4" />
-                                <span>Add Page</span>
-                              </DropdownMenuItem>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Create New Page</DialogTitle>
-                                <DialogDescription>Add a new page to this program.</DialogDescription>
-                              </DialogHeader>
-                              <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                  <Label htmlFor="page-name">Page Name</Label>
-                                  <Input
-                                    id="page-name"
-                                    value={newPageName}
-                                    onChange={(e) => setNewPageName(e.target.value)}
-                                    placeholder="Enter page name"
-                                  />
-                                </div>
-                              </div>
-                              <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsNewPageDialogOpen(false)}>
-                                  Cancel
-                                </Button>
-                                <Button onClick={handleAddPage}>Create Page</Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onSelect={() => handleDeleteProgram(program.id)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            <span>Delete Program</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <CollapsibleContent>
-                        <SidebarMenuSub>{renderPages(program.pages, program.id)}</SidebarMenuSub>
-                      </CollapsibleContent>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal size={16} />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openRenameDialog(page.id, page.filename)}>
+                              <Edit2 size={16} className="mr-2" /> Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeletePage(page.id)}>
+                              <Trash2 size={16} className="mr-2" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </SidebarMenuItem>
-                  </Collapsible>
-                ))}
+                  ))
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter className="p-4">
           <div className="flex items-center gap-2">
-            {/* TODO: Add User Info */}
             <SignOutButton />
-            {/* <Avatar className="h-8 w-8">
-              <AvatarImage src="/placeholder.svg?height=32&width=32" alt="User" />
-              <AvatarFallback>U</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-1 flex-col">
-              <span className="text-sm font-medium">John Doe</span>
-              <span className="text-xs text-muted-foreground">Admin</span>
-            </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Settings size={16} />
-              <span className="sr-only">Settings</span>
-            </Button> */}
           </div>
         </SidebarFooter>
       </Sidebar>
-
-      {/* Edit Program Dialog */}
-      <Dialog open={isEditProgramDialogOpen} onOpenChange={setIsEditProgramDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Program</DialogTitle>
-            <DialogDescription>Update the program name.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-program-name">Program Name</Label>
-              <Input
-                id="edit-program-name"
-                value={editProgramName}
-                onChange={(e) => setEditProgramName(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditProgramDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEditProgram}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* New Page Dialog */}
-      <Dialog open={isNewPageDialogOpen} onOpenChange={setIsNewPageDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Page</DialogTitle>
-            <DialogDescription>Add a new page to this program.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="page-name">Page Name</Label>
-              <Input
-                id="page-name"
-                value={newPageName}
-                onChange={(e) => setNewPageName(e.target.value)}
-                placeholder="Enter page name"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNewPageDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddPage}>Create Page</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   )
 }
