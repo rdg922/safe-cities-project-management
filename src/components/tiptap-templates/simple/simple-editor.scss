@@ -35,8 +35,10 @@ body {
 }
 
 .content-wrapper {
-  height: calc(100% - var(--tt-toolbar-height));
+  height: calc(100vh - 200px);
+  /* Providing explicit height with room for headers/tabs */
   overflow-y: auto;
+  position: relative;
 
   &::-webkit-scrollbar {
     display: block;
@@ -57,14 +59,34 @@ body {
   scrollbar-color: var(--tt-scrollbar-color) transparent;
 }
 
+/* Add styling for the toolbar to ensure it stays fixed */
+[role="toolbar"] {
+  position: sticky;
+  top: 0;
+  background: var(--background, #fff);
+  z-index: 10;
+  border-bottom: 1px solid var(--border, #eee);
+}
+
 .simple-editor-content {
   max-width: 640px;
   width: 100%;
   margin: 0 auto;
+  min-height: 100%;
 }
 
 .simple-editor-content .tiptap.ProseMirror {
   padding: 3rem 3rem;
+  min-height: 100%;
+}
+
+/* Add styles for the editor container */
+.simple-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  /* Prevent unwanted scrolling */
 }
 
 @media screen and (max-width: 480px) {

@@ -130,7 +130,7 @@ export default function PageView() {
           <TabsTrigger value="editor">Editor</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
         </TabsList>
-        <TabsContent value="editor" className="mt-0">
+        <TabsContent value="editor" className="mt-0 h-[calc(100vh-200px)]">
           {/* <PageEditor initialContent={page.content} readOnly={permission === "view"} /> */}
           <SimpleEditor />
         </TabsContent>
