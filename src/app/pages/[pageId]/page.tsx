@@ -4,12 +4,12 @@ import { useParams } from "next/navigation"
 import {useState, useRef, useEffect } from "react"
 
 import { Button } from "~/components/ui/button"
-import { PageEditor } from "~/components/page-editor"
+import { PageEditor } from "~/components/page-editor" 
 import { PageChat } from "~/components/page-chat"
 import { toast } from "~/hooks/use-toast"
+import { useChatToggle } from "~/hooks/use-chat-toggle"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu"
 import { Eye, MessageSquare, MoreHorizontal, PenSquare, Share2, Users } from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 import { SimpleEditor } from "~/components/tiptap-templates/simple/simple-editor"
 import { api } from "~/trpc/react"
 
@@ -86,6 +86,8 @@ export default function PageView() {
   // Make permission a frontend-only state, with "edit" as default
   const [permission, setPermission] = useState<PermissionType>("edit")
   const [content, setContent] = useState<string>(page?.content)
+  // Import and use the chat toggle
+  const { toggleChat } = useChatToggle()
   
   // Add state to track saving status
   const [savingStatus, setSavingStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -213,29 +215,28 @@ export default function PageView() {
                 <Users size={16} />
                 Members
               </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2" 
+                onClick={toggleChat}
+              >
+                <MessageSquare size={16} />
+                Chat
+              </Button>
               <Button variant="ghost" size="icon" className="h-8 w-8">
                 <MoreHorizontal size={16} />
               </Button>
             </div>
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="mb-4">
-              <TabsTrigger value="editor">Editor</TabsTrigger>
-              <TabsTrigger value="chat">Chat</TabsTrigger>
-            </TabsList>
-            <TabsContent value="editor" className="mt-0 h-[calc(100vh-200px)]">
-              {/* <PageEditor initialContent={page.content} readOnly={permission === "view"} /> */}
-              <SimpleEditor 
-                initialContent={page.content} 
-                readOnly={permission === "view"} 
-                onUpdate={(newContent) => handleContentChange(newContent)}
-              />
-            </TabsContent>
-            <TabsContent value="chat" className="mt-0">
-              <PageChat pageTitle={page.filename} />
-            </TabsContent>
-          </Tabs>
+          <div className="w-full h-[calc(100vh-200px)]">
+            <SimpleEditor 
+              initialContent={page.content} 
+              readOnly={permission === "view"} 
+              onUpdate={(newContent) => handleContentChange(newContent)}
+            />
+          </div>
         </>
       )}
     </div>

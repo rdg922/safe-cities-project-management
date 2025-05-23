@@ -43,4 +43,15 @@ export const pages = createTable(
     updatedAt: d.timestamp().defaultNow()
   })
 
-)
+  );
+
+// Users table: sync with Clerk upon first sign up
+export const users = createTable(
+  "user",
+  (d) => ({
+    id: d.text().primaryKey(),           // Clerk user ID
+    email: d.text().notNull().unique(),  // primary email
+    createdAt: d.timestamp().defaultNow().notNull(),
+    updatedAt: d.timestamp().defaultNow().notNull(),
+  })
+);

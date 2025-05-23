@@ -5,7 +5,6 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar"
 import { Button } from "~/components/ui/button"
-import { Card } from "~/components/ui/card"
 import { Input } from "~/components/ui/input"
 import { Send, Smile, Reply, MoreHorizontal } from "lucide-react"
 import { Textarea } from "~/components/ui/textarea"
@@ -115,8 +114,8 @@ export function PageChat({ pageTitle }: PageChatProps) {
 
     // Extract mentions from the message
     const mentionRegex = /@(\w+\s\w+)/g
-    const mentions = []
-    let match
+    const mentions: string[] = []
+    let match: RegExpExecArray | null
     while ((match = mentionRegex.exec(newMessage)) !== null) {
       mentions.push(match[1])
     }
@@ -186,13 +185,13 @@ export function PageChat({ pageTitle }: PageChatProps) {
   }
 
   return (
-    <Card className="flex flex-col h-[600px]">
-      <div className="p-4 border-b">
+    <div className="flex flex-col h-full">
+      <div className="mb-4">
         <h3 className="font-medium">Chat for {pageTitle}</h3>
         <p className="text-sm text-muted-foreground">Collaborate with your team members</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto space-y-6">
         {messages.map((message) => (
           <div key={message.id} className="space-y-3">
             <div className="flex gap-3">
@@ -289,7 +288,7 @@ export function PageChat({ pageTitle }: PageChatProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 border-t">
+      <div className="pt-4 border-t sticky bottom-0 bg-background">
         <div className="flex gap-2">
           <Input
             value={newMessage}
@@ -306,6 +305,6 @@ export function PageChat({ pageTitle }: PageChatProps) {
           </Button>
         </div>
       </div>
-    </Card>
+    </div>
   )
 }

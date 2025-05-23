@@ -108,24 +108,3 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
  * are logged in.
  */
 export const publicProcedure = t.procedure.use(timingMiddleware);
-
-/**
- * Protected (authenticated) procedure
- * 
- * This procedure ensures that the user is authenticated before running the procedure.
- * If the user is not authenticated, it throws an UNAUTHORIZED error.
- */
-export const protectedProcedure = t.procedure.use(timingMiddleware).use(({ ctx, next }) => {
-  if (!ctx.auth?.userId) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "You must be logged in to perform this action",
-    });
-  }
-
-  return next({
-    ctx: {
-      auth: ctx.auth,
-    },
-  });
-});

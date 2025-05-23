@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table"
 import { Badge } from "~/components/ui/badge"
 import { MoreHorizontal, Search, UserPlus } from "lucide-react"
+import { UserAuthInfo } from "~/components/user-auth-info"
 
 // Sample user data
 const users = [
@@ -114,6 +115,11 @@ export default function UsersPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </div>
+
+      {/* Auth Status Component */}
+      <div className="mb-6">
+        <UserAuthInfo />
       </div>
 
       <Card>
