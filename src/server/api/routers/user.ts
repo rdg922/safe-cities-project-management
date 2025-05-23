@@ -1,6 +1,9 @@
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "~/server/api/trpc";
+import { users } from "~/server/db/schema";
+import { TRPCError } from "@trpc/server";
 
 export const userRouter = createTRPCRouter({
   // Public route that anyone can access
@@ -12,6 +15,28 @@ export const userRouter = createTRPCRouter({
         { id: 2, name: "Public User 2" },
       ],
     };
+  }),
+  
+  // Get the current user's profile
+  getProfile: protectedProcedure.query(async ({ ctx }) => {
+    const { userId } = ctx.auth;
+    
+    // Find the user in the database
+    const user = await ctx.db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+    
+    if (!user) {
+      // If the user doesn't exist in our database yet, return just the auth info
+      return {
+        id: userId,
+        email: "User not found in database",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
+    
+    return user;
   }),
   
   // Protected route that requires authentication
@@ -27,16 +52,41 @@ export const userRouter = createTRPCRouter({
   // Protected mutation that requires authentication
   updateUserProfile: protectedProcedure
     .input(z.object({
-      name: z.string().optional(),
-      title: z.string().optional(),
+      email: z.string().email().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // In a real app, you would update the user's profile in your database
-      return {
-        success: true,
-        message: "This is a test, nothing was changed, see (src/scripts/api/routers/user.ts)",
-        userId: ctx.auth.userId,
-        updatedFields: input,
-      };
+      const { userId } = ctx.auth;
+      
+      // Check if user exists
+      const existingUser = await ctx.db.query.users.findFirst({
+        where: eq(users.id, userId),
+      });
+      
+      if (!existingUser) {
+        // Update existing user
+        await ctx.db.update(users)
+          .set({
+            ...(input.email && { email: input.email }),
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, userId));
+          
+        return { 
+          success: true,
+          message: "User profile updated",
+          operation: "updated"
+        };
+      } else {
+        return new TRPCError({code: "BAD_REQUEST", message: "User not found"})
+      }
     }),
+    
+  // For admin: get all users
+  getAllUsers: protectedProcedure.query(async ({ ctx }) => {
+    const allUsers = await ctx.db.query.users.findMany({
+      orderBy: (users, { desc }) => [desc(users.createdAt)],
+    });
+    
+    return allUsers;
+  }),
 });

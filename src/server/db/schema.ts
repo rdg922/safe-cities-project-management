@@ -40,7 +40,9 @@ export const pages = createTable(
     filename: d.varchar({ length: 256 }).unique(),
     content: d.text().default(""),
     createdAt: d.timestamp().notNull().defaultNow(),
-    updatedAt: d.timestamp().defaultNow()
+    updatedAt: d.timestamp().defaultNow(),
+    createdBy: d.text().references(() => users.id, { onDelete: "set null" }),
+    updatedBy: d.text().references(() => users.id, { onDelete: "set null" })
   })
 
   );

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Trash2, Edit2, MoreHorizontal } from "lucide-react"
 import Link from "next/link"
 import { redirect, usePathname } from "next/navigation"
@@ -12,8 +12,12 @@ import {
   Plus,
   Users,
   File,
+  UserCircle,
+  LogOut,
+  Settings
 } from "lucide-react"
 import { api } from "~/trpc/react"
+import { useUser } from "@clerk/nextjs"
 import {
   Sidebar,
   SidebarContent,
@@ -48,9 +52,17 @@ export function AppSidebar() {
   const [isNewPageDialogOpen, setIsNewPageDialogOpen] = useState(false)
   const [newPageName, setNewPageName] = useState("")
   
+  // Get current user from Clerk
+  const { user: clerkUser, isLoaded: isUserLoaded } = useUser();
+
   // Fetch all pages using tRPC
   const { data: pages = [], isLoading, refetch: refetchPages } = api.pages.getAll.useQuery()
   
+  // Fetch current user profile from our database
+  const { data: userProfile, isLoading: isUserProfileLoading } = api.user.getProfile.useQuery(undefined, {
+    enabled: isUserLoaded && !!clerkUser,
+  });
+
   // Handle new page creation
   const createPageMutation = api.pages.create.useMutation({
     onSuccess: async () => {
@@ -259,8 +271,54 @@ export function AppSidebar() {
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter className="p-4">
-          <div className="flex items-center gap-2">
-            <SignOutButton />
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                {clerkUser?.imageUrl ? (
+                  <img
+                    src={clerkUser.imageUrl}
+                    alt={clerkUser.firstName ?? "User"}
+                    className="h-8 w-8 rounded-full"
+                  />
+                ) : (
+                  <UserCircle size={18} />
+                )}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">
+                  {clerkUser?.firstName || "User"}
+                </span>
+                <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+                  {userProfile?.email || clerkUser?.emailAddresses?.[0]?.emailAddress || "Loading..."}
+                </span>
+              </div>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreHorizontal size={16} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href="/profile">
+                    <UserCircle size={16} className="mr-2" /> Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings">
+                    <Settings size={16} className="mr-2" /> Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <SignOutButton>
+                    <div className="flex items-center">
+                      <LogOut size={16} className="mr-2" /> Sign Out
+                    </div>
+                  </SignOutButton>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </SidebarFooter>
       </Sidebar>
