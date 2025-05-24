@@ -2,8 +2,9 @@ import { verifyWebhook } from '@clerk/nextjs/webhooks'
 import { db } from '~/server/db'
 import { users } from '~/server/db/schema'
 import { eq } from 'drizzle-orm'
+import type { NextRequest } from 'next/server'
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const evt = await verifyWebhook(req)
 

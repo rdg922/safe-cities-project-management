@@ -64,21 +64,6 @@ export default function PageView() {
   // Fetch page data using tRPC
   const { data: page, isLoading, error } = api.pages.getById.useQuery(
     { id: pageId },
-    {
-      // Fall back to sample data if fetching fails
-      fallbackData: pagesData?.[`page-${pageId}` as keyof typeof pagesData] ?? {
-        filename: "Page Not Found",
-        content: "# Page Not Found\n\nThe requested page could not be found.",
-      },
-      onError: (err) => {
-        console.error("Error fetching page data:", err);
-        toast({
-          title: "Error loading page",
-          description: "There was an issue loading this page. Using fallback content.",
-          variant: "destructive",
-        });
-      }
-    }
   )
 
   const [activeTab, setActiveTab] = useState<string>("editor")
