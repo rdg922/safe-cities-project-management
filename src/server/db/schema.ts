@@ -48,6 +48,20 @@ export const pages = createTable(
 
   );
 
+// Sheet table: store spreadsheet data
+export const sheets = createTable(
+  "sheet",
+  (d) => ({
+    id: d.serial().primaryKey(),
+    title: d.varchar({ length: 256 }).notNull(),
+    content: d.text().default("[]"), // JSON string of sheet data
+    createdAt: d.timestamp().defaultNow().notNull(),
+    updatedAt: d.timestamp().defaultNow().notNull(),
+    createdBy: d.text().references(() => users.id, { onDelete: "set null" }),
+    updatedBy: d.text().references(() => users.id, { onDelete: "set null" })
+  })
+);
+
 // Users table: sync with Clerk upon first sign up
 export const users = createTable(
   "user",
