@@ -17,7 +17,7 @@ import {
   Settings,
   Folder
 } from "lucide-react"
-import { FileTree, type FileNode } from "~/components/file-tree-v2"
+import { FileTree, type FileNode } from "~/components/file-tree"
 import { api } from "~/trpc/react"
 import { useUser } from "@clerk/nextjs"
 import {
@@ -48,6 +48,7 @@ import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { SignOutButton } from "@clerk/nextjs"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu"
+import { ThemeToggle } from "./tiptap-templates/simple/theme-toggle"
 
 export function AppSidebar() {
   const pathname = usePathname()
@@ -190,6 +191,9 @@ export function AppSidebar() {
             <div className="flex flex-col">
               <span className="text-sm font-semibold">NonProfit Workspace</span>
               <span className="text-xs text-muted-foreground">Project Management</span>
+            </div>
+            <div>
+              <ThemeToggle/>
             </div>
           </div>
           <Dialog open={isNewPageDialogOpen} onOpenChange={setIsNewPageDialogOpen}>

@@ -146,9 +146,10 @@ const MainToolbarContent = ({
 
       {isMobile && <ToolbarSeparator />}
 
+      {/* Moved this to sidebar
       <ToolbarGroup>
         <ThemeToggle />
-      </ToolbarGroup>
+      </ToolbarGroup> */}
     </>
   )
 }
