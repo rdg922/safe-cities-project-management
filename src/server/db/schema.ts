@@ -1,8 +1,7 @@
 // Example model schema from the Drizzle docs
 // https://orm.drizzle.team/docs/sql-schema-declaration
 
-import { sql } from "drizzle-orm";
-import { index, pgTableCreator } from "drizzle-orm/pg-core";
+import { index, pgTableCreator, customType, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 /**
  * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
@@ -38,6 +37,8 @@ export const pages = createTable(
   (d) => ({
     id: d.serial().primaryKey(), // unchanging id
     filename: d.varchar({ length: 256 }).unique(),
+    parentId: d.integer().references((): AnyPgColumn => pages.id).default(null),
+    isFolder: d.boolean().default(false),
     content: d.text().default(""),
     createdAt: d.timestamp().notNull().defaultNow(),
     updatedAt: d.timestamp().defaultNow(),

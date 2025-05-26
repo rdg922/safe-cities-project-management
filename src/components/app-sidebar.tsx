@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Trash2, Edit2, MoreHorizontal } from "lucide-react"
+import { Trash2, Edit2, MoreHorizontal, FolderPlus } from "lucide-react"
 import Link from "next/link"
 import { redirect, usePathname } from "next/navigation"
 import {
@@ -14,8 +14,10 @@ import {
   File,
   UserCircle,
   LogOut,
-  Settings
+  Settings,
+  Folder
 } from "lucide-react"
+import { FileTree, type FileNode } from "~/components/file-tree-v2"
 import { api } from "~/trpc/react"
 import { useUser } from "@clerk/nextjs"
 import {
@@ -56,7 +58,17 @@ export function AppSidebar() {
   const { user: clerkUser, isLoaded: isUserLoaded } = useUser();
 
   // Fetch all pages using tRPC
-  const { data: pages = [], isLoading, refetch: refetchPages } = api.pages.getAll.useQuery()
+  const { data: pagesList = [], isLoading: isPagesLoading, refetch: refetchPages } = api.pages.getAll.useQuery()
+  
+  // Fetch file tree structure
+  const { data: fileTree = [], isLoading: isFileTreeLoading, refetch: refetchFileTree } = api.pages.getFileTree.useQuery()
+  
+  const [activeFileId, setActiveFileId] = useState<number | undefined>()
+  const [selectedFileIds, setSelectedFileIds] = useState<number[]>([])
+  const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false)
+  const [newFolderName, setNewFolderName] = useState("")
+  const [selectedParentId, setSelectedParentId] = useState<number | null>(null)
+  const [useNewFileTree, setUseNewFileTree] = useState(true)
   
   // Fetch current user profile from our database
   const { data: userProfile, isLoading: isUserProfileLoading } = api.user.getProfile.useQuery(undefined, {
@@ -69,14 +81,28 @@ export function AppSidebar() {
       setNewPageName("")
       setIsNewPageDialogOpen(false)
       await refetchPages()
+      await refetchFileTree()
+    },
+  })
+  
+  // Handle new folder creation
+  const createFolderMutation = api.pages.create.useMutation({
+    onSuccess: async () => {
+      setNewFolderName("")
+      setIsNewFolderDialogOpen(false)
+      await refetchPages()
+      await refetchFileTree()
     },
   })
   
   // Handle renaming pages (frontend-only filename change)
   const renamePageMutation = api.pages.update.useMutation({
     onSuccess: async () => {
+      setRenamePageId(null)
+      setRenamePageName("")
       setIsRenameDialogOpen(false)
       await refetchPages()
+      await refetchFileTree()
     },
   })
   
@@ -84,7 +110,14 @@ export function AppSidebar() {
   const deletePageMutation = api.pages.delete.useMutation({
     onSuccess: async () => {
       await refetchPages()
+      await refetchFileTree()
     },
+  })
+
+  const updatePageMutation = api.pages.update.useMutation({
+    onSuccess: async () => {
+      refetchFileTree()
+    }
   })
   
   // Rename dialog state
@@ -111,7 +144,38 @@ export function AppSidebar() {
     if (!newPageName.trim()) return
     
     createPageMutation.mutate({ 
-      filename: newPageName 
+      filename: newPageName,
+      parentId: selectedParentId || undefined
+    })
+  }
+
+  // Helper function to find a node by ID in the file tree
+  const findNodeById = (nodes: FileNode[], id: number): FileNode | null => {
+    for (const node of nodes) {
+      if (node.id === id) {
+        return node
+      }
+      if (node.children && node.children.length > 0) {
+        const found = findNodeById(node.children, id)
+        if (found) return found
+      }
+    }
+    return null
+  }
+  
+  // Helper function to check if nodeA is a parent of nodeB (prevents moving a parent into its child)
+  const isParentOf = (nodeA: FileNode, nodeB: FileNode): boolean => {
+    if (!nodeA.isFolder || !nodeA.children) return false
+    
+    // Direct child check
+    if (nodeA.children.some(child => child.id === nodeB.id)) return true
+    
+    // Recursive check for any level of nesting
+    return nodeA.children.some(child => {
+      if (child.isFolder && child.children) {
+        return isParentOf(child, nodeB)
+      }
+      return false
     })
   }
 
@@ -159,6 +223,42 @@ export function AppSidebar() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          
+          {/* New Folder Dialog */}
+          <Dialog open={isNewFolderDialogOpen} onOpenChange={setIsNewFolderDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Folder</DialogTitle>
+                <DialogDescription>Add a new folder to organize your pages.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="folder-name">Folder Name</Label>
+                  <Input
+                    id="folder-name"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    placeholder="Enter folder name"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsNewFolderDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={() => {
+                  if (newFolderName.trim()) {
+                    createFolderMutation.mutate({
+                      filename: newFolderName,
+                      isFolder: true,
+                      parentId: selectedParentId || undefined
+                    });
+                  }
+                }}>Create Folder</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
         {/* Rename Page Dialog */}
         <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
           <DialogContent>
@@ -225,48 +325,151 @@ export function AppSidebar() {
           <SidebarSeparator />
           <SidebarGroup>
             <SidebarGroupLabel className="flex items-center justify-between">
-              <span>Programs</span>
-              <SidebarGroupAction onClick={() => setIsNewPageDialogOpen(true)}>
-                <Plus size={16} />
-                <span className="sr-only">Add Page</span>
-              </SidebarGroupAction>
+              <div className="flex items-center gap-2">
+                <span>Files</span>
+              </div>
+              <div className="flex gap-1">
+                <SidebarGroupAction onClick={() => setIsNewFolderDialogOpen(true)}>
+                  <FolderPlus size={16} />
+                  <span className="sr-only">Add Folder</span>
+                </SidebarGroupAction>
+                {/* <SidebarGroupAction onClick={() => setIsNewPageDialogOpen(true)}>
+                  <Plus size={16} />
+                  <span className="sr-only">Add Page</span>
+                </SidebarGroupAction> */}
+              </div>
             </SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
-                {isLoading ? (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">Loading pages...</div>
-                ) : pages.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">No pages found</div>
-                ) : (
-                  pages.map((page) => (
-                    <SidebarMenuItem key={page.id}>
-                      <div className="flex items-center justify-between w-full">
-                        <SidebarMenuButton asChild isActive={pathname === `/pages/${page.id}`}>
-                          <Link href={`/pages/${page.id}`} className="flex items-center gap-2">
-                            <File size={18} />
-                            <span>{page.filename}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal size={16} />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openRenameDialog(page.id, page.filename)}>
-                              <Edit2 size={16} className="mr-2" /> Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeletePage(page.id)}>
-                              <Trash2 size={16} className="mr-2" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </SidebarMenuItem>
-                  ))
-                )}
-              </SidebarMenu>
+              {isFileTreeLoading ? (
+                <div className="px-3 py-2 text-sm text-muted-foreground">Loading files...</div>
+              ) : fileTree.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-muted-foreground">No files found</div>
+              ) : (
+                <div className="px-3">
+                    <FileTree 
+                      items={fileTree} 
+                      onSelectFile={(id) => {
+                        setActiveFileId(id)
+                        setSelectedFileIds([id]) // Reset multi-selection on regular click
+                        // Navigate to the page when clicking on a file
+                        const node = findNodeById(fileTree, id)
+                        if (node && !node.isFolder) {
+                          window.location.href = `/pages/${id}`
+                        }
+                      }}
+                      activeFileId={activeFileId}
+                      selectedFileIds={selectedFileIds}
+                      onMultiSelectFile={(fileIds) => {
+                        setSelectedFileIds(fileIds)
+                        
+                        // If there's only one selected, make it the active file too
+                        if (fileIds.length === 1) {
+                          setActiveFileId(fileIds[0])
+                        }
+                      }}
+                      onMove={(dragId, dropId) => {
+                        // Handle moving files/folders
+                        const dragNode = findNodeById(fileTree, dragId)
+                        const dropNode = findNodeById(fileTree, dropId)
+                        
+                        if (dragNode && dropNode) {
+                          // Check if we're dragging a multi-selected item
+                          if (selectedFileIds.includes(dragId) && selectedFileIds.length > 1) {
+                            // Move all selected items to the destination
+                            const promises = selectedFileIds.map(id => 
+                              // Need to ensure we're not trying to move a parent into its child
+                              new Promise((resolve, reject) => {
+                                const itemNode = findNodeById(fileTree, id)
+                                if (itemNode && !isParentOf(itemNode, dropNode)) {
+                                  updatePageMutation.mutate({
+                                    id,
+                                    parentId: dropNode.isFolder ? dropId : dropNode.parentId
+                                  }, {
+                                    onSuccess: resolve,
+                                    onError: reject
+                                  })
+                                } else {
+                                  // Skip invalid moves (like parent into child)
+                                  resolve(null)
+                                }
+                              })
+                            )
+                            
+                            // After all mutations complete, refresh the tree
+                            void Promise.all(promises).then(() => {
+                              refetchFileTree()
+                            })
+                          } else {
+                            // Single item move
+                            // Auto-expand the folder when something is dropped on it
+                            if (dropNode.isFolder) {
+                              // If dropped on a folder, make it a child of that folder
+                              updatePageMutation.mutate({
+                                id: dragId,
+                                parentId: dropId
+                              }, {
+                                onSuccess: () => {
+                                  refetchFileTree() // Refresh to show the new structure
+                                }
+                              })
+                            } else {
+                              // If dropped on a file, make it a sibling (share same parent)
+                              updatePageMutation.mutate({
+                                id: dragId,
+                                parentId: dropNode.parentId
+                              }, {
+                                onSuccess: () => {
+                                  refetchFileTree() // Refresh to show the new structure
+                                }
+                              })
+                            }
+                          }
+                        }}}
+                      onCreateFile={(parentId) => {
+                        setSelectedParentId(parentId)
+                        setIsNewPageDialogOpen(true)
+                      }}
+                      onCreateFolder={(parentId) => {
+                        setSelectedParentId(parentId)
+                        setIsNewFolderDialogOpen(true)
+                      }}
+                      onRename={(id, filename) => {
+                        renamePageMutation.mutate({ id, filename }, {
+                          onSuccess: () => refetchFileTree()
+                        })
+                      }}
+                      onDelete={(id) => {
+                        // If multiple items are selected, delete them all
+                        if (selectedFileIds.includes(id) && selectedFileIds.length > 1) {
+                          if (confirm(`Are you sure you want to delete ${selectedFileIds.length} selected items?`)) {
+                            const promises = selectedFileIds.map(fileId => 
+                              new Promise((resolve) => {
+                                deletePageMutation.mutate({ id: fileId }, {
+                                  onSuccess: resolve
+                                })
+                              })
+                            )
+                            
+                            void Promise.all(promises).then(() => {
+                              refetchFileTree()
+                              setSelectedFileIds([])
+                            })
+                          }
+                        } else {
+                          // Single item delete
+                          deletePageMutation.mutate({ id }, {
+                            onSuccess: () => {
+                              refetchFileTree()
+                              if (selectedFileIds.includes(id)) {
+                                setSelectedFileIds(selectedFileIds.filter(fileId => fileId !== id))
+                              }
+                            }
+                          })
+                        }
+                      }}
+                    />
+                  </div>
+              )}
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
