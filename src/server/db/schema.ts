@@ -58,3 +58,31 @@ export const users = createTable(
     updatedAt: d.timestamp().defaultNow().notNull(),
   })
 );
+
+export const messages = createTable(
+  "message",
+  (d) => ({
+    id: d.serial().primaryKey(),
+    pageId: d.integer().references(() => pages.id, { onDelete: "cascade" }),
+    userId: d.text().references(() => users.id, { onDelete: "cascade" }),
+    content: d.text().notNull(),
+    createdAt: d.timestamp().notNull().defaultNow(),
+    updatedAt: d.timestamp().defaultNow(),
+    // Optional fields for future use
+    seenBy: d.jsonb().default([]),
+    editedAt: d.timestamp(),
+    attachments: d.jsonb().default([]),
+  })
+);
+
+export type Message = {
+  id: number;
+  pageId: number;
+  userId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date | null;
+  seenBy: string[];
+  editedAt: Date | null;
+  attachments: any[];
+};
