@@ -68,10 +68,6 @@ export const messages = createTable(
     content: d.text().notNull(),
     createdAt: d.timestamp().notNull().defaultNow(),
     updatedAt: d.timestamp().defaultNow(),
-    // Optional fields for future use
-    seenBy: d.jsonb().default([]),
-    editedAt: d.timestamp(),
-    attachments: d.jsonb().default([]),
   })
 );
 
@@ -82,7 +78,4 @@ export type Message = {
   content: string;
   createdAt: Date;
   updatedAt: Date | null;
-  seenBy: string[];
-  editedAt: Date | null;
-  attachments: any[];
 };

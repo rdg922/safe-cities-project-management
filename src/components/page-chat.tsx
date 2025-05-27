@@ -64,14 +64,14 @@ export function PageChat({ pageTitle }: PageChatProps) {
         {messages.map((message) => (
           <div key={message.id} className="flex gap-3">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={message.user?.imageUrl} alt={message.user?.name} />
-              <AvatarFallback>{message.user?.name?.[0]}</AvatarFallback>
+              <AvatarFallback>{message.user?.email?.[0]}</AvatarFallback>
             </Avatar>
             <div className="flex-1 space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{message.user?.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(message.createdAt).toLocaleString()}
+              <div className="flex justify-between items-start">
+                <span className="font-medium">{message.user?.email}</span>
+                <span className="flex flex-col text-xs text-muted-foreground text-right min-w-max pt-1.5">
+                  <span>{new Date(message.createdAt).toLocaleDateString()}</span>
+                  <span>{new Date(message.createdAt).toLocaleTimeString()}</span>
                 </span>
               </div>
               <p className="text-sm">{message.content}</p>
