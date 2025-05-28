@@ -7,34 +7,30 @@ import {
 } from "~/components/ui/dropdown-menu"
 import { Input } from "~/components/ui/input"
 import { cn } from "~/lib/utils"
-
-// Mock data for users - in a real application, you'd fetch this from an API
-const MOCK_USERS = [
-  { id: "user1", name: "John Doe" },
-  { id: "user2", name: "Jane Smith" },
-  { id: "user3", name: "Robert Johnson" },
-  { id: "user4", name: "Emily Davis" },
-  { id: "user5", name: "Michael Brown" },
-]
+import { api } from "~/trpc/react"
+import { Button } from "~/components/ui/button"
 
 export const AssignableTaskItemComponent = (props: any) => {
   const [isHovered, setIsHovered] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
-  
+
   const assignedTo = props.node.attrs.assignedTo
   const assignedToName = props.node.attrs.assignedToName
-  
-  const filteredUsers = MOCK_USERS.filter(user => 
-    user.name.toLowerCase().includes(searchQuery.toLowerCase())
+
+  // Fetch users from the database
+  const { data: users, isLoading } = api.user.getAllUsers.useQuery()
+
+  const filteredUsers = users?.filter((user) => 
+    user.email.includes(searchQuery)
   )
-  
+
   const handleAssign = (userId: string, userName: string) => {
     props.updateAttributes({
       assignedTo: userId,
       assignedToName: userName,
     })
   }
-  
+
   const handleUnassign = () => {
     props.updateAttributes({
       assignedTo: null,
@@ -82,22 +78,27 @@ export const AssignableTaskItemComponent = (props: any) => {
             />
           </div>
           <div className="task-item-assign-users">
-            {filteredUsers.map(user => (
+            {isLoading && <div className="p-2 text-sm text-muted-foreground">Loading users...</div>}
+            {!isLoading && filteredUsers!.length === 0 && (
+              <div className="p-2 text-sm text-muted-foreground">No users found</div>
+            )}
+            {!isLoading && filteredUsers!.map((user: any) => (
               <button
                 key={user.id}
                 className="task-item-assign-user"
-                onClick={() => handleAssign(user.id, user.name)}
+                onClick={() => handleAssign(user.id, user.name || user.email)}
               >
-                {user.name}
+                {user.name || user.email}
               </button>
             ))}
             {assignedTo && (
-              <button
-                className="task-item-assign-unassign"
+              <Button
+                variant="destructive"
+                className="task-item-assign-unassign mt-2 w-full"
                 onClick={handleUnassign}
               >
                 Unassign
-              </button>
+              </Button>
             )}
           </div>
         </DropdownMenuContent>
