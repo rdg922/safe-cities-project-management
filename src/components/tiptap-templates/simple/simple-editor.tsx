@@ -6,7 +6,7 @@ import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
 import { Image } from "@tiptap/extension-image"
-import { TaskItem } from "@tiptap/extension-task-item"
+// import { TaskItem } from "@tiptap/extension-task-item"  // We'll use our custom AssignableTaskItem instead
 import { TaskList } from "@tiptap/extension-task-list"
 import { TextAlign } from "@tiptap/extension-text-align"
 import { Typography } from "@tiptap/extension-typography"
@@ -19,6 +19,8 @@ import { Underline } from "@tiptap/extension-underline"
 import { Link } from "@/components/tiptap-extension/link-extension"
 import { Selection } from "@/components/tiptap-extension/selection-extension"
 import { TrailingNode } from "@/components/tiptap-extension/trailing-node-extension"
+
+import UniqueId from "tiptap-unique-id";
 
 // --- UI Primitives ---
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -35,6 +37,7 @@ import "@/components/tiptap-node/code-block-node/code-block-node.scss"
 import "@/components/tiptap-node/list-node/list-node.scss"
 import "@/components/tiptap-node/image-node/image-node.scss"
 import "@/components/tiptap-node/paragraph-node/paragraph-node.scss"
+// import "@/components/tiptap-node/task-item-node/assignable-task-item.scss"
 
 // --- Tiptap UI ---
 import { HeadingDropdownMenu } from "@/components/tiptap-ui/heading-dropdown-menu"
@@ -86,6 +89,7 @@ const MainToolbarContent = ({
   onLinkClick: () => void
   isMobile: boolean
 }) => {
+  const { editor } = React.useContext(EditorContext)
   return (
     <>
       <Spacer />
@@ -140,6 +144,20 @@ const MainToolbarContent = ({
 
       <ToolbarGroup>
         <ImageUploadButton text="Add" />
+        
+        {/* Test button for Assignable Tasks */}
+        {process.env.NODE_ENV !== "production" && (
+          <Button 
+            onClick={() => {
+              editor?.chain()
+                .focus()
+                .insertContent('<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task 1 (Click "Assign" to assign to someone)</p></li><li data-type="taskItem" data-checked="false"><p>Task 2 (Click "Assign" to assign to someone)</p></li></ul>')
+                .run()
+            }}
+          >
+            Test Tasks
+          </Button>
+        )}
       </ToolbarGroup>
 
       <Spacer />
@@ -213,12 +231,15 @@ export function SimpleEditor({ initialContent, readOnly = false, onUpdate }: Sim
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Underline,
       TaskList,
-      TaskItem.configure({ nested: true }),
+      AssignableTaskItem.configure({ nested: true }),
       Highlight.configure({ multicolor: true }),
       Image,
       Typography,
       Superscript,
       Subscript,
+      UniqueId.configure({attributeName: "id",
+      types: ["paragraph", "heading", "orderedList", "bulletList", "listItem"],
+      createId: () => window.crypto.randomUUID()}),
 
       Selection,
       ImageUploadNode.configure({
