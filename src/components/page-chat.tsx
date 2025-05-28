@@ -17,12 +17,36 @@ export function PageChat({ pageTitle }: PageChatProps) {
   const pageId = Number(params.pageId)
   const [newMessage, setNewMessage] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [isActive, setIsActive] = useState(true)
   
   // Get messages for this page
   const { data: messages = [], refetch: refetchMessages } = api.chat.getPageMessages.useQuery(
     { pageId },
     { enabled: !!pageId }
   )
+  
+  // Set up polling interval with visibility check
+  useEffect(() => {
+    // Function to check if tab is visible
+    const handleVisibilityChange = () => {
+      setIsActive(!document.hidden)
+    }
+    
+    // Add visibility change listener
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    const interval = setInterval(() => {
+      // Only poll if tab is visible
+      if (document.hidden) return
+      void refetchMessages()
+    }, 10000) // Poll every 10 seconds instead of 3
+
+    // Cleanup interval and event listener on unmount
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [refetchMessages])
   
   // Send message mutation
   const { mutate: sendMessage } = api.chat.sendMessage.useMutation({
