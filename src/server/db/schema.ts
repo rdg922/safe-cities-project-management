@@ -37,7 +37,7 @@ export const pages = createTable(
   (d) => ({
     id: d.serial().primaryKey(), // unchanging id
     filename: d.varchar({ length: 256 }).unique(),
-    parentId: d.integer().references((): AnyPgColumn => pages.id).default(null),
+    parentId: d.integer().references((): AnyPgColumn => pages.id),
     isFolder: d.boolean().default(false),
     content: d.text().default(""),
     createdAt: d.timestamp().notNull().defaultNow(),
