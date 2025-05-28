@@ -66,6 +66,8 @@ export const sheets = createTable(
 export const users = createTable(
   "user",
   (d) => ({
+    name: d.text().notNull(),            // Clerk profile name
+    role: d.text().default("user"),      // Roles are admin and users for now
     id: d.text().primaryKey(),           // Clerk user ID
     email: d.text().notNull().unique(),  // primary email
     createdAt: d.timestamp().defaultNow().notNull(),
