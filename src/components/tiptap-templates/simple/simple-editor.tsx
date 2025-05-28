@@ -6,7 +6,7 @@ import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
 import { Image } from "@tiptap/extension-image"
-import { TaskItem } from "@tiptap/extension-task-item"
+import { TaskItem } from "@tiptap/extension-task-item"  // We'll use our custom AssignableTaskItem instead
 import { TaskList } from "@tiptap/extension-task-list"
 import { TextAlign } from "@tiptap/extension-text-align"
 import { Typography } from "@tiptap/extension-typography"
@@ -19,6 +19,8 @@ import { Underline } from "@tiptap/extension-underline"
 import { Link } from "@/components/tiptap-extension/link-extension"
 import { Selection } from "@/components/tiptap-extension/selection-extension"
 import { TrailingNode } from "@/components/tiptap-extension/trailing-node-extension"
+
+import UniqueId from "tiptap-unique-id";
 
 // --- UI Primitives ---
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -86,6 +88,7 @@ const MainToolbarContent = ({
   onLinkClick: () => void
   isMobile: boolean
 }) => {
+  const { editor } = React.useContext(EditorContext)
   return (
     <>
       <Spacer />
@@ -213,12 +216,15 @@ export function SimpleEditor({ initialContent, readOnly = false, onUpdate }: Sim
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Underline,
       TaskList,
-      TaskItem.configure({ nested: true }),
+      TaskItem,
       Highlight.configure({ multicolor: true }),
       Image,
       Typography,
       Superscript,
       Subscript,
+      UniqueId.configure({attributeName: "id",
+      types: ["paragraph", "heading", "orderedList", "bulletList", "listItem"],
+      createId: () => window.crypto.randomUUID()}),
 
       Selection,
       ImageUploadNode.configure({
