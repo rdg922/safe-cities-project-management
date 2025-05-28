@@ -62,7 +62,7 @@ export default function PageView() {
   const pageId = Number(params.pageId as string)
   
   // Fetch page data using tRPC
-  const { data: page, isLoading, error } = api.pages.getById.useQuery(
+  const { data: page, isLoading, error } = api.files.getById.useQuery(
     { id: pageId },
   )
 
@@ -70,7 +70,7 @@ export default function PageView() {
   type PermissionType = "view" | "comment" | "edit";
   // Make permission a frontend-only state, with "edit" as default
   const [permission, setPermission] = useState<PermissionType>("edit")
-  const [content, setContent] = useState<string>(page?.content)
+  const [content, setContent] = useState<string>(page?.content?.content || '')
   // Import and use the chat toggle
   const { toggleChat } = useChatToggle()
   
@@ -78,7 +78,7 @@ export default function PageView() {
   const [savingStatus, setSavingStatus] = useState<"idle" | "saving" | "saved">("idle");
   
   // Add mutation hook for updating the page
-  const updatePageMutation = api.pages.update.useMutation({
+  const updatePageMutation = api.files.updatePageContent.useMutation({
     onSuccess: () => {
       setSavingStatus("saved");
       // Reset status after a delay
@@ -116,7 +116,7 @@ export default function PageView() {
     // Set new timer
     contentUpdateTimerRef.current = setTimeout(() => {
       updatePageMutation.mutate({
-        id: pageId,
+        fileId: pageId,
         content: newContent,
       });
     }, 2000); // 2 seconds debounce
@@ -156,7 +156,7 @@ export default function PageView() {
         <>
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold">{page.filename}</h1>
+              <h1 className="text-2xl font-bold">{page?.name}</h1>
               {savingStatus === "saving" && (
                 <span className="text-xs text-muted-foreground flex items-center">
                   <div className="animate-spin h-3 w-3 border-2 border-primary rounded-full border-t-transparent mr-1"></div>
@@ -217,7 +217,7 @@ export default function PageView() {
 
           <div className="w-full h-[calc(100vh-200px)]">
             <SimpleEditor 
-              initialContent={page.content} 
+              initialContent={page?.content?.content || ''} 
               readOnly={permission === "view"} 
               onUpdate={(newContent) => handleContentChange(newContent)}
             />

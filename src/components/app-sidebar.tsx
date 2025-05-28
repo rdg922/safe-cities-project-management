@@ -1,12 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Trash2, Edit2, MoreHorizontal, FolderPlus } from "lucide-react"
+import { Trash2, Edit2, MoreHorizontal, FolderPlus, FileText, Sheet } from "lucide-react"
 import Link from "next/link"
 import { redirect, usePathname } from "next/navigation"
 import {
   Bell,
-  FileText,
   Home,
   MessageSquare,
   Plus,
@@ -44,78 +43,84 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "~/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu"
 import { Input } from "~/components/ui/input"
 import { Label } from "~/components/ui/label"
 import { SignOutButton } from "@clerk/nextjs"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "~/components/ui/dropdown-menu"
 import { ThemeToggle } from "./tiptap-templates/simple/theme-toggle"
+import { FILE_TYPES } from "~/server/db/schema"
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const [isNewPageDialogOpen, setIsNewPageDialogOpen] = useState(false)
-  const [newPageName, setNewPageName] = useState("")
+  const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false)
+  const [newFileName, setNewFileName] = useState("")
+  const [newFileType, setNewFileType] = useState<'page' | 'sheet'>('page')
   
   // Get current user from Clerk
   const { user: clerkUser, isLoaded: isUserLoaded } = useUser();
 
-  // Fetch all pages using tRPC
-  const { data: pagesList = [], isLoading: isPagesLoading, refetch: refetchPages } = api.pages.getAll.useQuery()
-  
-  // Fetch file tree structure
-  const { data: fileTree = [], isLoading: isFileTreeLoading, refetch: refetchFileTree } = api.pages.getFileTree.useQuery()
+  // Fetch file tree structure using the new files router
+  const { data: fileTree = [], isLoading: isFileTreeLoading, refetch: refetchFileTree } = api.files.getFileTree.useQuery()
   
   const [activeFileId, setActiveFileId] = useState<number | undefined>()
   const [selectedFileIds, setSelectedFileIds] = useState<number[]>([])
   const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
   const [selectedParentId, setSelectedParentId] = useState<number | null>(null)
-  const [useNewFileTree, setUseNewFileTree] = useState(true)
   
   // Fetch current user profile from our database
   const { data: userProfile, isLoading: isUserProfileLoading } = api.user.getProfile.useQuery(undefined, {
     enabled: isUserLoaded && !!clerkUser,
   });
 
-  // Handle new page creation
-  const createPageMutation = api.pages.create.useMutation({
-    onSuccess: async () => {
-      setNewPageName("")
-      setIsNewPageDialogOpen(false)
-      await refetchPages()
+  // Handle new file creation (page or sheet)
+  const createFileMutation = api.files.create.useMutation({
+    onSuccess: async (data) => {
+      setNewFileName("")
+      setIsNewFileDialogOpen(false)
       await refetchFileTree()
+      
+      // Navigate to the new file
+      if (data && data.type === FILE_TYPES.PAGE) {
+        window.location.href = `/pages/${data.id}`
+      } else if (data && data.type === FILE_TYPES.SHEET) {
+        window.location.href = `/sheets/${data.id}`
+      }
     },
   })
   
   // Handle new folder creation
-  const createFolderMutation = api.pages.create.useMutation({
+  const createFolderMutation = api.files.create.useMutation({
     onSuccess: async () => {
       setNewFolderName("")
       setIsNewFolderDialogOpen(false)
-      await refetchPages()
       await refetchFileTree()
     },
   })
   
-  // Handle renaming pages (frontend-only filename change)
-  const renamePageMutation = api.pages.update.useMutation({
+  // Handle renaming files
+  const renameFileMutation = api.files.update.useMutation({
     onSuccess: async () => {
-      setRenamePageId(null)
-      setRenamePageName("")
+      setRenameFileId(null)
+      setRenameFileName("")
       setIsRenameDialogOpen(false)
-      await refetchPages()
       await refetchFileTree()
     },
   })
   
-  // Handle deleting pages
-  const deletePageMutation = api.pages.delete.useMutation({
+  // Handle deleting files
+  const deleteFileMutation = api.files.delete.useMutation({
     onSuccess: async () => {
-      await refetchPages()
       await refetchFileTree()
     },
   })
 
-  const updatePageMutation = api.pages.update.useMutation({
+  const updateFileMutation = api.files.update.useMutation({
     onSuccess: async () => {
       refetchFileTree()
     }
@@ -123,29 +128,33 @@ export function AppSidebar() {
   
   // Rename dialog state
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false)
-  const [renamePageId, setRenamePageId] = useState<number | null>(null)
-  const [renamePageName, setRenamePageName] = useState("")
+  const [renameFileId, setRenameFileId] = useState<number | null>(null)
+  const [renameFileName, setRenameFileName] = useState("")
+  
   const openRenameDialog = (id: number, filename: string) => {
-    setRenamePageId(id)
-    setRenamePageName(filename)
+    setRenameFileId(id)
+    setRenameFileName(filename)
     setIsRenameDialogOpen(true)
   }
-  const handleRenamePage = () => {
-    if (renamePageId) {
-      renamePageMutation.mutate({ id: renamePageId, filename: renamePageName })
-    }
-  }
-  const handleDeletePage = (id: number) => {
-    if (confirm('Are you sure you want to delete this page?')) {
-      deletePageMutation.mutate({ id })
+  
+  const handleRenameFile = () => {
+    if (renameFileId) {
+      renameFileMutation.mutate({ id: renameFileId, name: renameFileName })
     }
   }
   
-  const handleAddPage = () => {
-    if (!newPageName.trim()) return
+  const handleDeleteFile = (id: number) => {
+    if (confirm('Are you sure you want to delete this file?')) {
+      deleteFileMutation.mutate({ id })
+    }
+  }
+  
+  const handleAddFile = () => {
+    if (!newFileName.trim()) return
     
-    createPageMutation.mutate({ 
-      filename: newPageName,
+    createFileMutation.mutate({ 
+      name: newFileName,
+      type: newFileType,
       parentId: selectedParentId || undefined
     })
   }
@@ -196,34 +205,54 @@ export function AppSidebar() {
               <ThemeToggle/>
             </div>
           </div>
-          <Dialog open={isNewPageDialogOpen} onOpenChange={setIsNewPageDialogOpen}>
+          <Dialog open={isNewFileDialogOpen} onOpenChange={setIsNewFileDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="w-full justify-start gap-2">
-                <Plus size={16} />
-                New Page
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="w-full justify-start gap-2">
+                    <Plus size={16} />
+                    New File
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => {
+                    setNewFileType('page')
+                    setIsNewFileDialogOpen(true)
+                  }}>
+                    <FileText size={16} className="mr-2" />
+                    New Page
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setNewFileType('sheet')
+                    setIsNewFileDialogOpen(true)
+                  }}>
+                    <Sheet size={16} className="mr-2" />
+                    New Sheet
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New Page</DialogTitle>
-                <DialogDescription>Add a new page to the system.</DialogDescription>
+                <DialogTitle>Create New {newFileType === 'page' ? 'Page' : 'Sheet'}</DialogTitle>
+                <DialogDescription>Add a new {newFileType} to the system.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="page-name">Page Name</Label>
+                  <Label htmlFor="file-name">{newFileType === 'page' ? 'Page' : 'Sheet'} Name</Label>
                   <Input
-                    id="page-name"
-                    value={newPageName}
-                    onChange={(e) => setNewPageName(e.target.value)}
-                    placeholder="Enter page name"
+                    id="file-name"
+                    value={newFileName}
+                    onChange={(e) => setNewFileName(e.target.value)}
+                    placeholder={`Enter ${newFileType} name`}
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsNewPageDialogOpen(false)}>
+                <Button variant="outline" onClick={() => setIsNewFileDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddPage}>Create Page</Button>
+                <Button onClick={handleAddFile}>Create {newFileType === 'page' ? 'Page' : 'Sheet'}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -253,8 +282,8 @@ export function AppSidebar() {
                 <Button onClick={() => {
                   if (newFolderName.trim()) {
                     createFolderMutation.mutate({
-                      filename: newFolderName,
-                      isFolder: true,
+                      name: newFolderName,
+                      type: FILE_TYPES.FOLDER,
                       parentId: selectedParentId || undefined
                     });
                   }
@@ -263,27 +292,27 @@ export function AppSidebar() {
             </DialogContent>
           </Dialog>
           
-        {/* Rename Page Dialog */}
+        {/* Rename File Dialog */}
         <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Rename Page</DialogTitle>
-              <DialogDescription>Update the name of the page.</DialogDescription>
+              <DialogTitle>Rename File</DialogTitle>
+              <DialogDescription>Update the name of the file.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="rename-page-name">New Page Name</Label>
+                <Label htmlFor="rename-file-name">New File Name</Label>
                 <Input
-                  id="rename-page-name"
-                  value={renamePageName}
-                  onChange={(e) => setRenamePageName(e.target.value)}
-                  placeholder="Enter new page name"
+                  id="rename-file-name"
+                  value={renameFileName}
+                  onChange={(e) => setRenameFileName(e.target.value)}
+                  placeholder="Enter new file name"
                 />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsRenameDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleRenamePage}>Rename Page</Button>
+              <Button onClick={handleRenameFile}>Rename File</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -355,10 +384,14 @@ export function AppSidebar() {
                       onSelectFile={(id) => {
                         setActiveFileId(id)
                         setSelectedFileIds([id]) // Reset multi-selection on regular click
-                        // Navigate to the page when clicking on a file
+                        // Navigate to the appropriate route based on file type
                         const node = findNodeById(fileTree, id)
                         if (node && !node.isFolder) {
-                          window.location.href = `/pages/${id}`
+                          if (node.type === 'page') {
+                            window.location.href = `/pages/${id}`
+                          } else if (node.type === 'sheet') {
+                            window.location.href = `/sheets/${id}`
+                          }
                         }
                       }}
                       activeFileId={activeFileId}
@@ -385,7 +418,7 @@ export function AppSidebar() {
                               new Promise((resolve, reject) => {
                                 const itemNode = findNodeById(fileTree, id)
                                 if (itemNode && !isParentOf(itemNode, dropNode)) {
-                                  updatePageMutation.mutate({
+                                  updateFileMutation.mutate({
                                     id,
                                     parentId: dropNode.isFolder ? dropId : dropNode.parentId
                                   }, {
@@ -408,7 +441,7 @@ export function AppSidebar() {
                             // Auto-expand the folder when something is dropped on it
                             if (dropNode.isFolder) {
                               // If dropped on a folder, make it a child of that folder
-                              updatePageMutation.mutate({
+                              updateFileMutation.mutate({
                                 id: dragId,
                                 parentId: dropId
                               }, {
@@ -418,7 +451,7 @@ export function AppSidebar() {
                               })
                             } else {
                               // If dropped on a file, make it a sibling (share same parent)
-                              updatePageMutation.mutate({
+                              updateFileMutation.mutate({
                                 id: dragId,
                                 parentId: dropNode.parentId
                               }, {
@@ -428,17 +461,18 @@ export function AppSidebar() {
                               })
                             }
                           }
-                        }}}
+                        }
+                      }}
                       onCreateFile={(parentId) => {
                         setSelectedParentId(parentId)
-                        setIsNewPageDialogOpen(true)
+                        setIsNewFileDialogOpen(true)
                       }}
                       onCreateFolder={(parentId) => {
                         setSelectedParentId(parentId)
                         setIsNewFolderDialogOpen(true)
                       }}
                       onRename={(id, filename) => {
-                        renamePageMutation.mutate({ id, filename }, {
+                        renameFileMutation.mutate({ id, name: filename }, {
                           onSuccess: () => refetchFileTree()
                         })
                       }}
@@ -448,7 +482,7 @@ export function AppSidebar() {
                           if (confirm(`Are you sure you want to delete ${selectedFileIds.length} selected items?`)) {
                             const promises = selectedFileIds.map(fileId => 
                               new Promise((resolve) => {
-                                deletePageMutation.mutate({ id: fileId }, {
+                                deleteFileMutation.mutate({ id: fileId }, {
                                   onSuccess: resolve
                                 })
                               })
@@ -461,7 +495,7 @@ export function AppSidebar() {
                           }
                         } else {
                           // Single item delete
-                          deletePageMutation.mutate({ id }, {
+                          deleteFileMutation.mutate({ id }, {
                             onSuccess: () => {
                               refetchFileTree()
                               if (selectedFileIds.includes(id)) {
