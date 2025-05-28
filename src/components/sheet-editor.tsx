@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from "react"
 import { ReactGrid, type CellChange, type Column } from "@silevis/reactgrid"
-import "@silevis/reactgrid/styles.css"
+import "@silevis/reactgrid/styles.scss"
 import { applyChangesToSheet, type SheetData } from "~/lib/sheet-utils"
 import { api } from "~/trpc/react"
 import { toast } from "~/hooks/use-toast"
@@ -45,18 +45,20 @@ export function SheetEditor({ initialData, sheetId, sheetName }: SheetEditorProp
   return (
     <div className="flex flex-col h-full">
       {sheetName && (
-        <div className="mb-4 p-4 border-b">
-          <h1 className="text-2xl font-bold">{sheetName}</h1>
+        <div className="mb-4 p-4 border-b border-border">
+          <h1 className="text-2xl font-bold text-foreground">{sheetName}</h1>
         </div>
       )}
       <div className="flex-1 min-h-0">
-        <ReactGrid
-        rows={sheet.rows}
-        columns={columns}
-        minRowHeight={35}
-        onCellsChanged={onCellsChanged}
-      />
-    </div>
+        <div className="rg-container dark:bg-background dark:text-foreground">
+          <ReactGrid
+          rows={sheet.rows}
+          columns={columns}
+          minRowHeight={35}
+          onCellsChanged={onCellsChanged}
+        />
+        </div>
+      </div>
     </div>
   )
 }

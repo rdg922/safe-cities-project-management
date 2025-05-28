@@ -23,9 +23,11 @@ export default async function SheetPage({ params }: SheetPageProps) {
   let initialData: SheetData
   try {
     const parsed = JSON.parse(sheet.content?.content || '{}')
-    // Use parsed data if valid (v5 structure), otherwise create a new empty sheet
-    initialData = parsed?.cells && Array.isArray(parsed.cells) && parsed?.rowCount && parsed?.colCount ? parsed : createEmptySheet()
-  } catch {
+    console.log('Parsed sheet data:', parsed)
+    // Use parsed data if valid (has rows and cells arrays), otherwise create a new empty sheet
+    initialData = parsed?.rows && Array.isArray(parsed.rows) && parsed?.cells && Array.isArray(parsed.cells) ? parsed : createEmptySheet()
+  } catch (error) {
+    console.error('Error parsing sheet content:', error)
     initialData = createEmptySheet()
   }
   
