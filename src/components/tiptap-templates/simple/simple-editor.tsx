@@ -6,7 +6,6 @@ import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
 import { Image } from "@tiptap/extension-image"
-import { TaskItem } from "@tiptap/extension-task-item"  // We'll use our custom AssignableTaskItem instead
 import { TaskList } from "@tiptap/extension-task-list"
 import { TextAlign } from "@tiptap/extension-text-align"
 import { Typography } from "@tiptap/extension-typography"
@@ -19,6 +18,7 @@ import { Underline } from "@tiptap/extension-underline"
 import { Link } from "@/components/tiptap-extension/link-extension"
 import { Selection } from "@/components/tiptap-extension/selection-extension"
 import { TrailingNode } from "@/components/tiptap-extension/trailing-node-extension"
+import { AssignableTaskItem } from "~/components/tiptap-extension/assignable-task-item-extension"
 
 import UniqueId from "tiptap-unique-id";
 
@@ -37,6 +37,7 @@ import "@/components/tiptap-node/code-block-node/code-block-node.scss"
 import "@/components/tiptap-node/list-node/list-node.scss"
 import "@/components/tiptap-node/image-node/image-node.scss"
 import "@/components/tiptap-node/paragraph-node/paragraph-node.scss"
+import "~/components/tiptap-node/task-item-node/assignable-task-item.scss"
 
 // --- Tiptap UI ---
 import { HeadingDropdownMenu } from "@/components/tiptap-ui/heading-dropdown-menu"
@@ -216,7 +217,7 @@ export function SimpleEditor({ initialContent, readOnly = false, onUpdate }: Sim
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Underline,
       TaskList,
-      TaskItem,
+      AssignableTaskItem,
       Highlight.configure({ multicolor: true }),
       Image,
       Typography,

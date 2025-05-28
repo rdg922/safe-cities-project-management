@@ -1,0 +1,85 @@
+.task-item-wrapper {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-right: 2rem;
+  margin: 0.25rem 0;
+
+  .task-item {
+    display: flex;
+    align-items: flex-start;
+    flex: 1;
+    cursor: pointer;
+
+    input[type="checkbox"] {
+      margin-top: 0.35rem;
+      margin-right: 0.5rem;
+    }
+
+    .task-item-content {
+      flex: 1;
+    }
+  }
+
+  .task-item-assign-button {
+    position: absolute;
+    right: 0;
+    top: 0;
+    font-size: 0.85rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    background-color: var(--background-accent);
+    color: var(--text-accent);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid var(--border-color);
+    white-space: nowrap;
+
+    &:hover {
+      background-color: var(--background-accent-hover);
+    }
+
+    &.invisible {
+      opacity: 0;
+    }
+
+    &.visible {
+      opacity: 1;
+    }
+  }
+}
+
+.task-item-assign-dropdown {
+  width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+
+  .task-item-assign-users {
+    display: flex;
+    flex-direction: column;
+
+    .task-item-assign-user {
+      text-align: left;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+
+      &:hover {
+        background-color: var(--background-accent-hover);
+      }
+    }
+
+    .task-item-assign-unassign {
+      text-align: left;
+      padding: 0.5rem 1rem;
+      color: var(--text-danger);
+      cursor: pointer;
+      border-top: 1px solid var(--border-color);
+      margin-top: 0.5rem;
+
+      &:hover {
+        background-color: var(--background-accent-hover);
+      }
+    }
+  }
+}
