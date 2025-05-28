@@ -1,7 +1,7 @@
 // Example model schema from the Drizzle docs
 // https://orm.drizzle.team/docs/sql-schema-declaration
 
-import { index, pgTableCreator, customType, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { index, pgTableCreator, customType, type AnyPgColumn} from "drizzle-orm/pg-core";
 
 /**
  * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
@@ -32,34 +32,69 @@ export type Post = {
   updatedAt: Date
 } 
 
-export const pages = createTable(
-  "page",
+// File types enum for better type safety
+export const FILE_TYPES = {
+  FOLDER: 'folder',
+  PAGE: 'page',
+  SHEET: 'sheet'
+} as const;
+
+export type FileType = typeof FILE_TYPES[keyof typeof FILE_TYPES];
+
+// Unified files table: handles hierarchical structure for pages, sheets, and folders
+export const files = createTable(
+  "file",
   (d) => ({
-    id: d.serial().primaryKey(), // unchanging id
-    filename: d.varchar({ length: 256 }).unique(),
-    parentId: d.integer().references((): AnyPgColumn => pages.id),
-    isFolder: d.boolean().default(false),
-    content: d.text().default(""),
+    id: d.serial().primaryKey(),
+    name: d.varchar({ length: 256 }).notNull(),
+    type: d.varchar({ length: 50 }).notNull().$type<FileType>(), // 'page', 'sheet', 'folder'
+    parentId: d.integer().references((): AnyPgColumn => files.id, { onDelete: "cascade" }),
+    slug: d.varchar({ length: 256 }), // URL-friendly version of name for pages
+    order: d.integer().default(0), // For ordering items within the same parent
+    isPublic: d.boolean().default(false), // For public access control
     createdAt: d.timestamp().notNull().defaultNow(),
     updatedAt: d.timestamp().defaultNow(),
     createdBy: d.text().references(() => users.id, { onDelete: "set null" }),
     updatedBy: d.text().references(() => users.id, { onDelete: "set null" })
-  })
+  }),
+  (t) => [
+    index("file_parent_idx").on(t.parentId),
+    index("file_type_idx").on(t.type),
+    index("file_slug_idx").on(t.slug),
+  ]
+);
 
-  );
-
-// Sheet table: store spreadsheet data
-export const sheets = createTable(
-  "sheet",
+// Page content: stores the actual page content separately from hierarchy
+export const pageContent = createTable(
+  "page_content",
   (d) => ({
     id: d.serial().primaryKey(),
-    title: d.varchar({ length: 256 }).notNull(),
+    fileId: d.integer().references(() => files.id, { onDelete: "cascade" }).notNull().unique(),
+    content: d.text().default(""),
+    version: d.integer().default(1), // For versioning support
+    createdAt: d.timestamp().notNull().defaultNow(),
+    updatedAt: d.timestamp().defaultNow(),
+  }),
+  (t) => [
+    index("page_content_file_idx").on(t.fileId),
+  ]
+);
+
+// Sheet content: stores the actual sheet data separately from hierarchy
+export const sheetContent = createTable(
+  "sheet_content",
+  (d) => ({
+    id: d.serial().primaryKey(),
+    fileId: d.integer().references(() => files.id, { onDelete: "cascade" }).notNull().unique(),
     content: d.text().default("[]"), // JSON string of sheet data
-    createdAt: d.timestamp().defaultNow().notNull(),
-    updatedAt: d.timestamp().defaultNow().notNull(),
-    createdBy: d.text().references(() => users.id, { onDelete: "set null" }),
-    updatedBy: d.text().references(() => users.id, { onDelete: "set null" })
-  })
+    schema: d.text(), // JSON string of column definitions
+    version: d.integer().default(1), // For versioning support
+    createdAt: d.timestamp().notNull().defaultNow(),
+    updatedAt: d.timestamp().defaultNow(),
+  }),
+  (t) => [
+    index("sheet_content_file_idx").on(t.fileId),
+  ]
 );
 
 // Users table: sync with Clerk upon first sign up
@@ -79,18 +114,63 @@ export const messages = createTable(
   "message",
   (d) => ({
     id: d.serial().primaryKey(),
-    pageId: d.integer().references(() => pages.id, { onDelete: "cascade" }),
+    fileId: d.integer().references(() => files.id, { onDelete: "cascade" }),
     userId: d.text().references(() => users.id, { onDelete: "cascade" }),
     content: d.text().notNull(),
     createdAt: d.timestamp().notNull().defaultNow(),
     updatedAt: d.timestamp().defaultNow(),
-  })
+  }),
+  (t) => [
+    index("message_file_idx").on(t.fileId),
+    index("message_user_idx").on(t.userId),
+  ]
 );
+
+// TypeScript types for better type safety
+export type File = {
+  id: number;
+  name: string;
+  type: FileType;
+  parentId: number | null;
+  slug: string | null;
+  order: number;
+  isPublic: boolean;
+  createdAt: Date;
+  updatedAt: Date | null;
+  createdBy: string | null;
+  updatedBy: string | null;
+};
+
+export type PageContent = {
+  id: number;
+  fileId: number;
+  content: string;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date | null;
+};
+
+export type SheetContent = {
+  id: number;
+  fileId: number;
+  content: string; // JSON string of sheet data
+  schema: string | null; // JSON string of column definitions
+  version: number;
+  createdAt: Date;
+  updatedAt: Date | null;
+};
+
+export type User = {
+  id: string;
+  email: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export type Message = {
   id: number;
-  pageId: number;
-  userId: string;
+  fileId: number | null;
+  userId: string | null;
   content: string;
   createdAt: Date;
   updatedAt: Date | null;

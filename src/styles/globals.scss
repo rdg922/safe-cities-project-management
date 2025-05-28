@@ -83,6 +83,44 @@
 
 
 
+// ReactGrid dark theme support
+.dark .rg-container {
+  .rg-cell {
+    background-color: hsl(var(--background)) !important;
+    color: hsl(var(--foreground)) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  .rg-cell-header {
+    background-color: hsl(var(--muted)) !important;
+    color: hsl(var(--foreground)) !important;
+    border-color: hsl(var(--border)) !important;
+    font-weight: 500;
+  }
+
+  // Ensure text inputs in cells are properly styled
+  .rg-cell input {
+    background-color: transparent !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  // Style selected/focused cells
+  .rg-cell.rg-cell-focus {
+    background-color: hsl(var(--accent)) !important;
+    color: hsl(var(--accent-foreground)) !important;
+  }
+
+  .rg-cell.rg-cell-highlight {
+    background-color: hsl(var(--accent)) !important;
+    color: hsl(var(--accent-foreground)) !important;
+  }
+
+  // Grid borders
+  .rg-grid {
+    border-color: hsl(var(--border)) !important;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

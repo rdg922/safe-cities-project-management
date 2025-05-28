@@ -1,0 +1,232 @@
+import { eq, sql, desc, asc } from "drizzle-orm";
+import { z } from "zod";
+
+import { createTRPCRouter, publicProcedure, protectedProcedure } from "~/server/api/trpc";
+import { files, pageContent, sheetContent, FILE_TYPES, type FileType } from "~/server/db/schema";
+
+export const filesRouter = createTRPCRouter({
+  // Create a new file (page, sheet, or folder)
+  create: protectedProcedure
+    .input(z.object({ 
+      name: z.string().min(1),
+      type: z.enum([FILE_TYPES.PAGE, FILE_TYPES.SHEET, FILE_TYPES.FOLDER]),
+      parentId: z.number().optional(),
+      slug: z.string().optional(),
+      order: z.number().default(0),
+      isPublic: z.boolean().default(false),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { userId } = ctx.auth;
+      
+      // Create the file record
+      const [file] = await ctx.db.insert(files).values({
+        name: input.name,
+        type: input.type,
+        parentId: input.parentId || null,
+        slug: input.slug || null,
+        order: input.order,
+        isPublic: input.isPublic,
+        createdBy: userId,
+        updatedBy: userId,
+      }).returning();
+
+      // If it's a page, create the page content
+      if (input.type === FILE_TYPES.PAGE && file) {
+        await ctx.db.insert(pageContent).values({
+          fileId: file.id,
+          content: `# ${input.name}`,
+          version: 1,
+        });
+      }
+
+      // If it's a sheet, create the sheet content
+      if (input.type === FILE_TYPES.SHEET && file) {
+        await ctx.db.insert(sheetContent).values({
+          fileId: file.id,
+          content: "[]", // Empty sheet data
+          schema: null,
+          version: 1,
+        });
+      }
+
+      return file;
+    }),
+
+  // Get file tree structure
+  getFileTree: publicProcedure
+    .query(async ({ ctx }) => {
+      const allFiles = await ctx.db.query.files.findMany({
+        orderBy: [asc(files.order), asc(files.name)],
+      });
+      
+      // Convert flat list to tree structure
+      const buildFileTree = (parentId: number | null = null): any[] => {
+        return allFiles
+          .filter(file => file.parentId === parentId)
+          .map(file => ({
+            ...file,
+            isFolder: file.type === FILE_TYPES.FOLDER,
+            filename: file.name, // For compatibility with existing FileTree component
+            children: buildFileTree(file.id)
+          }))
+          .sort((a, b) => {
+            // Sort folders first, then alphabetically
+            if (a.isFolder && !b.isFolder) return -1;
+            if (!a.isFolder && b.isFolder) return 1;
+            return a.name.localeCompare(b.name);
+          });
+      };
+      
+      return buildFileTree(null);
+    }),
+
+  // Get a specific file by ID
+  getById: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const file = await ctx.db.query.files.findFirst({
+        where: eq(files.id, input.id),
+      });
+      
+      if (!file) {
+        return null;
+      }
+
+      let content = null;
+
+      // Get content based on file type
+      if (file.type === FILE_TYPES.PAGE) {
+        const pageData = await ctx.db.query.pageContent.findFirst({
+          where: eq(pageContent.fileId, file.id),
+        });
+        content = pageData;
+      } else if (file.type === FILE_TYPES.SHEET) {
+        const sheetData = await ctx.db.query.sheetContent.findFirst({
+          where: eq(sheetContent.fileId, file.id),
+        });
+        content = sheetData;
+      }
+
+      return {
+        ...file,
+        content,
+      };
+    }),
+
+  // Update file metadata (name, parent, order, etc.)
+  update: protectedProcedure
+    .input(z.object({ 
+      id: z.number(),
+      name: z.string().optional(),
+      parentId: z.number().nullable().optional(),
+      slug: z.string().optional(),
+      order: z.number().optional(),
+      isPublic: z.boolean().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...updateData } = input;
+      const { userId } = ctx.auth;
+      
+      const updateValues = {
+        ...updateData,
+        updatedBy: userId,
+      };
+      
+      await ctx.db.update(files).set(updateValues).where(eq(files.id, id));
+      return { success: true };
+    }),
+
+  // Update page content
+  updatePageContent: protectedProcedure
+    .input(z.object({
+      fileId: z.number(),
+      content: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Update the page content
+      await ctx.db.update(pageContent)
+        .set({ 
+          content: input.content,
+          updatedAt: new Date(),
+        })
+        .where(eq(pageContent.fileId, input.fileId));
+
+      // Update the file's updatedAt timestamp
+      await ctx.db.update(files)
+        .set({ 
+          updatedAt: new Date(),
+          updatedBy: ctx.auth.userId,
+        })
+        .where(eq(files.id, input.fileId));
+
+      return { success: true };
+    }),
+
+  // Update sheet content
+  updateSheetContent: protectedProcedure
+    .input(z.object({
+      fileId: z.number(),
+      content: z.string(),
+      schema: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Update the sheet content
+      await ctx.db.update(sheetContent)
+        .set({ 
+          content: input.content,
+          schema: input.schema,
+          updatedAt: new Date(),
+        })
+        .where(eq(sheetContent.fileId, input.fileId));
+
+      // Update the file's updatedAt timestamp
+      await ctx.db.update(files)
+        .set({ 
+          updatedAt: new Date(),
+          updatedBy: ctx.auth.userId,
+        })
+        .where(eq(files.id, input.fileId));
+
+      return { success: true };
+    }),
+
+  // Delete a file
+  delete: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      // Due to cascade delete, this will also delete associated content
+      await ctx.db.delete(files).where(eq(files.id, input.id));
+      return { success: true };
+    }),
+
+  // Get all files of a specific type
+  getByType: publicProcedure
+    .input(z.object({ type: z.enum([FILE_TYPES.PAGE, FILE_TYPES.SHEET, FILE_TYPES.FOLDER]) }))
+    .query(async ({ ctx, input }) => {
+      return await ctx.db.query.files.findMany({
+        where: eq(files.type, input.type),
+        orderBy: [desc(files.createdAt)],
+      });
+    }),
+
+  // Move files (for drag and drop reordering)
+  move: protectedProcedure
+    .input(z.object({
+      fileId: z.number(),
+      targetParentId: z.number().nullable(),
+      newOrder: z.number().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { userId } = ctx.auth;
+      
+      await ctx.db.update(files)
+        .set({
+          parentId: input.targetParentId,
+          order: input.newOrder ?? 0,
+          updatedBy: userId,
+        })
+        .where(eq(files.id, input.fileId));
+
+      return { success: true };
+    }),
+});

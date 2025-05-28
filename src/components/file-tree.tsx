@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { ChevronRight, Folder, FileText, ChevronDown, MoreHorizontal, Edit2, Trash2, Plus, AlertCircle } from "lucide-react"
+import { ChevronRight, Folder, FileText, ChevronDown, MoreHorizontal, Edit2, Trash2, Plus, AlertCircle, Sheet } from "lucide-react"
 import { cn } from "~/lib/utils"
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
@@ -17,6 +17,8 @@ import {
 export type FileNode = {
   id: number
   filename: string
+  name?: string // Some files might use 'name' instead of 'filename'
+  type?: 'folder' | 'page' | 'sheet'
   isFolder?: boolean
   parentId?: number | null
   children?: FileNode[]
@@ -354,15 +356,17 @@ function FileTreeNode({
   const handleRename = () => {
     if (onRename) {
       // This would typically open a rename dialog
-      const newName = prompt("Enter new name:", node.filename)
-      if (newName && newName !== node.filename) {
+      const currentName = node.filename || node.name
+      const newName = prompt("Enter new name:", currentName)
+      if (newName && newName !== currentName) {
         onRename(node.id, newName)
       }
     }
   }
   
   const handleDelete = () => {
-    if (onDelete && confirm(`Are you sure you want to delete ${node.filename}?`)) {
+    const fileName = node.filename || node.name
+    if (onDelete && confirm(`Are you sure you want to delete ${fileName}?`)) {
       onDelete(node.id)
     }
   }
@@ -395,7 +399,7 @@ function FileTreeNode({
               )}
               <Folder className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
             </div>
-            <span className="text-sm truncate flex-1">{node.filename}</span>
+            <span className="text-sm truncate flex-1">{node.filename || node.name}</span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                 <Button variant="ghost" size="icon" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100">
@@ -421,9 +425,13 @@ function FileTreeNode({
         ) : (
           <div className="flex items-center gap-1 flex-1 group">
             <div className="ml-5 flex items-center">
-              <FileText className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
+              {node.type === 'sheet' ? (
+                <Sheet className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
+              ) : (
+                <FileText className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
+              )}
             </div>
-            <span className="text-sm truncate flex-1">{node.filename}</span>
+            <span className="text-sm truncate flex-1">{node.filename || node.name}</span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                 <Button variant="ghost" size="icon" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100">
