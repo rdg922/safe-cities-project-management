@@ -120,9 +120,6 @@ export function AppSidebar() {
     // Handle renaming files
     const renameFileMutation = api.files.update.useMutation({
         onSuccess: async () => {
-            setRenameFileId(null)
-            setRenameFileName('')
-            setIsRenameDialogOpen(false)
             await refetchFileTree()
         },
     })
@@ -140,31 +137,6 @@ export function AppSidebar() {
         },
     })
 
-    // Rename dialog state
-    const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false)
-    const [renameFileId, setRenameFileId] = useState<number | null>(null)
-    const [renameFileName, setRenameFileName] = useState('')
-
-    const openRenameDialog = (id: number, filename: string) => {
-        setRenameFileId(id)
-        setRenameFileName(filename)
-        setIsRenameDialogOpen(true)
-    }
-
-    const handleRenameFile = () => {
-        if (renameFileId) {
-            renameFileMutation.mutate({
-                id: renameFileId,
-                name: renameFileName,
-            })
-        }
-    }
-
-    const handleDeleteFile = (id: number) => {
-        if (confirm('Are you sure you want to delete this file?')) {
-            deleteFileMutation.mutate({ id })
-        }
-    }
 
     const handleAddFile = () => {
         if (!newFileName.trim()) return
@@ -363,46 +335,7 @@ export function AppSidebar() {
                         </DialogContent>
                     </Dialog>
 
-                    {/* Rename File Dialog */}
-                    <Dialog
-                        open={isRenameDialogOpen}
-                        onOpenChange={setIsRenameDialogOpen}
-                    >
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Rename File</DialogTitle>
-                                <DialogDescription>
-                                    Update the name of the file.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="rename-file-name">
-                                        New File Name
-                                    </Label>
-                                    <Input
-                                        id="rename-file-name"
-                                        value={renameFileName}
-                                        onChange={(e) =>
-                                            setRenameFileName(e.target.value)
-                                        }
-                                        placeholder="Enter new file name"
-                                    />
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setIsRenameDialogOpen(false)}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button onClick={handleRenameFile}>
-                                    Rename File
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+
                 </SidebarHeader>
                 <SidebarSeparator />
                 <SidebarContent>
