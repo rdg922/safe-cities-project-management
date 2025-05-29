@@ -2,6 +2,7 @@ import { postRouter } from "~/server/api/routers/post";
 import { userRouter } from "~/server/api/routers/user";
 import { chatRouter } from "~/server/api/routers/chat";
 import { filesRouter } from "~/server/api/routers/files";
+import { notificationsRouter } from "~/server/api/routers/notifications";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -13,7 +14,8 @@ export const appRouter = createTRPCRouter({
   post: postRouter,
   user: userRouter,
   chat: chatRouter,
-  files: filesRouter, // New unified router
+  files: filesRouter,
+  notification: notificationsRouter,
 });
 
 // export type definition of API

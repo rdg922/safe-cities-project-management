@@ -214,8 +214,8 @@ export default function PageView() {
               </Button>
             </div>
           </div>
-
-          <div className="w-full h-[calc(100vh-200px)]">
+          
+          <div className="h-[calc(100vh-200px)] border border-white border-[2px] rounded-md">
             <SimpleEditor 
               initialContent={page?.content?.content || ''} 
               readOnly={permission === "view"} 

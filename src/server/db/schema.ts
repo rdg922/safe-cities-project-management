@@ -11,6 +11,7 @@ import { index, pgTableCreator, customType, type AnyPgColumn} from "drizzle-orm/
  */
 export const createTable = pgTableCreator((name) => `safe-cities-project-management-v2_${name}`);
 
+// posts aren't really used?
 export const posts = createTable(
   "post",
   (d) => ({
@@ -114,7 +115,7 @@ export const messages = createTable(
   "message",
   (d) => ({
     id: d.serial().primaryKey(),
-    fileId: d.integer().references(() => files.id, { onDelete: "cascade" }),
+    fileId: d.integer().references(() => files.id, { onDelete: "cascade" }), //pageId equivalent
     userId: d.text().references(() => users.id, { onDelete: "cascade" }),
     content: d.text().notNull(),
     createdAt: d.timestamp().notNull().defaultNow(),
@@ -123,6 +124,37 @@ export const messages = createTable(
   (t) => [
     index("message_file_idx").on(t.fileId),
     index("message_user_idx").on(t.userId),
+  ]
+);
+
+export const messageReads = createTable(
+  "message_read",
+  (d) => ({
+    id: d.serial().primaryKey(),
+    userId: d.text().references(() => users.id, { onDelete: "cascade" }),
+    pageId: d.integer().references(() => files.id, { onDelete: "cascade" }),
+    lastSeenMessageId: d.integer(),
+    updatedAt: d.timestamp().defaultNow(),
+  }),
+  (t) => [index("message_read_user_page_idx").on(t.userId, t.pageId)]
+);
+
+export const notifications = createTable(
+  "notification",
+  (d) => ({
+    id: d.serial().primaryKey(),
+    pageId: d.integer().references(() => files.id, { onDelete: "cascade" }).notNull(),
+    userId: d.text().references(() => users.id, { onDelete: "cascade" }).notNull(),
+    content: d.text().notNull(),
+    type: d.text().default("general"), // e.g., 'mention', 'comment', etc.
+    read: d.boolean().default(false),
+    createdAt: d.timestamp().notNull().defaultNow(),
+    updatedAt: d.timestamp().defaultNow(),
+  }),
+  (t) => [
+    index("notification_user_idx").on(t.userId),
+    index("notification_type_idx").on(t.type),
+    index("notification_read_idx").on(t.read),
   ]
 );
 
@@ -172,6 +204,16 @@ export type Message = {
   fileId: number | null;
   userId: string | null;
   content: string;
+  createdAt: Date;
+  updatedAt: Date | null;
+};
+
+export type Notification = {
+  id: number;
+  userId: string;
+  content: string;
+  type: string;
+  read: boolean;
   createdAt: Date;
   updatedAt: Date | null;
 };
