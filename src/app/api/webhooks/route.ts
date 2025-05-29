@@ -29,9 +29,29 @@ export async function POST(req: NextRequest) {
             )
 
             if (userId && primaryEmail) {
+                const userName =
+                    (first_name || '') + (last_name ? ' ' + last_name : '')
+                const userEmail = primaryEmail.email_address
+
                 console.log(
-                    `Creating new user: ${userId} with email: ${primaryEmail.email_address}`
+                    `Creating new user: ${userId} with email: ${userEmail} and name: ${userName}`
                 )
+
+                // Validate required fields
+                if (!userName.trim()) {
+                    console.error('User name is empty, cannot create user')
+                    return new Response('Invalid user data: name is required', {
+                        status: 400,
+                    })
+                }
+
+                if (!userEmail) {
+                    console.error('User email is empty, cannot create user')
+                    return new Response(
+                        'Invalid user data: email is required',
+                        { status: 400 }
+                    )
+                }
 
                 try {
                     // Check if user already exists
@@ -41,20 +61,36 @@ export async function POST(req: NextRequest) {
 
                     if (!existingUser) {
                         // Insert new user
-                        await db.insert(users).values({
-                            id: userId,
-                            name:
-                                first_name + (last_name ? ' ' + last_name : ''),
-                            email: primaryEmail.email_address,
-                            createdAt: new Date(),
-                            updatedAt: new Date(),
-                        })
-                        console.log(`User ${userId} created successfully`)
+                        const result = await db
+                            .insert(users)
+                            .values({
+                                id: userId,
+                                name: userName.trim(),
+                                email: userEmail,
+                                role: 'unverified',
+                            })
+                            .returning()
+
+                        console.log(
+                            `User ${userId} created successfully:`,
+                            result[0]
+                        )
                     } else {
                         console.log(`User ${userId} already exists in database`)
                     }
                 } catch (error) {
                     console.error('Error creating user in database:', error)
+                    console.error('Error details:', {
+                        message:
+                            error instanceof Error
+                                ? error.message
+                                : 'Unknown error',
+                        stack: error instanceof Error ? error.stack : undefined,
+                        userId,
+                        userName,
+                        userEmail,
+                    })
+                    return new Response('Database error', { status: 500 })
                 }
             }
         }

@@ -1,22 +1,38 @@
-import { clerkMiddleware } from '@clerk/nextjs/server'
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { NextResponse, NextRequest } from 'next/server'
 
-export default clerkMiddleware()
+const isOnboardingRoute = createRouteMatcher(['/onboarding'])
+const isApiRoute = createRouteMatcher(['/api(.*)'])
 
-// EVERY route needs access to the clerk middleware because our base layout.tsx uses the ClerkProvider
-// and the SignedOut component to redirect to the sign in page if the user is not signed in
+export default clerkMiddleware(async (auth, req: NextRequest) => {
+    // Skip custom logic for API routes, but still allow Clerk to handle auth
+    if (isApiRoute(req)) {
+        return NextResponse.next()
+    }
 
-// if we try to exclude any route (even static files) it throws an error because the route doesn't have access to the clerk middleware
+    const { userId, sessionClaims, redirectToSignIn } = await auth()
 
-// it's possible to make a route public by using the clerkMiddleware function but it doesn't matter
-// because it'd just redirect to the sign in page
+    if (!userId) {
+        return redirectToSignIn()
+    }
+
+    if (
+        !sessionClaims?.metadata?.onboardingComplete &&
+        !isOnboardingRoute(req)
+    ) {
+        const onboardingUrl = new URL('/onboarding', req.url)
+        return NextResponse.redirect(onboardingUrl)
+    }
+
+    // otherwise keep going
+    return NextResponse.next()
+})
 
 export const config = {
-  matcher: [
-    // Match all routes
-    '/(.*)',
-    // Match API routes
-    '/api/:path*',
-    // Match tRPC routes
-    '/trpc/:path*',
-  ]
+    matcher: [
+        // Skip Next.js internals and static files, but include API routes for Clerk auth
+        '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+        // Explicitly include API routes for Clerk authentication
+        '/api/(.*)',
+    ],
 }

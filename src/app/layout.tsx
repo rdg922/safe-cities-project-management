@@ -23,13 +23,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ClerkProvider>
-          <SignedOut>
-            <RedirectToSignIn />
-          </SignedOut>
           <TRPCReactProvider>
             <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
               <SidebarProvider>
