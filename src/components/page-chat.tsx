@@ -14,15 +14,15 @@ interface PageChatProps {
 
 export function PageChat({ pageTitle }: PageChatProps) {
   const params = useParams()
-  const pageId = Number(params.pageId)
+  const fileId = Number(params.fileId)
   const [newMessage, setNewMessage] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [isActive, setIsActive] = useState(true)
   
   // Get messages for this page
-  const { data: messages = [], refetch: refetchMessages } = api.chat.getPageMessages.useQuery(
-    { pageId },
-    { enabled: !!pageId }
+  const { data: messages = [], refetch: refetchMessages } = api.chat.getFileMessages.useQuery(
+    { fileId },
+    { enabled: !!fileId }
   )
   
   // Set up polling interval with visibility check
@@ -65,7 +65,7 @@ export function PageChat({ pageTitle }: PageChatProps) {
     if (!newMessage.trim()) return
     
     sendMessage({
-      pageId,
+      fileId,
       content: newMessage.trim(),
     })
   }
