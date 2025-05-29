@@ -84,9 +84,17 @@ export const userRouter = createTRPCRouter({
   // For admin: get all users
   getAllUsers: protectedProcedure.query(async ({ ctx }) => {
     const allUsers = await ctx.db.query.users.findMany({
+      columns: {
+        name: true,
+        id: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
       orderBy: (users, { desc }) => [desc(users.createdAt)],
     });
-    
+
     return allUsers;
   }),
 });
