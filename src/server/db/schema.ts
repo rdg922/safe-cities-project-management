@@ -8,6 +8,7 @@ import {
     type AnyPgColumn,
     pgEnum,
 } from 'drizzle-orm/pg-core'
+import { relations } from 'drizzle-orm'
 import { z } from 'zod'
 
 /**
@@ -24,6 +25,11 @@ export const createTable = pgTableCreator(
 export const ROLES = ['user', 'admin', 'unverified'] as const
 export const roleSchema = z.enum(ROLES)
 export const rolesEnum = pgEnum('role', ROLES)
+
+// Permission types for file access
+export const PERMISSIONS = ['view', 'comment', 'edit'] as const
+export const permissionSchema = z.enum(PERMISSIONS)
+export const permissionsEnum = pgEnum('permission', PERMISSIONS)
 
 export const posts = createTable(
     'post',
@@ -144,6 +150,30 @@ export const messages = createTable(
     ]
 )
 
+// File permissions: tracks user permissions for individual files
+export const filePermissions = createTable(
+    'file_permission',
+    (d) => ({
+        id: d.serial().primaryKey(),
+        fileId: d
+            .integer()
+            .references(() => files.id, { onDelete: 'cascade' })
+            .notNull(),
+        userId: d
+            .text()
+            .references(() => users.id, { onDelete: 'cascade' })
+            .notNull(),
+        permission: permissionsEnum('permission').notNull(),
+        createdAt: d.timestamp().notNull().defaultNow(),
+        updatedAt: d.timestamp().defaultNow(),
+    }),
+    (t) => [
+        index('file_permission_file_idx').on(t.fileId),
+        index('file_permission_user_idx').on(t.userId),
+        index('file_permission_file_user_idx').on(t.fileId, t.userId),
+    ]
+)
+
 // TypeScript types for better type safety
 export type File = {
     id: number
@@ -193,3 +223,84 @@ export type Message = {
     createdAt: Date
     updatedAt: Date | null
 }
+
+export type FilePermission = {
+    id: number
+    fileId: number
+    userId: string
+    permission: 'view' | 'comment' | 'edit'
+    createdAt: Date
+    updatedAt: Date | null
+}
+
+export type SharePermission = 'view' | 'edit' | 'comment'
+
+// Relations
+export const usersRelations = relations(users, ({ many }) => ({
+    filePermissions: many(filePermissions),
+    createdFiles: many(files, { relationName: 'createdFiles' }),
+    updatedFiles: many(files, { relationName: 'updatedFiles' }),
+    messages: many(messages),
+}))
+
+export const filesRelations = relations(files, ({ one, many }) => ({
+    parent: one(files, {
+        fields: [files.parentId],
+        references: [files.id],
+        relationName: 'fileHierarchy',
+    }),
+    children: many(files, { relationName: 'fileHierarchy' }),
+    pageContent: one(pageContent),
+    sheetContent: one(sheetContent),
+    filePermissions: many(filePermissions),
+    messages: many(messages),
+    createdBy: one(users, {
+        fields: [files.createdBy],
+        references: [users.id],
+        relationName: 'createdFiles',
+    }),
+    updatedBy: one(users, {
+        fields: [files.updatedBy],
+        references: [users.id],
+        relationName: 'updatedFiles',
+    }),
+}))
+
+export const filePermissionsRelations = relations(
+    filePermissions,
+    ({ one }) => ({
+        file: one(files, {
+            fields: [filePermissions.fileId],
+            references: [files.id],
+        }),
+        user: one(users, {
+            fields: [filePermissions.userId],
+            references: [users.id],
+        }),
+    })
+)
+
+export const pageContentRelations = relations(pageContent, ({ one }) => ({
+    file: one(files, {
+        fields: [pageContent.fileId],
+        references: [files.id],
+    }),
+}))
+
+export const sheetContentRelations = relations(sheetContent, ({ one }) => ({
+    file: one(files, {
+        fields: [sheetContent.fileId],
+        references: [files.id],
+    }),
+}))
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+    file: one(files, {
+        fields: [messages.fileId],
+        references: [files.id],
+    }),
+    user: one(users, {
+        fields: [messages.userId],
+        references: [users.id],
+    }),
+}))

@@ -34,6 +34,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '~/components/ui/dialog'
+import { api } from '~/trpc/react'
 
 export type FileNode = {
     id: number
@@ -197,6 +198,17 @@ function FileTreeNode({
     const isSelected = selectedFileIds.includes(node.id)
     const nodeRef = useRef<HTMLDivElement>(null)
     const { toast } = useToast()
+
+    // Permissions - Get user's permission for this file using the hierarchical permission system
+    const { data: userPermission } = api.permissions.getUserPermission.useQuery(
+        { fileId: node.id },
+        { enabled: !!node.id }
+    )
+
+    // Permission checks based on hierarchical permission levels
+    const canCreate = userPermission === 'edit' // Only edit permission allows creating files
+    const canRename = userPermission === 'edit' // Only edit permission allows renaming
+    const canDelete = userPermission === 'edit' // Only edit permission allows deleting
 
     // Configure drag source
     const [{ isDragging }, drag] = useDrag(() => ({
@@ -511,54 +523,70 @@ function FileTreeNode({
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                    onClick={(e) => {
-                                        e.preventDefault()
-                                        e.stopPropagation()
-                                        handleCreateFile()
-                                    }}
-                                >
-                                    <FileText size={14} className="mr-2" /> New
-                                    Page
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onClick={(e) => {
-                                        e.preventDefault()
-                                        e.stopPropagation()
-                                        handleCreateSheet()
-                                    }}
-                                >
-                                    <Sheet size={14} className="mr-2" /> New
-                                    Sheet
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onClick={(e) => {
-                                        e.preventDefault()
-                                        e.stopPropagation()
-                                        handleCreateFolder()
-                                    }}
-                                >
-                                    <Folder size={14} className="mr-2" /> New
-                                    Folder
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onClick={(e) => {
-                                        e.preventDefault()
-                                        e.stopPropagation()
-                                        handleRename()
-                                    }}
-                                >
-                                    <Edit2 size={14} className="mr-2" /> Rename
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onClick={(e) => {
-                                        e.preventDefault()
-                                        e.stopPropagation()
-                                        handleDelete()
-                                    }}
-                                >
-                                    <Trash2 size={14} className="mr-2" /> Delete
-                                </DropdownMenuItem>
+                                {canCreate && (
+                                    <>
+                                        <DropdownMenuItem
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                e.stopPropagation()
+                                                handleCreateFile()
+                                            }}
+                                        >
+                                            <FileText
+                                                size={14}
+                                                className="mr-2"
+                                            />{' '}
+                                            New Page
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                e.stopPropagation()
+                                                handleCreateSheet()
+                                            }}
+                                        >
+                                            <Sheet size={14} className="mr-2" />{' '}
+                                            New Sheet
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                e.stopPropagation()
+                                                handleCreateFolder()
+                                            }}
+                                        >
+                                            <Folder
+                                                size={14}
+                                                className="mr-2"
+                                            />{' '}
+                                            New Folder
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
+                                {canRename && (
+                                    <DropdownMenuItem
+                                        onClick={(e) => {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            handleRename()
+                                        }}
+                                    >
+                                        <Edit2 size={14} className="mr-2" />{' '}
+                                        Rename
+                                    </DropdownMenuItem>
+                                )}
+                                {canDelete && (
+                                    <DropdownMenuItem
+                                        onClick={(e) => {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            handleDelete()
+                                        }}
+                                    >
+                                        <Trash2 size={14} className="mr-2" />{' '}
+                                        Delete
+                                    </DropdownMenuItem>
+                                )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
@@ -588,24 +616,30 @@ function FileTreeNode({
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                    onClick={(e) => {
-                                        e.preventDefault()
-                                        e.stopPropagation()
-                                        handleRename()
-                                    }}
-                                >
-                                    <Edit2 size={14} className="mr-2" /> Rename
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onClick={(e) => {
-                                        e.preventDefault()
-                                        e.stopPropagation()
-                                        handleDelete()
-                                    }}
-                                >
-                                    <Trash2 size={14} className="mr-2" /> Delete
-                                </DropdownMenuItem>
+                                {canRename && (
+                                    <DropdownMenuItem
+                                        onClick={(e) => {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            handleRename()
+                                        }}
+                                    >
+                                        <Edit2 size={14} className="mr-2" />{' '}
+                                        Rename
+                                    </DropdownMenuItem>
+                                )}
+                                {canDelete && (
+                                    <DropdownMenuItem
+                                        onClick={(e) => {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            handleDelete()
+                                        }}
+                                    >
+                                        <Trash2 size={14} className="mr-2" />{' '}
+                                        Delete
+                                    </DropdownMenuItem>
+                                )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
