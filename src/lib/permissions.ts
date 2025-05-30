@@ -91,11 +91,37 @@ export async function getFileAncestors(fileId: number) {
 
         if (!file) break
 
-        ancestors.push(file)
+        ancestors.push({
+            id: file.id,
+            name: file.name,
+            parentId: file.parentId,
+        })
         currentFileId = file.parentId
     }
 
     return ancestors
+}
+
+/**
+ * Gets all descendants of a file (children, grandchildren, etc.)
+ */
+export async function getFileDescendants(fileId: number): Promise<number[]> {
+    const descendants: number[] = []
+
+    const getChildren = async (parentId: number) => {
+        const children = await db.query.files.findMany({
+            where: eq(files.parentId, parentId),
+            columns: { id: true },
+        })
+
+        for (const child of children) {
+            descendants.push(child.id)
+            await getChildren(child.id) // Recursively get children
+        }
+    }
+
+    await getChildren(fileId)
+    return descendants
 }
 
 /**

@@ -12,6 +12,7 @@ import {
     Plus,
     AlertCircle,
     Sheet,
+    Share2,
 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
@@ -35,6 +36,7 @@ import {
     DialogTitle,
 } from '~/components/ui/dialog'
 import { api } from '~/trpc/react'
+import { ShareModal } from '~/components/share-modal'
 
 export type FileNode = {
     id: number
@@ -188,6 +190,7 @@ function FileTreeNode({
     // Dialog states
     const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false)
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false)
     const [renameValue, setRenameValue] = useState(
         node.filename || node.name || ''
     )
@@ -205,10 +208,23 @@ function FileTreeNode({
         { enabled: !!node.id }
     )
 
+    // Check if user can share this file (has edit permission anywhere in hierarchy)
+    const { data: canShareFile } = api.permissions.canShareFile.useQuery(
+        { fileId: node.id },
+        { enabled: !!node.id }
+    )
+
+    // Check if user can edit this file (has edit permission anywhere in hierarchy)
+    const { data: canEditFile } = api.permissions.canEditFile.useQuery(
+        { fileId: node.id },
+        { enabled: !!node.id }
+    )
+
     // Permission checks based on hierarchical permission levels
-    const canCreate = userPermission === 'edit' // Only edit permission allows creating files
-    const canRename = userPermission === 'edit' // Only edit permission allows renaming
-    const canDelete = userPermission === 'edit' // Only edit permission allows deleting
+    const canCreate = canEditFile ?? false // Edit permission anywhere in hierarchy allows creating files
+    const canRename = canEditFile ?? false // Edit permission anywhere in hierarchy allows renaming
+    const canDelete = canEditFile ?? false // Edit permission anywhere in hierarchy allows deleting
+    const canShare = canShareFile ?? false // Use the hierarchical permission check for sharing
 
     // Configure drag source
     const [{ isDragging }, drag] = useDrag(() => ({
@@ -461,6 +477,10 @@ function FileTreeNode({
         setIsDeleteDialogOpen(false)
     }
 
+    const handleShare = () => {
+        setIsShareModalOpen(true)
+    }
+
     return (
         <div className="flex flex-col">
             <div
@@ -563,6 +583,18 @@ function FileTreeNode({
                                         </DropdownMenuItem>
                                     </>
                                 )}
+                                {canShare && (
+                                    <DropdownMenuItem
+                                        onClick={(e) => {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            handleShare()
+                                        }}
+                                    >
+                                        <Share2 size={14} className="mr-2" />{' '}
+                                        Share
+                                    </DropdownMenuItem>
+                                )}
                                 {canRename && (
                                     <DropdownMenuItem
                                         onClick={(e) => {
@@ -616,6 +648,18 @@ function FileTreeNode({
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                                {canShare && (
+                                    <DropdownMenuItem
+                                        onClick={(e) => {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            handleShare()
+                                        }}
+                                    >
+                                        <Share2 size={14} className="mr-2" />{' '}
+                                        Share
+                                    </DropdownMenuItem>
+                                )}
                                 {canRename && (
                                     <DropdownMenuItem
                                         onClick={(e) => {
@@ -772,6 +816,14 @@ function FileTreeNode({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Share Modal */}
+            <ShareModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
+                filename={node.filename || node.name || ''}
+                fileId={node.id}
+            />
         </div>
     )
 }

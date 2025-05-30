@@ -25,7 +25,6 @@ interface FileHeaderProps {
     filename: string
     fileId: number
     permission: Permission
-    onPermissionChange: (permission: Permission) => void
     savingStatus?: 'saving' | 'saved' | 'idle'
 }
 
@@ -45,7 +44,6 @@ export function FileHeader({
     filename,
     fileId,
     permission,
-    onPermissionChange,
     savingStatus = 'idle',
 }: FileHeaderProps) {
     const { toggleChat } = useChatToggle({ pageTitle: filename })
@@ -82,38 +80,6 @@ export function FileHeader({
                     )}
                 </div>
                 <div className="flex items-center gap-2">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-2"
-                            >
-                                {permissionIcons[permission]}
-                                {permissionLabels[permission]}
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                                onClick={() => onPermissionChange('view')}
-                                className="gap-2"
-                            >
-                                <Eye size={16} /> Can View
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() => onPermissionChange('comment')}
-                                className="gap-2"
-                            >
-                                <MessageSquare size={16} /> Can Comment
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() => onPermissionChange('edit')}
-                                className="gap-2"
-                            >
-                                <PenSquare size={16} /> Can Edit
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
                     <Button
                         variant="outline"
                         size="sm"

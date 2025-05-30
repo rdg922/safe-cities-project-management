@@ -26,12 +26,14 @@ interface SharedUser {
     name: string
     email: string
     permission: SharePermission
+    isLoading?: boolean
 }
 
 interface ShareModalProps {
     isOpen: boolean
     onClose: () => void
     filename: string
+    fileId: number
 }
 
 const permissionLabels = {
@@ -46,12 +48,103 @@ const permissionDescriptions = {
     comment: 'Can comment',
 }
 
-export function ShareModal({ isOpen, onClose, filename }: ShareModalProps) {
+export function ShareModal({
+    isOpen,
+    onClose,
+    filename,
+    fileId,
+}: ShareModalProps) {
     const [searchQuery, setSearchQuery] = useState('')
     const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([])
 
     // Get all users from the database
     const { data: allUsers = [], isLoading } = api.user.getAllUsers.useQuery()
+
+    // Get existing file permissions
+    const { data: filePermissions = [], refetch: refetchPermissions } =
+        api.permissions.getFilePermissions.useQuery(
+            { fileId },
+            {
+                enabled:
+                    isOpen &&
+                    fileId != null &&
+                    typeof fileId === 'number' &&
+                    fileId > 0,
+                refetchOnWindowFocus: false,
+                refetchOnMount: true,
+            }
+        )
+
+    // tRPC mutations for permission management
+    const setPermissionMutation = api.permissions.setPermission.useMutation({
+        onSuccess: () => {
+            refetchPermissions()
+        },
+        onError: (error) => {
+            console.error('Error setting permission:', error)
+        },
+        onSettled: () => {
+            // Ensure loading states are cleared even if there's an error
+        },
+    })
+
+    const removePermissionMutation =
+        api.permissions.removePermission.useMutation({
+            onSuccess: () => {
+                refetchPermissions()
+            },
+            onError: (error) => {
+                console.error('Error removing permission:', error)
+            },
+            onSettled: () => {
+                // Ensure loading states are cleared even if there's an error
+            },
+        })
+
+    // Update sharedUsers when filePermissions change
+    useEffect(() => {
+        if (!isOpen) return // Don't update if modal is closed
+
+        // Add validation to prevent errors
+        if (!filePermissions || !Array.isArray(filePermissions)) {
+            setSharedUsers((prevUsers) =>
+                prevUsers.length > 0 ? [] : prevUsers
+            )
+            return
+        }
+
+        if (filePermissions.length > 0) {
+            const users: SharedUser[] = filePermissions.map((fp: any) => ({
+                id: fp.userId,
+                name: fp.user?.name || fp.user?.email || 'Unknown User',
+                email: fp.user?.email || '',
+                permission: fp.permission as SharePermission,
+                isLoading: false,
+            }))
+
+            // Only update if the data has actually changed
+            setSharedUsers((prevUsers) => {
+                if (prevUsers.length !== users.length) return users
+
+                const hasChanges = users.some((user, index) => {
+                    const prevUser = prevUsers[index]
+                    return (
+                        !prevUser ||
+                        prevUser.id !== user.id ||
+                        prevUser.permission !== user.permission ||
+                        prevUser.name !== user.name ||
+                        prevUser.email !== user.email
+                    )
+                })
+
+                return hasChanges ? users : prevUsers
+            })
+        } else {
+            setSharedUsers((prevUsers) =>
+                prevUsers.length > 0 ? [] : prevUsers
+            )
+        }
+    }, [filePermissions, isOpen])
 
     // Filter users based on search query
     const filteredUsers = allUsers.filter(
@@ -63,30 +156,101 @@ export function ShareModal({ isOpen, onClose, filename }: ShareModalProps) {
             !sharedUsers.some((sharedUser) => sharedUser.id === user.id)
     )
 
-    const handleAddUser = (user: (typeof allUsers)[0]) => {
+    const handleAddUser = async (user: (typeof allUsers)[0]) => {
         const newSharedUser: SharedUser = {
             id: user.id,
             name: user.name || user.email,
             email: user.email,
             permission: 'view',
+            isLoading: true,
         }
+
+        // Optimistically add user to UI
         setSharedUsers((prev) => [...prev, newSharedUser])
         setSearchQuery('')
+
+        try {
+            await setPermissionMutation.mutateAsync({
+                fileId,
+                userId: user.id,
+                permission: 'view',
+            })
+
+            // Update user loading state
+            setSharedUsers((prev) =>
+                prev.map((u) =>
+                    u.id === user.id ? { ...u, isLoading: false } : u
+                )
+            )
+        } catch (error) {
+            // Remove user from UI if mutation failed
+            setSharedUsers((prev) => prev.filter((u) => u.id !== user.id))
+            console.error('Failed to add user:', error)
+        }
     }
 
-    const handlePermissionChange = (
+    const handlePermissionChange = async (
         userId: string,
         permission: SharePermission
     ) => {
+        // Set loading state for this user
         setSharedUsers((prev) =>
             prev.map((user) =>
-                user.id === userId ? { ...user, permission } : user
+                user.id === userId ? { ...user, isLoading: true } : user
             )
         )
+
+        try {
+            await setPermissionMutation.mutateAsync({
+                fileId,
+                userId,
+                permission,
+            })
+
+            // Update permission and clear loading state
+            setSharedUsers((prev) =>
+                prev.map((user) =>
+                    user.id === userId
+                        ? { ...user, permission, isLoading: false }
+                        : user
+                )
+            )
+        } catch (error) {
+            // Clear loading state on error
+            setSharedUsers((prev) =>
+                prev.map((user) =>
+                    user.id === userId ? { ...user, isLoading: false } : user
+                )
+            )
+            console.error('Failed to update permission:', error)
+        }
     }
 
-    const handleRemoveUser = (userId: string) => {
-        setSharedUsers((prev) => prev.filter((user) => user.id !== userId))
+    const handleRemoveUser = async (userId: string) => {
+        // Set loading state for this user
+        setSharedUsers((prev) =>
+            prev.map((user) =>
+                user.id === userId ? { ...user, isLoading: true } : user
+            )
+        )
+
+        try {
+            await removePermissionMutation.mutateAsync({
+                fileId,
+                userId,
+            })
+
+            // Remove user from UI
+            setSharedUsers((prev) => prev.filter((user) => user.id !== userId))
+        } catch (error) {
+            // Clear loading state on error
+            setSharedUsers((prev) =>
+                prev.map((user) =>
+                    user.id === userId ? { ...user, isLoading: false } : user
+                )
+            )
+            console.error('Failed to remove user:', error)
+        }
     }
 
     const handleCopyLink = () => {
@@ -198,78 +362,90 @@ export function ShareModal({ isOpen, onClose, filename }: ShareModalProps) {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="gap-2"
+                                            {user.isLoading ? (
+                                                <div className="flex items-center justify-center h-8 w-16">
+                                                    <div className="animate-spin h-4 w-4 border-2 border-primary rounded-full border-t-transparent"></div>
+                                                </div>
+                                            ) : (
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger
+                                                        asChild
                                                     >
-                                                        {
-                                                            permissionLabels[
-                                                                user.permission
-                                                            ]
-                                                        }
-                                                        <ChevronDown className="h-3 w-3" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem
-                                                        onClick={() =>
-                                                            handlePermissionChange(
-                                                                user.id,
-                                                                'view'
-                                                            )
-                                                        }
-                                                    >
-                                                        <div>
-                                                            <div className="font-medium">
-                                                                Viewer
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="gap-2"
+                                                            disabled={
+                                                                user.isLoading
+                                                            }
+                                                        >
+                                                            {
+                                                                permissionLabels[
+                                                                    user
+                                                                        .permission
+                                                                ]
+                                                            }
+                                                            <ChevronDown className="h-3 w-3" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem
+                                                            onClick={() =>
+                                                                handlePermissionChange(
+                                                                    user.id,
+                                                                    'view'
+                                                                )
+                                                            }
+                                                        >
+                                                            <div>
+                                                                <div className="font-medium">
+                                                                    Viewer
+                                                                </div>
+                                                                <div className="text-xs text-muted-foreground">
+                                                                    Can view
+                                                                </div>
                                                             </div>
-                                                            <div className="text-xs text-muted-foreground">
-                                                                Can view
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() =>
+                                                                handlePermissionChange(
+                                                                    user.id,
+                                                                    'comment'
+                                                                )
+                                                            }
+                                                        >
+                                                            <div>
+                                                                <div className="font-medium">
+                                                                    Commenter
+                                                                </div>
+                                                                <div className="text-xs text-muted-foreground">
+                                                                    Can view and
+                                                                    comment
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={() =>
-                                                            handlePermissionChange(
-                                                                user.id,
-                                                                'comment'
-                                                            )
-                                                        }
-                                                    >
-                                                        <div>
-                                                            <div className="font-medium">
-                                                                Commenter
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() =>
+                                                                handlePermissionChange(
+                                                                    user.id,
+                                                                    'edit'
+                                                                )
+                                                            }
+                                                        >
+                                                            <div>
+                                                                <div className="font-medium">
+                                                                    Editor
+                                                                </div>
+                                                                <div className="text-xs text-muted-foreground">
+                                                                    Can view,
+                                                                    comment, and
+                                                                    edit
+                                                                </div>
                                                             </div>
-                                                            <div className="text-xs text-muted-foreground">
-                                                                Can view and
-                                                                comment
-                                                            </div>
-                                                        </div>
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={() =>
-                                                            handlePermissionChange(
-                                                                user.id,
-                                                                'edit'
-                                                            )
-                                                        }
-                                                    >
-                                                        <div>
-                                                            <div className="font-medium">
-                                                                Editor
-                                                            </div>
-                                                            <div className="text-xs text-muted-foreground">
-                                                                Can view,
-                                                                comment, and
-                                                                edit
-                                                            </div>
-                                                        </div>
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            )}
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
@@ -277,6 +453,7 @@ export function ShareModal({ isOpen, onClose, filename }: ShareModalProps) {
                                                     handleRemoveUser(user.id)
                                                 }
                                                 className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                disabled={user.isLoading}
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
@@ -286,14 +463,6 @@ export function ShareModal({ isOpen, onClose, filename }: ShareModalProps) {
                             </div>
                         </div>
                     )}
-
-                    {/* Action buttons */}
-                    <div className="flex justify-end gap-2 pt-4 border-t">
-                        <Button variant="outline" onClick={onClose}>
-                            Cancel
-                        </Button>
-                        <Button>Done</Button>
-                    </div>
                 </div>
             </DialogContent>
         </Dialog>

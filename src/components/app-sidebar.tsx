@@ -71,12 +71,12 @@ export function AppSidebar() {
     // Get current user from Clerk
     const { user: clerkUser, isLoaded: isUserLoaded } = useUser()
 
-    // Fetch file tree structure using the new files router
+    // Fetch file tree structure using the new files router with permission filtering
     const {
         data: fileTree = [],
         isLoading: isFileTreeLoading,
         refetch: refetchFileTree,
-    } = api.files.getFileTree.useQuery()
+    } = api.files.getFilteredFileTree.useQuery()
 
     const [activeFileId, setActiveFileId] = useState<number | undefined>()
     const [selectedFileIds, setSelectedFileIds] = useState<number[]>([])
