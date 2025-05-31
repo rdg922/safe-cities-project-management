@@ -61,19 +61,22 @@ export function ShareModal({
     const { data: allUsers = [], isLoading } = api.user.getAllUsers.useQuery()
 
     // Get existing file permissions
-    const { data: filePermissions = [], refetch: refetchPermissions } =
-        api.permissions.getFilePermissions.useQuery(
-            { fileId },
-            {
-                enabled:
-                    isOpen &&
-                    fileId != null &&
-                    typeof fileId === 'number' &&
-                    fileId > 0,
-                refetchOnWindowFocus: false,
-                refetchOnMount: true,
-            }
-        )
+    const {
+        data: filePermissions = [],
+        refetch: refetchPermissions,
+        isLoading: isLoadingPermissions,
+    } = api.permissions.getFilePermissions.useQuery(
+        { fileId },
+        {
+            enabled:
+                isOpen &&
+                fileId != null &&
+                typeof fileId === 'number' &&
+                fileId > 0,
+            refetchOnWindowFocus: false,
+            refetchOnMount: true,
+        }
+    )
 
     // tRPC mutations for permission management
     const setPermissionMutation = api.permissions.setPermission.useMutation({
@@ -335,132 +338,148 @@ export function ShareModal({
                     </div>
 
                     {/* Shared users list */}
-                    {sharedUsers.length > 0 && (
+                    {(sharedUsers.length > 0 || isLoadingPermissions) && (
                         <div className="space-y-2">
                             <h4 className="text-sm font-medium">
                                 People with access
                             </h4>
-                            <div className="space-y-2">
-                                {sharedUsers.map((user) => (
-                                    <div
-                                        key={user.id}
-                                        className="flex items-center justify-between p-2 rounded border"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <Avatar className="h-8 w-8">
-                                                <AvatarFallback className="text-xs">
-                                                    {getInitials(user.name)}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                                <div className="text-sm font-medium">
-                                                    {user.name}
-                                                </div>
-                                                <div className="text-xs text-muted-foreground">
-                                                    {user.email}
+
+                            {isLoadingPermissions ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <div className="animate-spin h-4 w-4 border-2 border-primary rounded-full border-t-transparent"></div>
+                                        <span className="text-sm">
+                                            Loading permissions...
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {sharedUsers.map((user) => (
+                                        <div
+                                            key={user.id}
+                                            className="flex items-center justify-between p-2 rounded border"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="h-8 w-8">
+                                                    <AvatarFallback className="text-xs">
+                                                        {getInitials(user.name)}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <div className="text-sm font-medium">
+                                                        {user.name}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {user.email}
+                                                    </div>
                                                 </div>
                                             </div>
+                                            <div className="flex items-center gap-2">
+                                                {user.isLoading ? (
+                                                    <div className="flex items-center justify-center h-8 w-16">
+                                                        <div className="animate-spin h-4 w-4 border-2 border-primary rounded-full border-t-transparent"></div>
+                                                    </div>
+                                                ) : (
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger
+                                                            asChild
+                                                        >
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="gap-2"
+                                                                disabled={
+                                                                    user.isLoading
+                                                                }
+                                                            >
+                                                                {
+                                                                    permissionLabels[
+                                                                        user
+                                                                            .permission
+                                                                    ]
+                                                                }
+                                                                <ChevronDown className="h-3 w-3" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem
+                                                                onClick={() =>
+                                                                    handlePermissionChange(
+                                                                        user.id,
+                                                                        'view'
+                                                                    )
+                                                                }
+                                                            >
+                                                                <div>
+                                                                    <div className="font-medium">
+                                                                        Viewer
+                                                                    </div>
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        Can view
+                                                                    </div>
+                                                                </div>
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onClick={() =>
+                                                                    handlePermissionChange(
+                                                                        user.id,
+                                                                        'comment'
+                                                                    )
+                                                                }
+                                                            >
+                                                                <div>
+                                                                    <div className="font-medium">
+                                                                        Commenter
+                                                                    </div>
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        Can view
+                                                                        and
+                                                                        comment
+                                                                    </div>
+                                                                </div>
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onClick={() =>
+                                                                    handlePermissionChange(
+                                                                        user.id,
+                                                                        'edit'
+                                                                    )
+                                                                }
+                                                            >
+                                                                <div>
+                                                                    <div className="font-medium">
+                                                                        Editor
+                                                                    </div>
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        Can
+                                                                        view,
+                                                                        comment,
+                                                                        and edit
+                                                                    </div>
+                                                                </div>
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                )}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() =>
+                                                        handleRemoveUser(
+                                                            user.id
+                                                        )
+                                                    }
+                                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                    disabled={user.isLoading}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            {user.isLoading ? (
-                                                <div className="flex items-center justify-center h-8 w-16">
-                                                    <div className="animate-spin h-4 w-4 border-2 border-primary rounded-full border-t-transparent"></div>
-                                                </div>
-                                            ) : (
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger
-                                                        asChild
-                                                    >
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="gap-2"
-                                                            disabled={
-                                                                user.isLoading
-                                                            }
-                                                        >
-                                                            {
-                                                                permissionLabels[
-                                                                    user
-                                                                        .permission
-                                                                ]
-                                                            }
-                                                            <ChevronDown className="h-3 w-3" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem
-                                                            onClick={() =>
-                                                                handlePermissionChange(
-                                                                    user.id,
-                                                                    'view'
-                                                                )
-                                                            }
-                                                        >
-                                                            <div>
-                                                                <div className="font-medium">
-                                                                    Viewer
-                                                                </div>
-                                                                <div className="text-xs text-muted-foreground">
-                                                                    Can view
-                                                                </div>
-                                                            </div>
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            onClick={() =>
-                                                                handlePermissionChange(
-                                                                    user.id,
-                                                                    'comment'
-                                                                )
-                                                            }
-                                                        >
-                                                            <div>
-                                                                <div className="font-medium">
-                                                                    Commenter
-                                                                </div>
-                                                                <div className="text-xs text-muted-foreground">
-                                                                    Can view and
-                                                                    comment
-                                                                </div>
-                                                            </div>
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            onClick={() =>
-                                                                handlePermissionChange(
-                                                                    user.id,
-                                                                    'edit'
-                                                                )
-                                                            }
-                                                        >
-                                                            <div>
-                                                                <div className="font-medium">
-                                                                    Editor
-                                                                </div>
-                                                                <div className="text-xs text-muted-foreground">
-                                                                    Can view,
-                                                                    comment, and
-                                                                    edit
-                                                                </div>
-                                                            </div>
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            )}
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() =>
-                                                    handleRemoveUser(user.id)
-                                                }
-                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                disabled={user.isLoading}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
