@@ -79,6 +79,7 @@ import { handleImageUpload, MAX_FILE_SIZE } from "~/lib/tiptap-utils"
 import "~/components/tiptap-templates/simple/simple-editor.scss"
 
 import content from "~/components/tiptap-templates/simple/data/content.json"
+import { ListButton } from "@/components/tiptap-ui/list-button"
 
 const MainToolbarContent = ({
   onHighlighterClick,
@@ -103,9 +104,10 @@ const MainToolbarContent = ({
 
       <ToolbarGroup>
         <HeadingDropdownMenu levels={[1, 2, 3, 4]} />
-        <ListDropdownMenu types={["bulletList", "orderedList", "taskList"]} />
-        <BlockQuoteButton />
-        <CodeBlockButton />
+        <ListDropdownMenu types={["bulletList", "orderedList"]} />
+        {/* <BlockQuoteButton />*/}
+        <ListButton type="taskList" />
+        {/* <CodeBlockButton />*/}
       </ToolbarGroup>
 
       <ToolbarSeparator />
@@ -114,7 +116,7 @@ const MainToolbarContent = ({
         <MarkButton type="bold" />
         <MarkButton type="italic" />
         <MarkButton type="strike" />
-        <MarkButton type="code" />
+        {/* <MarkButton type="code" />  */}
         <MarkButton type="underline" />
         {!isMobile ? (
           <ColorHighlightPopover />

@@ -22,29 +22,45 @@
     }
   }
 
-  .task-item-assign-button {
+  .task-item-assign-button,
+  .task-item-assign-badge {
     position: absolute;
     right: 0;
-    top: 0;
+    top: 50%;
+    transform: translateY(-50%);
     font-size: 0.85rem;
     padding: 0.1rem 0.5rem;
     border-radius: 4px;
-    background-color: var(--background-accent);
-    color: var(--text-accent);
     cursor: pointer;
     transition: all 0.2s ease;
-    border: 1px solid var(--border-color);
     white-space: nowrap;
+    opacity: 0.5;
+
+    &.visible {
+      opacity: 1;
+    }
+  }
+
+  .task-item-assign-button {
+    background-color: var(--background-accent);
+    color: var(--text-accent);
+    border: 1px solid var(--border-color);
 
     &:hover {
       background-color: var(--background-accent-hover);
+      opacity: 1;
     }
+  }
 
-    &.invisible {
-      opacity: 0;
-    }
+  .task-item-assign-badge {
+    background-color: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+    border: 1px solid hsl(var(--primary) / 0.2);
+    font-weight: 500;
 
-    &.visible {
+    &:hover {
+      background-color: hsl(var(--primary) / 0.15);
+      border-color: hsl(var(--primary) / 0.3);
       opacity: 1;
     }
   }
