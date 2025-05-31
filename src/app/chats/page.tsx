@@ -10,15 +10,19 @@ import { toast } from '~/hooks/use-toast'
 import { formatDistanceToNow } from 'date-fns'
 
 export default function ChatsPage() {
-    const { data: recentChats = [] } = api.chat.getRecentChats.useQuery()
+    const { 
+        data: recentChats = [], 
+        isLoading,
+        error 
+    } = api.chat.getRecentChats.useQuery()
     const [searchQuery, setSearchQuery] = useState('')
 
     // Filter chats based on search query
-    const filteredChats = recentChats.filter(
+    const filteredChats = (recentChats || []).filter(
         (chat) =>
-            chat.file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            chat.lastMessage.content
-                .toLowerCase()
+            chat?.file?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            chat?.lastMessage?.content
+                ?.toLowerCase()
                 .includes(searchQuery.toLowerCase())
     )
 
@@ -50,58 +54,68 @@ export default function ChatsPage() {
                     <CardTitle>Recent Chats</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="divide-y">
-                        {filteredChats.map((chat) => (
-                            <Link
-                                key={chat.file.id}
-                                href={`/pages/${chat.file.id}`}
-                                className="flex items-center gap-4 p-4 hover:bg-muted/50 cursor-pointer"
-                            >
-                                <div className="flex-shrink-0">
-                                    <MessageSquare className="h-12 w-12 text-muted-foreground" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="font-medium truncate">
-                                            {chat.file.name}
-                                        </h3>
-                                        <span className="text-xs text-muted-foreground">
-                                            {formatDistanceToNow(
-                                                new Date(
-                                                    chat.lastMessage.createdAt
-                                                ),
-                                                { addSuffix: true }
-                                            )}
-                                        </span>
+                    {error && (
+                        <div className="p-4 text-center text-destructive">
+                            Failed to load chats. Please try refreshing the page.
+                        </div>
+                    )}
+                    {isLoading && (
+                        <div className="p-4 text-center text-muted-foreground">
+                            Loading chats...
+                        </div>
+                    )}
+                    {!isLoading && !error && (
+                        <div className="divide-y">
+                            {filteredChats.map((chat) => (
+                                <Link
+                                    key={chat?.file?.id}
+                                    href={`/pages/${chat?.file?.id}`}
+                                    className="flex items-center gap-4 p-4 hover:bg-muted/50 cursor-pointer"
+                                >
+                                    <div className="flex-shrink-0">
+                                        <MessageSquare className="h-12 w-12 text-muted-foreground" />
                                     </div>
-                                    <p className="text-sm text-muted-foreground truncate">
-                                        {chat.lastMessage.content}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="font-medium truncate">
+                                                {chat?.file?.name || 'Untitled'}
+                                            </h3>
+                                            <span className="text-xs text-muted-foreground">
+                                                {chat?.lastMessage?.createdAt && formatDistanceToNow(
+                                                    new Date(chat.lastMessage.createdAt),
+                                                    { addSuffix: true }
+                                                )}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground truncate">
+                                            {chat?.lastMessage?.content || 'No messages yet'}
+                                        </p>
+                                    </div>
+                                </Link>
+                            ))}
+
+                            {filteredChats.length === 0 && (
+                                <div className="flex flex-col items-center justify-center py-12 text-center">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                                        <MessageSquare
+                                            size={24}
+                                            className="text-muted-foreground"
+                                        />
+                                    </div>
+                                    <h3 className="mt-4 text-lg font-medium">
+                                        {searchQuery
+                                            ? 'No chats found'
+                                            : 'No chats yet'}
+                                    </h3>
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                        {searchQuery
+                                            ? `No chats match "${searchQuery}". Try a different search term.`
+                                            : 'Start a chat by opening the chat panel on any page.'}
                                     </p>
                                 </div>
-                            </Link>
-                        ))}
-
-                        {filteredChats.length === 0 && (
-                            <div className="flex flex-col items-center justify-center py-12 text-center">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                                    <MessageSquare
-                                        size={24}
-                                        className="text-muted-foreground"
-                                    />
-                                </div>
-                                <h3 className="mt-4 text-lg font-medium">
-                                    {searchQuery
-                                        ? 'No chats found'
-                                        : 'No chats yet'}
-                                </h3>
-                                <p className="mt-2 text-sm text-muted-foreground">
-                                    {searchQuery
-                                        ? `No chats match "${searchQuery}". Try a different search term.`
-                                        : 'Start a chat by opening the chat panel on any page.'}
-                                </p>
-                            </div>
-                        )}
-                    </div>
+                            )}
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>
