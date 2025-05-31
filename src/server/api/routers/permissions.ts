@@ -6,6 +6,7 @@ import {
     permissionSchema,
     files,
     users,
+    notifications,
 } from '~/server/db/schema'
 import {
     setFilePermission,
@@ -44,11 +45,47 @@ export const permissionsRouter = createTRPCRouter({
                 })
             }
 
-            return await setFilePermission(
+            const result = await setFilePermission(
                 input.fileId,
                 input.userId,
                 input.permission
             )
+
+            // Get file and user info for notification
+            const [file, targetUser, currentUser] = await Promise.all([
+                ctx.db.query.files.findFirst({
+                    where: eq(files.id, input.fileId),
+                    columns: { name: true },
+                }),
+                ctx.db.query.users.findFirst({
+                    where: eq(users.id, input.userId),
+                    columns: { name: true },
+                }),
+                ctx.db.query.users.findFirst({
+                    where: eq(users.id, currentUserId),
+                    columns: { name: true },
+                }),
+            ])
+
+            // Create sharing notification for the user who received access
+            if (
+                file &&
+                targetUser &&
+                currentUser &&
+                input.userId !== currentUserId
+            ) {
+                await ctx.db.insert(notifications).values({
+                    userId: input.userId,
+                    pageId: input.fileId,
+                    content: `${currentUser.name} shared "${file.name}" with you (${input.permission} access)`,
+                    type: 'share',
+                    read: false,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                })
+            }
+
+            return result
         }),
 
     // Remove permission for a user on a file

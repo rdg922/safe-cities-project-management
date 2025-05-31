@@ -3,6 +3,8 @@ import { userRouter } from '~/server/api/routers/user'
 import { chatRouter } from '~/server/api/routers/chat'
 import { filesRouter } from '~/server/api/routers/files'
 import { permissionsRouter } from '~/server/api/routers/permissions'
+import { notificationsRouter } from '~/server/api/routers/notifications'
+import { commentsRouter } from '~/server/api/routers/comments'
 import { createCallerFactory, createTRPCRouter } from '~/server/api/trpc'
 
 /**
@@ -16,6 +18,8 @@ export const appRouter = createTRPCRouter({
     chat: chatRouter,
     files: filesRouter, // New unified router
     permissions: permissionsRouter, // Hierarchical permissions
+    notification: notificationsRouter, // Robust notifications
+    comments: commentsRouter, // Comments system with notifications
 })
 
 // export type definition of API

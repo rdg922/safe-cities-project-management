@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { eq, and, desc, asc } from 'drizzle-orm'
+import { eq, ne, and, desc, asc, sql } from 'drizzle-orm'
 
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc'
-import { messages, files, users } from '~/server/db/schema'
+import { messages, files, users, notifications } from '~/server/db/schema'
 
 export const chatRouter = createTRPCRouter({
     // Get messages for a specific file
@@ -51,7 +51,8 @@ export const chatRouter = createTRPCRouter({
         .mutation(async ({ ctx, input }) => {
             const { userId } = ctx.auth
 
-            const message = await ctx.db
+            // 1. Insert the message
+            const [message] = await ctx.db
                 .insert(messages)
                 .values({
                     fileId: input.fileId,
@@ -60,7 +61,92 @@ export const chatRouter = createTRPCRouter({
                 })
                 .returning()
 
-            return message[0]
+            // 2. Get page info
+            const page = await ctx.db.query.files.findFirst({
+                where: eq(files.id, input.fileId),
+                columns: { name: true },
+            })
+
+            const pageName = page?.name || 'page'
+
+            // 3. Detect @mentions in the message
+            const mentionPattern = /@(\w+)/g
+            const mentions = [...input.content.matchAll(mentionPattern)]
+            const mentionedUsernames = [
+                ...new Set(mentions.map((match) => match[1].toLowerCase())),
+            ]
+
+            // 4. Get current user info for notifications
+            const currentUser = await ctx.db.query.users.findFirst({
+                where: eq(users.id, userId),
+                columns: { name: true },
+            })
+
+            // 5. Handle @mentions first (higher priority)
+            if (mentionedUsernames.length > 0) {
+                // Find users by name (case-insensitive)
+                const mentionedUsers = await ctx.db.query.users.findMany({
+                    where: sql`LOWER(${users.name}) = ANY(${mentionedUsernames})`,
+                    columns: { id: true, name: true },
+                })
+
+                if (mentionedUsers.length > 0) {
+                    await ctx.db.insert(notifications).values(
+                        mentionedUsers
+                            .filter((user) => user.id !== userId) // Don't notify self
+                            .map((user) => ({
+                                userId: user.id,
+                                pageId: input.fileId,
+                                content: `${currentUser?.name || 'Someone'} mentioned you in ${pageName}: "${input.content.slice(0, 100)}"`,
+                                type: 'mention',
+                                read: false,
+                                createdAt: new Date(),
+                                updatedAt: new Date(),
+                            }))
+                    )
+                }
+            }
+
+            // 6. Find all users who have sent a message in this file (page), except the sender and mentioned users
+            const usersInChat = await ctx.db
+                .selectDistinct({ userId: messages.userId })
+                .from(messages)
+                .where(
+                    and(
+                        eq(messages.fileId, input.fileId),
+                        ne(messages.userId, userId)
+                    )
+                )
+
+            const mentionedUserIds = new Set(
+                (
+                    await ctx.db.query.users.findMany({
+                        where: sql`LOWER(${users.name}) = ANY(${mentionedUsernames})`,
+                        columns: { id: true },
+                    })
+                ).map((u) => u.id)
+            )
+
+            // 7. Insert chat notifications for users not already mentioned
+            const chatNotificationUsers = usersInChat.filter(
+                (u) => u.userId && !mentionedUserIds.has(u.userId)
+            )
+
+            if (chatNotificationUsers.length > 0) {
+                await ctx.db.insert(notifications).values(
+                    chatNotificationUsers.map((u) => ({
+                        userId: String(u.userId),
+                        pageId: input.fileId,
+                        content: `New message in ${pageName}: "${input.content.slice(0, 100)}"`,
+                        type: 'chat',
+                        read: false,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                    }))
+                )
+            }
+
+            return message
         }),
 
     // Get recent chats across all files

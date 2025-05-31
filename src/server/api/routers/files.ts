@@ -1,4 +1,4 @@
-import { eq, sql, desc, asc } from 'drizzle-orm'
+import { eq, sql, desc, asc, ne } from 'drizzle-orm'
 import { z } from 'zod'
 
 import {
@@ -14,6 +14,7 @@ import {
     type FileType,
     users,
     filePermissions,
+    notifications,
 } from '~/server/db/schema'
 
 export const filesRouter = createTRPCRouter({
@@ -254,6 +255,8 @@ export const filesRouter = createTRPCRouter({
             })
         )
         .mutation(async ({ ctx, input }) => {
+            const { userId } = ctx.auth
+
             // Update the page content
             await ctx.db
                 .update(pageContent)
@@ -268,9 +271,48 @@ export const filesRouter = createTRPCRouter({
                 .update(files)
                 .set({
                     updatedAt: new Date(),
-                    updatedBy: ctx.auth.userId,
+                    updatedBy: userId,
                 })
                 .where(eq(files.id, input.fileId))
+
+            // Get file info for notification
+            const file = await ctx.db.query.files.findFirst({
+                where: eq(files.id, input.fileId),
+                columns: { name: true },
+            })
+
+            // Get current user info for notifications
+            const currentUser = await ctx.db.query.users.findFirst({
+                where: eq(users.id, userId),
+                columns: { name: true },
+            })
+
+            if (file && currentUser) {
+                // Find users who have permission to view this file and should be notified of edits
+                const usersWithAccess = await ctx.db
+                    .select({
+                        userId: filePermissions.userId,
+                    })
+                    .from(filePermissions)
+                    .where(eq(filePermissions.fileId, input.fileId))
+
+                // Create edit notifications for users with access (excluding the editor)
+                if (usersWithAccess.length > 0) {
+                    await ctx.db.insert(notifications).values(
+                        usersWithAccess
+                            .filter((user) => user.userId !== userId) // Don't notify self
+                            .map((user) => ({
+                                userId: user.userId,
+                                pageId: input.fileId,
+                                content: `${currentUser.name} edited the page "${file.name}"`,
+                                type: 'edit',
+                                read: false,
+                                createdAt: new Date(),
+                                updatedAt: new Date(),
+                            }))
+                    )
+                }
+            }
 
             return { success: true }
         }),
@@ -285,6 +327,8 @@ export const filesRouter = createTRPCRouter({
             })
         )
         .mutation(async ({ ctx, input }) => {
+            const { userId } = ctx.auth
+
             // Update the sheet content
             await ctx.db
                 .update(sheetContent)
@@ -300,9 +344,48 @@ export const filesRouter = createTRPCRouter({
                 .update(files)
                 .set({
                     updatedAt: new Date(),
-                    updatedBy: ctx.auth.userId,
+                    updatedBy: userId,
                 })
                 .where(eq(files.id, input.fileId))
+
+            // Get file info for notification
+            const file = await ctx.db.query.files.findFirst({
+                where: eq(files.id, input.fileId),
+                columns: { name: true },
+            })
+
+            // Get current user info for notifications
+            const currentUser = await ctx.db.query.users.findFirst({
+                where: eq(users.id, userId),
+                columns: { name: true },
+            })
+
+            if (file && currentUser) {
+                // Find users who have permission to view this file and should be notified of edits
+                const usersWithAccess = await ctx.db
+                    .select({
+                        userId: filePermissions.userId,
+                    })
+                    .from(filePermissions)
+                    .where(eq(filePermissions.fileId, input.fileId))
+
+                // Create edit notifications for users with access (excluding the editor)
+                if (usersWithAccess.length > 0) {
+                    await ctx.db.insert(notifications).values(
+                        usersWithAccess
+                            .filter((user) => user.userId !== userId) // Don't notify self
+                            .map((user) => ({
+                                userId: user.userId,
+                                pageId: input.fileId,
+                                content: `${currentUser.name} edited the sheet "${file.name}"`,
+                                type: 'edit',
+                                read: false,
+                                createdAt: new Date(),
+                                updatedAt: new Date(),
+                            }))
+                    )
+                }
+            }
 
             return { success: true }
         }),

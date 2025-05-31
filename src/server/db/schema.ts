@@ -31,6 +31,7 @@ export const PERMISSIONS = ['view', 'comment', 'edit'] as const
 export const permissionSchema = z.enum(PERMISSIONS)
 export const permissionsEnum = pgEnum('permission', PERMISSIONS)
 
+// posts aren't really used?
 export const posts = createTable(
     'post',
     (d) => ({
@@ -150,6 +151,37 @@ export const messages = createTable(
     ]
 )
 
+// Comments: for commenting on files with rich text support
+export const comments = createTable(
+    'comment',
+    (d) => ({
+        id: d.serial().primaryKey(),
+        fileId: d
+            .integer()
+            .references(() => files.id, { onDelete: 'cascade' })
+            .notNull(),
+        userId: d
+            .text()
+            .references(() => users.id, { onDelete: 'cascade' })
+            .notNull(),
+        content: d.text().notNull(), // Rich text content (HTML or JSON)
+        parentId: d
+            .integer()
+            .references((): AnyPgColumn => comments.id, {
+                onDelete: 'cascade',
+            }), // For threaded comments/replies
+        isResolved: d.boolean().default(false), // For marking comments as resolved
+        createdAt: d.timestamp().notNull().defaultNow(),
+        updatedAt: d.timestamp().defaultNow(),
+    }),
+    (t) => [
+        index('comment_file_idx').on(t.fileId),
+        index('comment_user_idx').on(t.userId),
+        index('comment_parent_idx').on(t.parentId),
+        index('comment_resolved_idx').on(t.isResolved),
+    ]
+)
+
 // File permissions: tracks user permissions for individual files
 export const filePermissions = createTable(
     'file_permission',
@@ -171,6 +203,43 @@ export const filePermissions = createTable(
         index('file_permission_file_idx').on(t.fileId),
         index('file_permission_user_idx').on(t.userId),
         index('file_permission_file_user_idx').on(t.fileId, t.userId),
+    ]
+)
+
+export const messageReads = createTable(
+    'message_read',
+    (d) => ({
+        id: d.serial().primaryKey(),
+        userId: d.text().references(() => users.id, { onDelete: 'cascade' }),
+        pageId: d.integer().references(() => files.id, { onDelete: 'cascade' }),
+        lastSeenMessageId: d.integer(),
+        updatedAt: d.timestamp().defaultNow(),
+    }),
+    (t) => [index('message_read_user_page_idx').on(t.userId, t.pageId)]
+)
+
+export const notifications = createTable(
+    'notification',
+    (d) => ({
+        id: d.serial().primaryKey(),
+        pageId: d
+            .integer()
+            .references(() => files.id, { onDelete: 'cascade' })
+            .notNull(),
+        userId: d
+            .text()
+            .references(() => users.id, { onDelete: 'cascade' })
+            .notNull(),
+        content: d.text().notNull(),
+        type: d.text().default('general'), // e.g., 'mention', 'comment', etc.
+        read: d.boolean().default(false),
+        createdAt: d.timestamp().notNull().defaultNow(),
+        updatedAt: d.timestamp().defaultNow(),
+    }),
+    (t) => [
+        index('notification_user_idx').on(t.userId),
+        index('notification_type_idx').on(t.type),
+        index('notification_read_idx').on(t.read),
     ]
 )
 
@@ -224,6 +293,17 @@ export type Message = {
     updatedAt: Date | null
 }
 
+export type Comment = {
+    id: number
+    fileId: number
+    userId: string
+    content: string
+    parentId: number | null
+    isResolved: boolean
+    createdAt: Date
+    updatedAt: Date | null
+}
+
 export type FilePermission = {
     id: number
     fileId: number
@@ -235,12 +315,24 @@ export type FilePermission = {
 
 export type SharePermission = 'view' | 'edit' | 'comment'
 
+export type Notification = {
+    id: number
+    pageId: number
+    userId: string
+    content: string
+    type: string
+    read: boolean
+    createdAt: Date
+    updatedAt: Date | null
+}
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
     filePermissions: many(filePermissions),
     createdFiles: many(files, { relationName: 'createdFiles' }),
     updatedFiles: many(files, { relationName: 'updatedFiles' }),
     messages: many(messages),
+    comments: many(comments),
 }))
 
 export const filesRelations = relations(files, ({ one, many }) => ({
@@ -254,6 +346,7 @@ export const filesRelations = relations(files, ({ one, many }) => ({
     sheetContent: one(sheetContent),
     filePermissions: many(filePermissions),
     messages: many(messages),
+    comments: many(comments),
     createdBy: one(users, {
         fields: [files.createdBy],
         references: [users.id],
@@ -302,5 +395,33 @@ export const messagesRelations = relations(messages, ({ one }) => ({
     user: one(users, {
         fields: [messages.userId],
         references: [users.id],
+    }),
+}))
+
+export const commentsRelations = relations(comments, ({ one, many }) => ({
+    file: one(files, {
+        fields: [comments.fileId],
+        references: [files.id],
+    }),
+    user: one(users, {
+        fields: [comments.userId],
+        references: [users.id],
+    }),
+    parent: one(comments, {
+        fields: [comments.parentId],
+        references: [comments.id],
+        relationName: 'commentThread',
+    }),
+    replies: many(comments, { relationName: 'commentThread' }),
+}))
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+    user: one(users, {
+        fields: [notifications.userId],
+        references: [users.id],
+    }),
+    page: one(files, {
+        fields: [notifications.pageId],
+        references: [files.id],
     }),
 }))
