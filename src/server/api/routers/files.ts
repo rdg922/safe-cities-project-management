@@ -10,6 +10,7 @@ import {
     files,
     pageContent,
     sheetContent,
+    forms,
     FILE_TYPES,
     type FileType,
     users,
@@ -18,7 +19,7 @@ import {
 } from '~/server/db/schema'
 
 export const filesRouter = createTRPCRouter({
-    // Create a new file (page, sheet, or folder)
+    // Create a new file (page, sheet, folder, or form)
     create: protectedProcedure
         .input(
             z.object({
@@ -27,6 +28,7 @@ export const filesRouter = createTRPCRouter({
                     FILE_TYPES.PAGE,
                     FILE_TYPES.SHEET,
                     FILE_TYPES.FOLDER,
+                    FILE_TYPES.FORM,
                 ]),
                 parentId: z.number().optional(),
                 slug: z.string().optional(),
@@ -67,6 +69,23 @@ export const filesRouter = createTRPCRouter({
                     fileId: file.id,
                     content: '[]', // Empty sheet data
                     schema: null,
+                    version: 1,
+                })
+            }
+
+            // If it's a form, create the form record
+            if (input.type === FILE_TYPES.FORM && file) {
+                await ctx.db.insert(forms).values({
+                    fileId: file.id,
+                    title: input.name,
+                    description: null,
+                    isPublished: false,
+                    allowAnonymous: true,
+                    requireLogin: false,
+                    acceptingResponses: true,
+                    showProgressBar: true,
+                    shuffleQuestions: false,
+                    oneResponsePerUser: false,
                     version: 1,
                 })
             }

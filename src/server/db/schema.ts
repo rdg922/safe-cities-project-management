@@ -55,9 +55,27 @@ export const FILE_TYPES = {
     FOLDER: 'folder',
     PAGE: 'page',
     SHEET: 'sheet',
+    FORM: 'form',
 } as const
 
 export type FileType = (typeof FILE_TYPES)[keyof typeof FILE_TYPES]
+
+// Form field data types
+export const FORM_FIELD_TYPES = [
+    'text',
+    'email',
+    'number',
+    'date',
+    'select',
+    'multiselect',
+    'radio',
+    'checkbox',
+    'textarea',
+    'file',
+] as const
+
+export const formFieldTypeSchema = z.enum(FORM_FIELD_TYPES)
+export const formFieldTypesEnum = pgEnum('form_field_type', FORM_FIELD_TYPES)
 
 // Unified files table: handles hierarchical structure for pages, sheets, and folders
 export const files = createTable(
@@ -125,6 +143,114 @@ export const sheetContent = createTable(
     (t) => [index('sheet_content_file_idx').on(t.fileId)]
 )
 
+// Form definitions: stores form configuration and metadata
+export const forms = createTable(
+    'form',
+    (d) => ({
+        id: d.serial().primaryKey(),
+        fileId: d
+            .integer()
+            .references(() => files.id, { onDelete: 'cascade' })
+            .notNull()
+            .unique(),
+        title: d.varchar({ length: 256 }).notNull(),
+        description: d.text(),
+        isPublished: d.boolean().default(false),
+        allowAnonymous: d.boolean().default(true),
+        requireLogin: d.boolean().default(false),
+        acceptingResponses: d.boolean().default(true),
+        showProgressBar: d.boolean().default(true),
+        shuffleQuestions: d.boolean().default(false),
+        oneResponsePerUser: d.boolean().default(false),
+        version: d.integer().default(1),
+        createdAt: d.timestamp().notNull().defaultNow(),
+        updatedAt: d.timestamp().defaultNow(),
+    }),
+    (t) => [
+        index('form_file_idx').on(t.fileId),
+        index('form_published_idx').on(t.isPublished),
+    ]
+)
+
+// Form fields: defines the questions and their configuration
+export const formFields = createTable(
+    'form_field',
+    (d) => ({
+        id: d.serial().primaryKey(),
+        formId: d
+            .integer()
+            .references(() => forms.id, { onDelete: 'cascade' })
+            .notNull(),
+        label: d.varchar({ length: 512 }).notNull(),
+        description: d.text(),
+        type: formFieldTypesEnum('type').notNull(),
+        required: d.boolean().default(false),
+        order: d.integer().default(0),
+        options: d.text(), // JSON string for select/radio/checkbox options
+        validation: d.text(), // JSON string for validation rules (min/max length, pattern, etc.)
+        placeholder: d.varchar({ length: 256 }),
+        defaultValue: d.text(),
+        createdAt: d.timestamp().notNull().defaultNow(),
+        updatedAt: d.timestamp().defaultNow(),
+    }),
+    (t) => [
+        index('form_field_form_idx').on(t.formId),
+        index('form_field_order_idx').on(t.formId, t.order),
+    ]
+)
+
+// Form submissions: tracks when users submit a form
+export const formSubmissions = createTable(
+    'form_submission',
+    (d) => ({
+        id: d.serial().primaryKey(),
+        formId: d
+            .integer()
+            .references(() => forms.id, { onDelete: 'cascade' })
+            .notNull(),
+        userId: d.text().references(() => users.id, { onDelete: 'set null' }), // nullable for anonymous submissions
+        submitterEmail: d.varchar({ length: 256 }), // for anonymous submissions
+        submitterName: d.varchar({ length: 256 }), // for anonymous submissions
+        ipAddress: d.varchar({ length: 45 }), // for tracking (IPv4/IPv6)
+        userAgent: d.text(), // browser info
+        createdAt: d.timestamp().notNull().defaultNow(),
+        updatedAt: d.timestamp().defaultNow(),
+    }),
+    (t) => [
+        index('form_submission_form_idx').on(t.formId),
+        index('form_submission_user_idx').on(t.userId),
+        index('form_submission_created_idx').on(t.createdAt),
+    ]
+)
+
+// Form responses: stores individual field answers for each submission
+export const formResponses = createTable(
+    'form_response',
+    (d) => ({
+        id: d.serial().primaryKey(),
+        submissionId: d
+            .integer()
+            .references(() => formSubmissions.id, { onDelete: 'cascade' })
+            .notNull(),
+        fieldId: d
+            .integer()
+            .references(() => formFields.id, { onDelete: 'cascade' })
+            .notNull(),
+        value: d.text(), // JSON string for complex values (arrays, objects)
+        textValue: d.text(), // text representation for easy searching/filtering
+        numericValue: d.numeric({ precision: 20, scale: 6 }), // for numeric fields
+        dateValue: d.timestamp(), // for date fields
+        createdAt: d.timestamp().notNull().defaultNow(),
+    }),
+    (t) => [
+        index('form_response_submission_idx').on(t.submissionId),
+        index('form_response_field_idx').on(t.fieldId),
+        index('form_response_text_idx').on(t.textValue),
+        index('form_response_numeric_idx').on(t.numericValue),
+        index('form_response_date_idx').on(t.dateValue),
+    ]
+)
+
 // Users table: sync with Clerk upon first sign up
 export const users = createTable('user', (d) => ({
     name: d.text().notNull(), // Clerk profile name
@@ -165,11 +291,9 @@ export const comments = createTable(
             .references(() => users.id, { onDelete: 'cascade' })
             .notNull(),
         content: d.text().notNull(), // Rich text content (HTML or JSON)
-        parentId: d
-            .integer()
-            .references((): AnyPgColumn => comments.id, {
-                onDelete: 'cascade',
-            }), // For threaded comments/replies
+        parentId: d.integer().references((): AnyPgColumn => comments.id, {
+            onDelete: 'cascade',
+        }), // For threaded comments/replies
         isResolved: d.boolean().default(false), // For marking comments as resolved
         createdAt: d.timestamp().notNull().defaultNow(),
         updatedAt: d.timestamp().defaultNow(),
@@ -277,6 +401,62 @@ export type SheetContent = {
     updatedAt: Date | null
 }
 
+export type Form = {
+    id: number
+    fileId: number
+    title: string
+    description: string | null
+    isPublished: boolean
+    allowAnonymous: boolean
+    requireLogin: boolean
+    acceptingResponses: boolean
+    showProgressBar: boolean
+    shuffleQuestions: boolean
+    oneResponsePerUser: boolean
+    version: number
+    createdAt: Date
+    updatedAt: Date | null
+}
+
+export type FormField = {
+    id: number
+    formId: number
+    label: string
+    description: string | null
+    type: (typeof FORM_FIELD_TYPES)[number]
+    required: boolean
+    order: number
+    options: string | null // JSON string
+    validation: string | null // JSON string
+    placeholder: string | null
+    defaultValue: string | null
+    createdAt: Date
+    updatedAt: Date | null
+}
+
+export type FormSubmission = {
+    id: number
+    formId: number
+    userId: string | null
+    submitterEmail: string | null
+    submitterName: string | null
+    ipAddress: string | null
+    userAgent: string | null
+    createdAt: Date
+    updatedAt: Date | null
+}
+
+export type FormResponse = {
+    id: number
+    submissionId: number
+    fieldId: number
+    value: string | null // JSON string
+    textValue: string | null
+    numericValue: string | null
+    dateValue: Date | null
+    createdAt: Date
+}
+
 export type User = {
     id: string
     email: string
@@ -333,6 +513,7 @@ export const usersRelations = relations(users, ({ many }) => ({
     updatedFiles: many(files, { relationName: 'updatedFiles' }),
     messages: many(messages),
     comments: many(comments),
+    formSubmissions: many(formSubmissions),
 }))
 
 export const filesRelations = relations(files, ({ one, many }) => ({
@@ -344,6 +525,7 @@ export const filesRelations = relations(files, ({ one, many }) => ({
     children: many(files, { relationName: 'fileHierarchy' }),
     pageContent: one(pageContent),
     sheetContent: one(sheetContent),
+    form: one(forms),
     filePermissions: many(filePermissions),
     messages: many(messages),
     comments: many(comments),
@@ -423,5 +605,49 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     page: one(files, {
         fields: [notifications.pageId],
         references: [files.id],
+    }),
+}))
+
+// Form relations
+export const formsRelations = relations(forms, ({ one, many }) => ({
+    file: one(files, {
+        fields: [forms.fileId],
+        references: [files.id],
+    }),
+    fields: many(formFields),
+    submissions: many(formSubmissions),
+}))
+
+export const formFieldsRelations = relations(formFields, ({ one, many }) => ({
+    form: one(forms, {
+        fields: [formFields.formId],
+        references: [forms.id],
+    }),
+    responses: many(formResponses),
+}))
+
+export const formSubmissionsRelations = relations(
+    formSubmissions,
+    ({ one, many }) => ({
+        form: one(forms, {
+            fields: [formSubmissions.formId],
+            references: [forms.id],
+        }),
+        user: one(users, {
+            fields: [formSubmissions.userId],
+            references: [users.id],
+        }),
+        responses: many(formResponses),
+    })
+)
+
+export const formResponsesRelations = relations(formResponses, ({ one }) => ({
+    submission: one(formSubmissions, {
+        fields: [formResponses.submissionId],
+        references: [formSubmissions.id],
+    }),
+    field: one(formFields, {
+        fields: [formResponses.fieldId],
+        references: [formFields.id],
     }),
 }))

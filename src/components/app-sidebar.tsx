@@ -8,6 +8,7 @@ import {
     FolderPlus,
     FileText,
     Sheet,
+    ClipboardList,
 } from 'lucide-react'
 import Link from 'next/link'
 import { redirect, usePathname } from 'next/navigation'
@@ -66,7 +67,9 @@ export function AppSidebar() {
     const pathname = usePathname()
     const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false)
     const [newFileName, setNewFileName] = useState('')
-    const [newFileType, setNewFileType] = useState<'page' | 'sheet'>('page')
+    const [newFileType, setNewFileType] = useState<'page' | 'sheet' | 'form'>(
+        'page'
+    )
 
     // Get current user from Clerk
     const { user: clerkUser, isLoaded: isUserLoaded } = useUser()
@@ -104,6 +107,8 @@ export function AppSidebar() {
                 window.location.href = `/pages/${data.id}`
             } else if (data && data.type === FILE_TYPES.SHEET) {
                 window.location.href = `/sheets/${data.id}`
+            } else if (data && data.type === FILE_TYPES.FORM) {
+                window.location.href = `/forms/${data.id}`
             }
         },
     })
@@ -136,7 +141,6 @@ export function AppSidebar() {
             refetchFileTree()
         },
     })
-
 
     const handleAddFile = () => {
         if (!newFileName.trim()) return
@@ -232,6 +236,18 @@ export function AppSidebar() {
                                         <Sheet size={16} className="mr-2" />
                                         New Sheet
                                     </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            setNewFileType('form')
+                                            setIsNewFileDialogOpen(true)
+                                        }}
+                                    >
+                                        <ClipboardList
+                                            size={16}
+                                            className="mr-2"
+                                        />
+                                        New Form
+                                    </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </DialogTrigger>
@@ -239,7 +255,11 @@ export function AppSidebar() {
                             <DialogHeader>
                                 <DialogTitle>
                                     Create New{' '}
-                                    {newFileType === 'page' ? 'Page' : 'Sheet'}
+                                    {newFileType === 'page'
+                                        ? 'Page'
+                                        : newFileType === 'sheet'
+                                          ? 'Sheet'
+                                          : 'Form'}
                                 </DialogTitle>
                                 <DialogDescription>
                                     Add a new {newFileType} to the system.
@@ -250,7 +270,9 @@ export function AppSidebar() {
                                     <Label htmlFor="file-name">
                                         {newFileType === 'page'
                                             ? 'Page'
-                                            : 'Sheet'}{' '}
+                                            : newFileType === 'sheet'
+                                              ? 'Sheet'
+                                              : 'Form'}{' '}
                                         Name
                                     </Label>
                                     <Input
@@ -274,7 +296,11 @@ export function AppSidebar() {
                                 </Button>
                                 <Button onClick={handleAddFile}>
                                     Create{' '}
-                                    {newFileType === 'page' ? 'Page' : 'Sheet'}
+                                    {newFileType === 'page'
+                                        ? 'Page'
+                                        : newFileType === 'sheet'
+                                          ? 'Sheet'
+                                          : 'Form'}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -334,8 +360,6 @@ export function AppSidebar() {
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
-
-
                 </SidebarHeader>
                 <SidebarSeparator />
                 <SidebarContent>
