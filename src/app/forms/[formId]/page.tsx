@@ -91,8 +91,9 @@ export default function FormView() {
                 savingStatus="idle"
             />
 
-            <div className="flex-1 overflow-hidden">
-                <div className="h-full p-6">
+            <div className="flex-1 flex flex-col overflow-auto">
+                {/* Fixed header section with form title and tabs */}
+                <div className="flex-none border-b bg-background p-6 pb-0">
                     <div className="mb-6 flex items-center justify-between">
                         <div>
                             <h1 className="text-2xl font-bold">
@@ -138,7 +139,7 @@ export default function FormView() {
                     <Tabs
                         value={activeTab}
                         onValueChange={setActiveTab}
-                        className="h-full"
+                        className="flex flex-col h-full"
                     >
                         <TabsList className="grid w-full grid-cols-4">
                             <TabsTrigger
@@ -171,147 +172,216 @@ export default function FormView() {
                             </TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="builder" className="mt-6 h-full">
-                            {canEdit ? (
-                                <FormBuilder
-                                    form={formData}
-                                    onUpdate={() => refetch()}
-                                />
-                            ) : (
-                                <div className="flex h-full items-center justify-center">
-                                    <p className="text-muted-foreground">
-                                        You don't have permission to edit this
-                                        form
-                                    </p>
-                                </div>
-                            )}
-                        </TabsContent>
+                        {/* Scrollable content area */}
+                        <div className="flex-1 overflow-hidden">
+                            <div className="h-full overflow-y-auto">
+                                <TabsContent
+                                    value="builder"
+                                    className="mt-0 p-6 pb-12"
+                                >
+                                    {canEdit ? (
+                                        <FormBuilder
+                                            form={{
+                                                ...formData,
+                                                fields: formData.fields.map(
+                                                    (field) => ({
+                                                        ...field,
+                                                        required:
+                                                            field.required ??
+                                                            false,
+                                                        order: field.order ?? 0,
+                                                    })
+                                                ),
+                                            }}
+                                            onUpdate={() => refetch()}
+                                        />
+                                    ) : (
+                                        <div className="flex h-64 items-center justify-center">
+                                            <p className="text-muted-foreground">
+                                                You don't have permission to
+                                                edit this form
+                                            </p>
+                                        </div>
+                                    )}
+                                </TabsContent>
 
-                        <TabsContent value="preview" className="mt-6 h-full">
-                            <FormPreview
-                                form={{
-                                    ...formData,
-                                    isPublished: formData.isPublished ?? false,
-                                    acceptingResponses:
-                                        formData.acceptingResponses ?? false,
-                                    showProgressBar:
-                                        formData.showProgressBar ?? false,
-                                    allowAnonymous:
-                                        formData.allowAnonymous ?? false,
-                                    oneResponsePerUser:
-                                        formData.oneResponsePerUser ?? false,
-                                }}
-                            />
-                        </TabsContent>
+                                <TabsContent
+                                    value="preview"
+                                    className="mt-0 p-6 pb-12"
+                                >
+                                    <FormPreview
+                                        form={{
+                                            id: formData.id,
+                                            title: formData.title,
+                                            description: formData.description,
+                                            showProgressBar:
+                                                formData.showProgressBar ??
+                                                false,
+                                            fields: formData.fields.map(
+                                                (field) => ({
+                                                    id: field.id,
+                                                    label: field.label,
+                                                    description:
+                                                        field.description,
+                                                    type: field.type,
+                                                    required:
+                                                        field.required ?? false,
+                                                    order: field.order ?? 0,
+                                                    options: field.options,
+                                                    validation:
+                                                        field.validation,
+                                                    placeholder:
+                                                        field.placeholder,
+                                                    defaultValue:
+                                                        field.defaultValue,
+                                                })
+                                            ),
+                                        }}
+                                    />
+                                </TabsContent>
 
-                        <TabsContent
-                            value="analytics"
-                            className="mt-6 space-y-6"
-                        >
-                            <div className="grid gap-6 md:grid-cols-3">
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="text-sm font-medium">
-                                            Total Responses
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="text-2xl font-bold">
-                                            {stats?.totalSubmissions || 0}
+                                <TabsContent
+                                    value="analytics"
+                                    className="mt-0 space-y-6 p-6 pb-12"
+                                >
+                                    <div className="grid gap-6 md:grid-cols-3">
+                                        <Card>
+                                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                                <CardTitle className="text-sm font-medium">
+                                                    Total Responses
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="text-2xl font-bold">
+                                                    {stats?.totalSubmissions ||
+                                                        0}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                        <Card>
+                                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                                <CardTitle className="text-sm font-medium">
+                                                    Form Fields
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="text-2xl font-bold">
+                                                    {formData.fields.length}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                        <Card>
+                                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                                <CardTitle className="text-sm font-medium">
+                                                    Completion Rate
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="text-2xl font-bold">
+                                                    {formData.fields.length > 0
+                                                        ? '100%'
+                                                        : '0%'}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+
+                                    {submissions && submissions.length > 0 && (
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle>
+                                                    Recent Submissions
+                                                </CardTitle>
+                                                <CardDescription>
+                                                    Latest responses to your
+                                                    form
+                                                </CardDescription>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="space-y-4">
+                                                    {submissions
+                                                        .slice(0, 5)
+                                                        .map((submission) => (
+                                                            <div
+                                                                key={
+                                                                    submission.id
+                                                                }
+                                                                className="flex items-center justify-between border-b pb-2"
+                                                            >
+                                                                <div>
+                                                                    <p className="font-medium">
+                                                                        {submission
+                                                                            .user
+                                                                            ?.name ||
+                                                                            submission.submitterName ||
+                                                                            'Anonymous'}
+                                                                    </p>
+                                                                    <p className="text-sm text-muted-foreground">
+                                                                        {new Date(
+                                                                            submission.createdAt
+                                                                        ).toLocaleString()}
+                                                                    </p>
+                                                                </div>
+                                                                <Badge variant="outline">
+                                                                    {
+                                                                        submission
+                                                                            .responses
+                                                                            .length
+                                                                    }{' '}
+                                                                    responses
+                                                                </Badge>
+                                                            </div>
+                                                        ))}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    )}
+                                </TabsContent>
+
+                                <TabsContent
+                                    value="settings"
+                                    className="mt-0 p-6 pb-12"
+                                >
+                                    {canEdit ? (
+                                        <FormSettings
+                                            form={{
+                                                ...formData,
+                                                isPublished:
+                                                    formData.isPublished ??
+                                                    false,
+                                                acceptingResponses:
+                                                    formData.acceptingResponses ??
+                                                    false,
+                                                showProgressBar:
+                                                    formData.showProgressBar ??
+                                                    false,
+                                                allowAnonymous:
+                                                    formData.allowAnonymous ??
+                                                    false,
+                                                requireLogin:
+                                                    formData.requireLogin ??
+                                                    false,
+                                                oneResponsePerUser:
+                                                    formData.oneResponsePerUser ??
+                                                    false,
+                                                file: {
+                                                    id: formData.file.id,
+                                                    name: formData.file.name,
+                                                },
+                                            }}
+                                            onUpdate={() => refetch()}
+                                        />
+                                    ) : (
+                                        <div className="flex h-full items-center justify-center">
+                                            <p className="text-muted-foreground">
+                                                You don't have permission to
+                                                modify settings
+                                            </p>
                                         </div>
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="text-sm font-medium">
-                                            Form Fields
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="text-2xl font-bold">
-                                            {formData.fields.length}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="text-sm font-medium">
-                                            Completion Rate
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="text-2xl font-bold">
-                                            {formData.fields.length > 0
-                                                ? '100%'
-                                                : '0%'}
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                    )}
+                                </TabsContent>
                             </div>
-
-                            {submissions && submissions.length > 0 && (
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>
-                                            Recent Submissions
-                                        </CardTitle>
-                                        <CardDescription>
-                                            Latest responses to your form
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-4">
-                                            {submissions
-                                                .slice(0, 5)
-                                                .map((submission) => (
-                                                    <div
-                                                        key={submission.id}
-                                                        className="flex items-center justify-between border-b pb-2"
-                                                    >
-                                                        <div>
-                                                            <p className="font-medium">
-                                                                {submission.user
-                                                                    ?.name ||
-                                                                    submission.submitterName ||
-                                                                    'Anonymous'}
-                                                            </p>
-                                                            <p className="text-sm text-muted-foreground">
-                                                                {new Date(
-                                                                    submission.createdAt
-                                                                ).toLocaleString()}
-                                                            </p>
-                                                        </div>
-                                                        <Badge variant="outline">
-                                                            {
-                                                                submission
-                                                                    .responses
-                                                                    .length
-                                                            }{' '}
-                                                            responses
-                                                        </Badge>
-                                                    </div>
-                                                ))}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
-                        </TabsContent>
-
-                        <TabsContent value="settings" className="mt-6">
-                            {canEdit ? (
-                                <FormSettings
-                                    form={formData}
-                                    onUpdate={() => refetch()}
-                                />
-                            ) : (
-                                <div className="flex h-full items-center justify-center">
-                                    <p className="text-muted-foreground">
-                                        You don't have permission to modify
-                                        settings
-                                    </p>
-                                </div>
-                            )}
-                        </TabsContent>
+                        </div>
                     </Tabs>
                 </div>
             </div>

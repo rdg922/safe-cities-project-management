@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import { toast } from '~/hooks/use-toast'
 import { api } from '~/trpc/react'
@@ -19,15 +19,6 @@ import {
 } from '~/components/ui/select'
 import { Badge } from '~/components/ui/badge'
 import { Separator } from '~/components/ui/separator'
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '~/components/ui/dialog'
 import {
     Plus,
     GripVertical,
@@ -99,9 +90,9 @@ const FIELD_TYPE_LABELS = {
 }
 
 export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
-    const [isAddFieldDialogOpen, setIsAddFieldDialogOpen] = useState(false)
-    const [editingField, setEditingField] = useState<any | null>(null)
-    const [newFieldType, setNewFieldType] = useState<string>('text')
+    const [editingFieldId, setEditingFieldId] = useState<number | null>(null)
+    const [isAddingField, setIsAddingField] = useState(false)
+    const editorRef = useRef<HTMLDivElement>(null)
 
     // Field form state
     const [fieldForm, setFieldForm] = useState({
@@ -115,12 +106,26 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
         validation: {},
     })
 
+    const containerRef = useRef<HTMLDivElement>(null)
+
+    // Auto-scroll to field editor when it appears
+    useEffect(() => {
+        if ((isAddingField || editingFieldId) && editorRef.current) {
+            setTimeout(() => {
+                editorRef.current?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                })
+            }, 100)
+        }
+    }, [isAddingField, editingFieldId])
+
     // Mutations
     const addFieldMutation = api.forms.addField.useMutation({
         onSuccess: () => {
             toast({ title: 'Field added successfully' })
             onUpdate()
-            setIsAddFieldDialogOpen(false)
+            setIsAddingField(false)
             resetFieldForm()
         },
         onError: (error) => {
@@ -136,7 +141,7 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
         onSuccess: () => {
             toast({ title: 'Field updated successfully' })
             onUpdate()
-            setEditingField(null)
+            setEditingFieldId(null)
             resetFieldForm()
         },
         onError: (error) => {
@@ -220,10 +225,10 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
     }
 
     const handleUpdateField = () => {
-        if (!editingField || !fieldForm.label.trim()) return
+        if (!editingFieldId || !fieldForm.label.trim()) return
 
         const fieldData = {
-            fieldId: editingField.id,
+            fieldId: editingFieldId,
             label: fieldForm.label,
             description: fieldForm.description || undefined,
             type: fieldForm.type as any,
@@ -245,7 +250,8 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
     }
 
     const handleEditField = (field: any) => {
-        setEditingField(field)
+        setEditingFieldId(field.id)
+        setIsAddingField(false)
         setFieldForm({
             label: field.label,
             description: field.description || '',
@@ -256,6 +262,18 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
             options: field.options || [],
             validation: field.validation || {},
         })
+    }
+
+    const handleAddNewField = () => {
+        setIsAddingField(true)
+        setEditingFieldId(null)
+        resetFieldForm()
+    }
+
+    const handleCancelEdit = () => {
+        setEditingFieldId(null)
+        setIsAddingField(false)
+        resetFieldForm()
     }
 
     const handleDragEnd = (result: any) => {
@@ -310,17 +328,223 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
         'checkbox',
     ].includes(fieldForm.type)
 
+    const renderFieldEditor = () => {
+        return (
+            <Card
+                ref={editorRef}
+                className="border-dashed border-2 border-primary/50 bg-primary/5"
+            >
+                <CardHeader>
+                    <CardTitle className="text-lg">
+                        {editingFieldId ? 'Edit Field' : 'Add New Field'}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="field-label">Label *</Label>
+                            <Input
+                                id="field-label"
+                                value={fieldForm.label}
+                                onChange={(e) =>
+                                    setFieldForm((prev) => ({
+                                        ...prev,
+                                        label: e.target.value,
+                                    }))
+                                }
+                                placeholder="Enter field label"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="field-type">Type</Label>
+                            <Select
+                                value={fieldForm.type}
+                                onValueChange={(value: string) =>
+                                    setFieldForm((prev) => ({
+                                        ...prev,
+                                        type: value,
+                                    }))
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {FORM_FIELD_TYPES.map((type) => (
+                                        <SelectItem key={type} value={type}>
+                                            {
+                                                FIELD_TYPE_LABELS[
+                                                    type as keyof typeof FIELD_TYPE_LABELS
+                                                ]
+                                            }
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="field-description">Description</Label>
+                        <Input
+                            id="field-description"
+                            value={fieldForm.description}
+                            onChange={(e) =>
+                                setFieldForm((prev) => ({
+                                    ...prev,
+                                    description: e.target.value,
+                                }))
+                            }
+                            placeholder="Optional description or help text"
+                        />
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="field-placeholder">
+                                Placeholder
+                            </Label>
+                            <Input
+                                id="field-placeholder"
+                                value={fieldForm.placeholder}
+                                onChange={(e) =>
+                                    setFieldForm((prev) => ({
+                                        ...prev,
+                                        placeholder: e.target.value,
+                                    }))
+                                }
+                                placeholder="Placeholder text"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="field-default">Default Value</Label>
+                            <Input
+                                id="field-default"
+                                value={fieldForm.defaultValue}
+                                onChange={(e) =>
+                                    setFieldForm((prev) => ({
+                                        ...prev,
+                                        defaultValue: e.target.value,
+                                    }))
+                                }
+                                placeholder="Default value"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                        <Switch
+                            id="field-required"
+                            checked={fieldForm.required}
+                            onCheckedChange={(checked: boolean) =>
+                                setFieldForm((prev) => ({
+                                    ...prev,
+                                    required: checked,
+                                }))
+                            }
+                        />
+                        <Label htmlFor="field-required">Required field</Label>
+                    </div>
+
+                    {needsOptions && (
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <Label>Options</Label>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={addOption}
+                                >
+                                    <Plus size={14} className="mr-1" />
+                                    Add Option
+                                </Button>
+                            </div>
+                            <div className="space-y-2">
+                                {fieldForm.options.map((option, index) => (
+                                    <div
+                                        key={index}
+                                        className="flex items-center gap-2"
+                                    >
+                                        <Input
+                                            placeholder="Option value"
+                                            value={option.value}
+                                            onChange={(e) =>
+                                                updateOption(
+                                                    index,
+                                                    'value',
+                                                    e.target.value
+                                                )
+                                            }
+                                        />
+                                        <Input
+                                            placeholder="Option label"
+                                            value={option.label}
+                                            onChange={(e) =>
+                                                updateOption(
+                                                    index,
+                                                    'label',
+                                                    e.target.value
+                                                )
+                                            }
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removeOption(index)}
+                                        >
+                                            <Trash2 size={14} />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-4">
+                        <Button
+                            onClick={
+                                editingFieldId
+                                    ? handleUpdateField
+                                    : handleAddField
+                            }
+                            disabled={!fieldForm.label.trim()}
+                        >
+                            {editingFieldId ? 'Update Field' : 'Add Field'}
+                        </Button>
+                        <Button variant="outline" onClick={handleCancelEdit}>
+                            Cancel
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        )
+    }
+
+    // Auto-scroll to editor when adding or editing a field
+    useEffect(() => {
+        if (isAddingField || editingFieldId) {
+            const container = containerRef.current
+            if (container) {
+                container.scrollIntoView({ behavior: 'smooth' })
+            }
+        }
+    }, [isAddingField, editingFieldId])
+
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 min-h-0" ref={containerRef}>
             <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Form Fields</h2>
-                <Button onClick={() => setIsAddFieldDialogOpen(true)}>
-                    <Plus size={16} className="mr-2" />
-                    Add Field
-                </Button>
+                {!isAddingField && !editingFieldId && (
+                    <Button onClick={handleAddNewField}>
+                        <Plus size={16} className="mr-2" />
+                        Add Field
+                    </Button>
+                )}
             </div>
 
-            {form.fields.length === 0 ? (
+            {form.fields.length === 0 && !isAddingField ? (
                 <Card>
                     <CardContent className="flex h-32 items-center justify-center">
                         <div className="text-center">
@@ -330,7 +554,7 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
                             <Button
                                 variant="outline"
                                 className="mt-2"
-                                onClick={() => setIsAddFieldDialogOpen(true)}
+                                onClick={handleAddNewField}
                             >
                                 Add your first field
                             </Button>
@@ -351,328 +575,144 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
                                         FIELD_TYPE_ICONS[
                                             field.type as keyof typeof FIELD_TYPE_ICONS
                                         ] || Type
+                                    const isEditing =
+                                        editingFieldId === field.id
+
                                     return (
-                                        <Draggable
-                                            key={field.id}
-                                            draggableId={field.id.toString()}
-                                            index={index}
-                                        >
-                                            {(provided) => (
-                                                <Card
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                    className="relative"
+                                        <div key={field.id}>
+                                            {!isEditing ? (
+                                                <Draggable
+                                                    draggableId={field.id.toString()}
+                                                    index={index}
                                                 >
-                                                    <CardHeader className="pb-3">
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="flex items-center gap-3">
-                                                                <div
-                                                                    {...provided.dragHandleProps}
-                                                                    className="cursor-grab text-muted-foreground hover:text-foreground"
-                                                                >
-                                                                    <GripVertical
-                                                                        size={
-                                                                            16
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                                <IconComponent
-                                                                    size={16}
-                                                                    className="text-muted-foreground"
-                                                                />
-                                                                <div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <h3 className="font-medium">
-                                                                            {
-                                                                                field.label
+                                                    {(provided) => (
+                                                        <Card
+                                                            ref={
+                                                                provided.innerRef
+                                                            }
+                                                            {...provided.draggableProps}
+                                                            className="relative hover:shadow-md transition-shadow"
+                                                        >
+                                                            <CardHeader className="pb-3">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div
+                                                                            {...provided.dragHandleProps}
+                                                                            className="cursor-grab text-muted-foreground hover:text-foreground"
+                                                                        >
+                                                                            <GripVertical
+                                                                                size={
+                                                                                    16
+                                                                                }
+                                                                            />
+                                                                        </div>
+                                                                        <IconComponent
+                                                                            size={
+                                                                                16
                                                                             }
-                                                                        </h3>
-                                                                        {field.required && (
-                                                                            <Badge
-                                                                                variant="secondary"
-                                                                                className="text-xs"
-                                                                            >
-                                                                                Required
-                                                                            </Badge>
-                                                                        )}
+                                                                            className="text-muted-foreground"
+                                                                        />
+                                                                        <div>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <h3 className="font-medium">
+                                                                                    {
+                                                                                        field.label
+                                                                                    }
+                                                                                </h3>
+                                                                                {field.required && (
+                                                                                    <Badge
+                                                                                        variant="secondary"
+                                                                                        className="text-xs"
+                                                                                    >
+                                                                                        Required
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
+                                                                            <p className="text-sm text-muted-foreground">
+                                                                                {
+                                                                                    FIELD_TYPE_LABELS[
+                                                                                        field.type as keyof typeof FIELD_TYPE_LABELS
+                                                                                    ]
+                                                                                }
+                                                                                {field.description &&
+                                                                                    ` • ${field.description}`}
+                                                                            </p>
+                                                                        </div>
                                                                     </div>
-                                                                    <p className="text-sm text-muted-foreground">
-                                                                        {
-                                                                            FIELD_TYPE_LABELS[
-                                                                                field.type as keyof typeof FIELD_TYPE_LABELS
-                                                                            ]
-                                                                        }
-                                                                        {field.description &&
-                                                                            ` • ${field.description}`}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() =>
-                                                                        handleEditField(
-                                                                            field
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Edit2
-                                                                        size={
-                                                                            14
-                                                                        }
-                                                                    />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() =>
-                                                                        deleteFieldMutation.mutate(
-                                                                            {
-                                                                                fieldId:
-                                                                                    field.id,
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={() =>
+                                                                                handleEditField(
+                                                                                    field
+                                                                                )
                                                                             }
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Trash2
-                                                                        size={
-                                                                            14
-                                                                        }
-                                                                    />
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    </CardHeader>
-                                                </Card>
+                                                                        >
+                                                                            <Edit2
+                                                                                size={
+                                                                                    14
+                                                                                }
+                                                                            />
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={() =>
+                                                                                deleteFieldMutation.mutate(
+                                                                                    {
+                                                                                        fieldId:
+                                                                                            field.id,
+                                                                                    }
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            <Trash2
+                                                                                size={
+                                                                                    14
+                                                                                }
+                                                                            />
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            </CardHeader>
+                                                        </Card>
+                                                    )}
+                                                </Draggable>
+                                            ) : (
+                                                renderFieldEditor()
                                             )}
-                                        </Draggable>
+                                        </div>
                                     )
                                 })}
                                 {provided.placeholder}
+
+                                {/* Add field editor at the bottom */}
+                                {isAddingField && renderFieldEditor()}
+
+                                {/* Add field button when not adding/editing */}
+                                {!isAddingField &&
+                                    !editingFieldId &&
+                                    form.fields.length > 0 && (
+                                        <div className="flex justify-center pt-4">
+                                            <Button
+                                                variant="outline"
+                                                onClick={handleAddNewField}
+                                                className="border-dashed border-2 w-full max-w-sm h-16 text-muted-foreground hover:text-foreground hover:border-solid"
+                                            >
+                                                <Plus
+                                                    size={20}
+                                                    className="mr-2"
+                                                />
+                                                Add Field
+                                            </Button>
+                                        </div>
+                                    )}
                             </div>
                         )}
                     </Droppable>
                 </DragDropContext>
             )}
-
-            {/* Add/Edit Field Dialog */}
-            <Dialog
-                open={isAddFieldDialogOpen || !!editingField}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setIsAddFieldDialogOpen(false)
-                        setEditingField(null)
-                        resetFieldForm()
-                    }
-                }}
-            >
-                <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>
-                            {editingField ? 'Edit Field' : 'Add New Field'}
-                        </DialogTitle>
-                        <DialogDescription>
-                            Configure the field properties and validation rules
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
-                                <Label htmlFor="field-label">Label *</Label>
-                                <Input
-                                    id="field-label"
-                                    value={fieldForm.label}
-                                    onChange={(e) =>
-                                        setFieldForm((prev) => ({
-                                            ...prev,
-                                            label: e.target.value,
-                                        }))
-                                    }
-                                    placeholder="Enter field label"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="field-type">Type</Label>
-                                <Select
-                                    value={fieldForm.type}
-                                    onValueChange={(value) =>
-                                        setFieldForm((prev) => ({
-                                            ...prev,
-                                            type: value,
-                                        }))
-                                    }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {FORM_FIELD_TYPES.map((type) => (
-                                            <SelectItem key={type} value={type}>
-                                                {
-                                                    FIELD_TYPE_LABELS[
-                                                        type as keyof typeof FIELD_TYPE_LABELS
-                                                    ]
-                                                }
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="field-description">
-                                Description
-                            </Label>
-                            <Input
-                                id="field-description"
-                                value={fieldForm.description}
-                                onChange={(e) =>
-                                    setFieldForm((prev) => ({
-                                        ...prev,
-                                        description: e.target.value,
-                                    }))
-                                }
-                                placeholder="Optional description or help text"
-                            />
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
-                                <Label htmlFor="field-placeholder">
-                                    Placeholder
-                                </Label>
-                                <Input
-                                    id="field-placeholder"
-                                    value={fieldForm.placeholder}
-                                    onChange={(e) =>
-                                        setFieldForm((prev) => ({
-                                            ...prev,
-                                            placeholder: e.target.value,
-                                        }))
-                                    }
-                                    placeholder="Placeholder text"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="field-default">
-                                    Default Value
-                                </Label>
-                                <Input
-                                    id="field-default"
-                                    value={fieldForm.defaultValue}
-                                    onChange={(e) =>
-                                        setFieldForm((prev) => ({
-                                            ...prev,
-                                            defaultValue: e.target.value,
-                                        }))
-                                    }
-                                    placeholder="Default value"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                            <Switch
-                                id="field-required"
-                                checked={fieldForm.required}
-                                onCheckedChange={(checked) =>
-                                    setFieldForm((prev) => ({
-                                        ...prev,
-                                        required: checked,
-                                    }))
-                                }
-                            />
-                            <Label htmlFor="field-required">
-                                Required field
-                            </Label>
-                        </div>
-
-                        {needsOptions && (
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <Label>Options</Label>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={addOption}
-                                    >
-                                        <Plus size={14} className="mr-1" />
-                                        Add Option
-                                    </Button>
-                                </div>
-                                <div className="space-y-2">
-                                    {fieldForm.options.map((option, index) => (
-                                        <div
-                                            key={index}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <Input
-                                                placeholder="Option value"
-                                                value={option.value}
-                                                onChange={(e) =>
-                                                    updateOption(
-                                                        index,
-                                                        'value',
-                                                        e.target.value
-                                                    )
-                                                }
-                                            />
-                                            <Input
-                                                placeholder="Option label"
-                                                value={option.label}
-                                                onChange={(e) =>
-                                                    updateOption(
-                                                        index,
-                                                        'label',
-                                                        e.target.value
-                                                    )
-                                                }
-                                            />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() =>
-                                                    removeOption(index)
-                                                }
-                                            >
-                                                <Trash2 size={14} />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                setIsAddFieldDialogOpen(false)
-                                setEditingField(null)
-                                resetFieldForm()
-                            }}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={
-                                editingField
-                                    ? handleUpdateField
-                                    : handleAddField
-                            }
-                            disabled={!fieldForm.label.trim()}
-                        >
-                            {editingField ? 'Update Field' : 'Add Field'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     )
 }
