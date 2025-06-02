@@ -23,6 +23,7 @@ import {
     getAccessibleFiles,
     getUsersWithFileAccess,
 } from '~/lib/permissions-simple'
+import { rebuildEffectivePermissionsForUser } from '~/lib/permissions-optimized'
 
 export const filesRouter = createTRPCRouter({
     // Create a new file (page, sheet, folder, or form)
@@ -94,6 +95,37 @@ export const filesRouter = createTRPCRouter({
                     oneResponsePerUser: false,
                     version: 1,
                 })
+            }
+
+            // Rebuild effective permissions for users who have access to the parent folder
+            // This ensures that inherited permissions are properly calculated for the new file
+            if (file && input.parentId) {
+                try {
+                    // Get all users who have permissions on the parent folder
+                    const parentPermissions =
+                        await ctx.db.query.effectivePermissions.findMany({
+                            where: eq(
+                                effectivePermissions.fileId,
+                                input.parentId
+                            ),
+                            columns: { userId: true },
+                        })
+
+                    const uniqueUserIds = [
+                        ...new Set(parentPermissions.map((p) => p.userId)),
+                    ]
+
+                    // Rebuild effective permissions for each user to include the new file
+                    for (const userId of uniqueUserIds) {
+                        await rebuildEffectivePermissionsForUser(userId)
+                    }
+                } catch (error) {
+                    console.error(
+                        'Error rebuilding effective permissions for new file:',
+                        error
+                    )
+                    // Don't fail the file creation if permission cache update fails
+                }
             }
 
             return file

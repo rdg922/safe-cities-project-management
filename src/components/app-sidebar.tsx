@@ -26,6 +26,8 @@ import {
 } from 'lucide-react'
 import { FileTree, type FileNode } from '~/components/file-tree'
 import { api } from '~/trpc/react'
+import { invalidatePermissionCaches } from '~/lib/cache-invalidation'
+import { ultraFastFileCreationInvalidation } from '~/lib/cache-invalidation-ultra-fast'
 import { useUser } from '@clerk/nextjs'
 import {
     Sidebar,
@@ -83,7 +85,7 @@ export function AppSidebar() {
         refetch: refetchFileTree,
     } = api.files.getFilteredFileTree.useQuery(undefined, {
         staleTime: 10 * 60 * 1000, // 10 minutes - don't refetch unless absolutely necessary
-        cacheTime: 15 * 60 * 1000, // 15 minutes - keep in memory
+        gcTime: 15 * 60 * 1000, // 15 minutes - keep in memory (renamed from cacheTime in newer React Query)
         refetchOnWindowFocus: false, // Don't refetch when window gets focus
         refetchOnMount: false, // Don't refetch when component mounts if we have cached data
         refetchOnReconnect: false, // Don't refetch when network reconnects
@@ -113,8 +115,8 @@ export function AppSidebar() {
         onSuccess: async (data) => {
             setNewFileName('')
             setIsNewFileDialogOpen(false)
-            // Invalidate cache instead of manual refetch for better performance
-            await utils.files.getFilteredFileTree.invalidate()
+            // Invalidate both file and permission caches for new file creation
+            await ultraFastFileCreationInvalidation(utils)
 
             // Navigate to the new file using client-side navigation to preserve cache
             if (data && data.type === FILE_TYPES.PAGE) {
@@ -132,8 +134,8 @@ export function AppSidebar() {
         onSuccess: async () => {
             setNewFolderName('')
             setIsNewFolderDialogOpen(false)
-            // Invalidate cache instead of manual refetch
-            await utils.files.getFilteredFileTree.invalidate()
+            // Invalidate both file and permission caches for new folder creation
+            await ultraFastFileCreationInvalidation(utils)
         },
     })
 

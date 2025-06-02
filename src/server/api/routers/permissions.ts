@@ -7,6 +7,8 @@ import {
     files,
     users,
     notifications,
+    effectivePermissions,
+    type SharePermission,
 } from '~/server/db/schema'
 import {
     setFilePermission,
@@ -21,6 +23,18 @@ import {
     quickPermissionCheck,
     batchPermissionCheck,
 } from '~/lib/permissions-simple'
+import {
+    getFileDescendantsFast,
+    invalidatePermissionCache,
+} from '~/lib/permissions-optimized'
+import {
+    superFastPermissionCheck,
+    ultraFastBatchCheck,
+    invalidateSpecificPermission,
+    invalidateUserPermissions,
+    asyncRebuildEffectivePermissions,
+    clearAllPermissionCaches,
+} from '~/lib/permissions-ultra-fast'
 import { TRPCError } from '@trpc/server'
 
 export const permissionsRouter = createTRPCRouter({
@@ -139,15 +153,63 @@ export const permissionsRouter = createTRPCRouter({
             return await getFilePermissions(input.fileId)
         }),
 
-    // Get user's permission for a specific file
+    // Get all permissions for a file including inherited permissions
+    getFilePermissionsWithInherited: protectedProcedure
+        .input(z.object({ fileId: z.number() }))
+        .query(async ({ ctx, input }) => {
+            const { userId } = ctx.auth
+
+            // Check if user has at least view permission
+            const canView = await hasPermission(userId, input.fileId, 'view')
+            if (!canView) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'You do not have permission to view this file',
+                })
+            }
+
+            // Get direct permissions
+            const directPermissions = await getFilePermissions(input.fileId)
+
+            // Get inherited permissions using effective permissions table
+            const inheritedPermissions =
+                await ctx.db.query.effectivePermissions.findMany({
+                    where: and(
+                        eq(effectivePermissions.fileId, input.fileId),
+                        eq(effectivePermissions.isDirect, false)
+                    ),
+                    with: {
+                        user: {
+                            columns: {
+                                id: true,
+                                name: true,
+                                email: true,
+                            },
+                        },
+                        sourceFile: {
+                            columns: {
+                                id: true,
+                                name: true,
+                            },
+                        },
+                    },
+                })
+
+            return {
+                directPermissions,
+                inheritedPermissions,
+            }
+        }),
+
+    // Get user's permission for a specific file (ultra-fast)
     getUserPermission: protectedProcedure
         .input(z.object({ fileId: z.number() }))
         .query(async ({ ctx, input }) => {
             const { userId } = ctx.auth
-            return await getUserFilePermission(userId, input.fileId)
+            return await superFastPermissionCheck(userId, input.fileId)
         }),
 
-    // Check if user has specific permission
+    // Check if user has specific permission (ultra-fast)
     checkPermission: protectedProcedure
         .input(
             z.object({
@@ -157,10 +219,15 @@ export const permissionsRouter = createTRPCRouter({
         )
         .query(async ({ ctx, input }) => {
             const { userId } = ctx.auth
-            return await hasPermission(userId, input.fileId, input.permission)
+            const result = await superFastPermissionCheck(
+                userId,
+                input.fileId,
+                input.permission
+            )
+            return result !== null
         }),
 
-    // Get all files user has access to (for file tree filtering)
+    // Get all files user has access to (ultra-fast for file tree filtering)
     getUserAccessibleFiles: protectedProcedure.query(async ({ ctx }) => {
         const { userId } = ctx.auth
 
@@ -170,8 +237,8 @@ export const permissionsRouter = createTRPCRouter({
         })
         const fileIds = allFiles.map((f) => f.id)
 
-        // Use optimized batch permission check
-        const permissions = await batchPermissionCheck(userId, fileIds)
+        // Use ultra-fast batch permission check
+        const permissions = await ultraFastBatchCheck(userId, fileIds)
 
         const accessibleFileIds: number[] = []
         permissions.forEach((permission, fileId) => {
@@ -183,19 +250,99 @@ export const permissionsRouter = createTRPCRouter({
         return accessibleFileIds
     }),
 
-    // Check if user can share a file (has edit permission anywhere in hierarchy)
+    // Check if user can share a file (has edit permission) - ultra-fast
     canShareFile: protectedProcedure
         .input(z.object({ fileId: z.number() }))
         .query(async ({ ctx, input }) => {
             const { userId } = ctx.auth
-            return await quickPermissionCheck(userId, input.fileId, 'edit')
+            const result = await superFastPermissionCheck(
+                userId,
+                input.fileId,
+                'edit'
+            )
+            return result !== null
         }),
 
-    // Check if user can edit a file (has edit permission anywhere in hierarchy)
+    // Check if user can edit a file (has edit permission) - ultra-fast
     canEditFile: protectedProcedure
         .input(z.object({ fileId: z.number() }))
         .query(async ({ ctx, input }) => {
             const { userId } = ctx.auth
-            return await quickPermissionCheck(userId, input.fileId, 'edit')
+            const result = await superFastPermissionCheck(
+                userId,
+                input.fileId,
+                'edit'
+            )
+            return result !== null
+        }),
+
+    // Batch permission check for multiple files (ultra-fast)
+    batchCheckPermissions: protectedProcedure
+        .input(
+            z.object({
+                fileIds: z.array(z.number()),
+            })
+        )
+        .query(async ({ ctx, input }) => {
+            const { userId } = ctx.auth
+
+            // Use the ultra-fast batch permission check
+            const permissions = await ultraFastBatchCheck(userId, input.fileIds)
+
+            // Transform the Map to an object that can be serialized
+            const result: Record<
+                number,
+                {
+                    userPermission: SharePermission | null
+                    canEdit: boolean
+                    canShare: boolean
+                }
+            > = {}
+
+            permissions.forEach((permission, fileId) => {
+                result[fileId] = {
+                    userPermission: permission,
+                    canEdit: permission === 'edit',
+                    canShare: permission === 'edit', // Only edit permission allows sharing
+                }
+            })
+
+            return result
+        }),
+
+    // Minimal cache invalidation for specific permission changes (ultra-fast)
+    invalidatePermissionCachesWithDescendants: protectedProcedure
+        .input(z.object({ fileId: z.number() }))
+        .mutation(async ({ ctx, input }) => {
+            const { userId } = ctx.auth
+
+            // Check if user has edit permission on this file
+            const canEdit = await superFastPermissionCheck(
+                userId,
+                input.fileId,
+                'edit'
+            )
+            if (!canEdit) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message:
+                        'You do not have permission to manage permissions for this file',
+                })
+            }
+
+            // Get all descendant files
+            const descendants = await getFileDescendantsFast(input.fileId)
+
+            // Minimal cache invalidation - clear all caches (ultra-fast operation)
+            clearAllPermissionCaches()
+
+            // Start async rebuild in background (non-blocking)
+            asyncRebuildEffectivePermissions(input.fileId)
+
+            return {
+                success: true,
+                invalidatedFiles: [input.fileId, ...descendants],
+                message: `Minimal cache invalidation completed for ${descendants.length + 1} files`,
+            }
         }),
 })

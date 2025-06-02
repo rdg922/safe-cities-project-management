@@ -16,6 +16,21 @@ export function invalidateFileCaches(utils: ReturnType<typeof api.useUtils>) {
 }
 
 /**
+ * Invalidate all caches when a new file is created
+ * This includes both file and permission caches since new files affect the tree structure
+ */
+export function invalidateFileCreationCaches(
+    utils: ReturnType<typeof api.useUtils>
+) {
+    return Promise.all([
+        utils.files.getFilteredFileTree.invalidate(),
+        utils.files.getFileTree.invalidate(),
+        utils.permissions.batchCheckPermissions.invalidate(),
+        utils.permissions.getUserAccessibleFiles.invalidate(),
+    ])
+}
+
+/**
  * Invalidate all permission-related caches for specific files
  */
 export function invalidatePermissionCaches(
@@ -28,6 +43,7 @@ export function invalidatePermissionCaches(
         utils.permissions.canShareFile.invalidate(),
         utils.permissions.getUserAccessibleFiles.invalidate(),
         utils.permissions.getFilePermissions.invalidate(),
+        utils.permissions.getFilePermissionsWithInherited.invalidate(),
     ]
 
     if (fileIds && fileIds.length > 0) {
@@ -37,7 +53,10 @@ export function invalidatePermissionCaches(
                 utils.permissions.getUserPermission.invalidate({ fileId }),
                 utils.permissions.canEditFile.invalidate({ fileId }),
                 utils.permissions.canShareFile.invalidate({ fileId }),
-                utils.permissions.getFilePermissions.invalidate({ fileId })
+                utils.permissions.getFilePermissions.invalidate({ fileId }),
+                utils.permissions.getFilePermissionsWithInherited.invalidate({
+                    fileId,
+                })
             )
         })
     }
@@ -59,6 +78,45 @@ export function invalidateAllPermissionCaches(
         // Invalidate permission caches
         invalidatePermissionCaches(utils, fileId ? [fileId] : undefined),
     ])
+}
+
+/**
+ * Invalidate permission caches for a file and all its descendants
+ * This should be called when a file's permission changes since it affects inherited permissions
+ */
+export async function invalidatePermissionCachesWithDescendants(
+    utils: ReturnType<typeof api.useUtils>,
+    fileId: number
+) {
+    try {
+        // Invalidate client-side caches including descendant files
+        await Promise.all([
+            // Invalidate file tree since permissions affect visibility
+            invalidateFileCaches(utils),
+            // Invalidate all permission caches broadly to ensure descendant permissions are refreshed
+            invalidatePermissionCaches(utils),
+            // Also invalidate batch permission checks which might be cached
+            utils.permissions.batchCheckPermissions.invalidate(),
+            // Invalidate specific permission endpoints that are affected by descendant changes
+            utils.permissions.getUserAccessibleFiles.invalidate(),
+            utils.permissions.getFilePermissionsWithInherited.invalidate(),
+        ])
+
+        console.log(
+            `✅ Invalidated permission caches for file ${fileId} and its descendants`
+        )
+        return {
+            success: true,
+            message: `Invalidated permission caches for file ${fileId} and its descendants`,
+        }
+    } catch (error) {
+        console.error(
+            'Error invalidating permission caches with descendants:',
+            error
+        )
+        // Fallback to regular permission cache invalidation
+        return invalidateAllPermissionCaches(utils, fileId)
+    }
 }
 
 /**

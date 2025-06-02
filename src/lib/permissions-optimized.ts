@@ -96,16 +96,16 @@ export async function getFileDescendantsFast(
     const result = await db.execute(sql`
         WITH RECURSIVE file_descendants AS (
             -- Base case: direct children
-            SELECT id, parent_id
-            FROM ${files}
-            WHERE parent_id = ${fileId}
+            SELECT id, "parentId"
+            FROM "safe-cities-project-management-v2_file"
+            WHERE "parentId" = ${fileId}
             
             UNION ALL
             
             -- Recursive case: children of children
-            SELECT f.id, f.parent_id
-            FROM ${files} f
-            INNER JOIN file_descendants fd ON f.parent_id = fd.id
+            SELECT f.id, f."parentId"
+            FROM "safe-cities-project-management-v2_file" f
+            INNER JOIN file_descendants fd ON f."parentId" = fd.id
         )
         SELECT id FROM file_descendants
     `)
@@ -168,8 +168,8 @@ export async function rebuildEffectivePermissionsForUser(userId: string) {
                             ELSE excluded.permission 
                         END`,
                         updatedAt: new Date(),
-                        isDirect: sql`CASE WHEN ${fileId === directPerm.fileId} THEN true ELSE excluded.is_direct END`,
-                        sourceFileId: sql`CASE WHEN ${fileId === directPerm.fileId} THEN ${directPerm.fileId} ELSE excluded.source_file_id END`,
+                        isDirect: sql`excluded."isDirect"`,
+                        sourceFileId: sql`excluded."sourceFileId"`,
                     },
                 })
         }
