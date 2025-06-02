@@ -126,6 +126,9 @@ html, body {
   max-width: 100%;
   height: auto;
   margin: 1em 0;
+  image-rendering: auto;
+  image-rendering: crisp-edges;
+  image-rendering: high-quality;
 }
 
 /* Blockquotes */
