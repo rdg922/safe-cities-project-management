@@ -1,5 +1,6 @@
 import type { Attrs, Node } from "@tiptap/pm/model"
 import type { Editor } from "@tiptap/react"
+import { uploadImageToSupabase } from "../../@/utils/supabase/uploadImage"
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
@@ -149,21 +150,14 @@ export const handleImageUpload = async (
       `File size exceeds maximum allowed (${MAX_FILE_SIZE / (1024 * 1024)}MB)`
     )
   }
-
-  // For demo/testing: Simulate upload progress
-  for (let progress = 0; progress <= 100; progress += 10) {
-    if (abortSignal?.aborted) {
-      throw new Error("Upload cancelled")
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    onProgress?.({ progress })
-  }
-
-  return "/images/placeholder-image.png"
-
+  
   // Uncomment for production use:
   // return convertFileToBase64(file, abortSignal);
+  return uploadImageToSupabase(file, onProgress, abortSignal)
+
+  // I don't know what the above comment means, so I will not uncomment it.
 }
+
 
 /**
  * Converts a File to base64 string
