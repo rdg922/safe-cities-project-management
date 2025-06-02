@@ -9,6 +9,7 @@ import { Input } from "~/components/ui/input"
 import { cn } from "~/lib/utils"
 import { api } from "~/trpc/react"
 import { Button } from "~/components/ui/button"
+import { Badge } from "~/components/ui/badge"
 
 export const AssignableTaskItemComponent = (props: any) => {
   const [isHovered, setIsHovered] = React.useState(false)
@@ -57,15 +58,26 @@ export const AssignableTaskItemComponent = (props: any) => {
       
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button 
-            className={cn(
-              "task-item-assign-button",
-              (isHovered || assignedTo) && "visible",
-              !isHovered && !assignedTo && "invisible"
-            )}
-          >
-            {assignedTo ? assignedToName : "Assign"}
-          </button>
+          {assignedTo ? (
+            <Badge 
+              variant="secondary"
+              className={cn(
+                "task-item-assign-badge",
+                (isHovered || assignedTo) && "visible"
+              )}
+            >
+              {assignedToName}
+            </Badge>
+          ) : (
+            <Button 
+              className={cn(
+                "task-item-assign-button",
+                (isHovered || assignedTo) && "visible"
+              )}
+            >
+              Assign
+            </Button>
+          )}
         </DropdownMenuTrigger>
         <DropdownMenuContent className="task-item-assign-dropdown" align="end">
           <div className="task-item-assign-search p-2">
