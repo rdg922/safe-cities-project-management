@@ -7,6 +7,7 @@ import {
     customType,
     type AnyPgColumn,
     pgEnum,
+    unique,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { z } from 'zod'
@@ -103,6 +104,10 @@ export const files = createTable(
         index('file_parent_idx').on(t.parentId),
         index('file_type_idx').on(t.type),
         index('file_slug_idx').on(t.slug),
+        // Add optimized composite indices for hierarchy traversal
+        index('file_parent_type_idx').on(t.parentId, t.type),
+        index('file_created_by_idx').on(t.createdBy),
+        index('file_updated_by_idx').on(t.updatedBy),
     ]
 )
 
@@ -327,6 +332,44 @@ export const filePermissions = createTable(
         index('file_permission_file_idx').on(t.fileId),
         index('file_permission_user_idx').on(t.userId),
         index('file_permission_file_user_idx').on(t.fileId, t.userId),
+        // Add optimized composite indices for better performance
+        index('file_permission_user_file_perm_idx').on(
+            t.userId,
+            t.fileId,
+            t.permission
+        ),
+        index('file_permission_file_perm_idx').on(t.fileId, t.permission),
+    ]
+)
+
+// Effective permissions cache: pre-computed permissions including inheritance
+export const effectivePermissions = createTable(
+    'effective_permission',
+    (d) => ({
+        id: d.serial().primaryKey(),
+        userId: d
+            .text()
+            .references(() => users.id, { onDelete: 'cascade' })
+            .notNull(),
+        fileId: d
+            .integer()
+            .references(() => files.id, { onDelete: 'cascade' })
+            .notNull(),
+        permission: permissionsEnum('permission').notNull(),
+        // Track if this is a direct permission or inherited
+        isDirect: d.boolean().default(false),
+        // Track the source file ID for inherited permissions
+        sourceFileId: d.integer().references(() => files.id),
+        createdAt: d.timestamp().notNull().defaultNow(),
+        updatedAt: d.timestamp().defaultNow(),
+    }),
+    (t) => [
+        // Unique constraint to prevent duplicate entries
+        unique('eff_perm_user_file_unique').on(t.userId, t.fileId),
+        index('eff_perm_file_idx').on(t.fileId),
+        index('eff_perm_user_idx').on(t.userId),
+        index('eff_perm_user_perm_idx').on(t.userId, t.permission),
+        index('eff_perm_source_file_idx').on(t.sourceFileId),
     ]
 )
 
@@ -551,6 +594,25 @@ export const filePermissionsRelations = relations(
         user: one(users, {
             fields: [filePermissions.userId],
             references: [users.id],
+        }),
+    })
+)
+
+export const effectivePermissionsRelations = relations(
+    effectivePermissions,
+    ({ one }) => ({
+        user: one(users, {
+            fields: [effectivePermissions.userId],
+            references: [users.id],
+        }),
+        file: one(files, {
+            fields: [effectivePermissions.fileId],
+            references: [files.id],
+        }),
+        sourceFile: one(files, {
+            fields: [effectivePermissions.sourceFileId],
+            references: [files.id],
+            relationName: 'sourceFilePermission',
         }),
     })
 )

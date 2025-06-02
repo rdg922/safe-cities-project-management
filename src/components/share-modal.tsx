@@ -18,6 +18,7 @@ import {
 } from '~/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '~/components/ui/avatar'
 import { api } from '~/trpc/react'
+import { invalidateAllPermissionCaches } from '~/lib/cache-invalidation'
 
 type SharePermission = 'view' | 'edit' | 'comment'
 
@@ -60,10 +61,9 @@ export function ShareModal({
     // Get all users from the database
     const { data: allUsers = [], isLoading } = api.user.getAllUsers.useQuery()
 
-    // Get existing file permissions
+    // Get existing file permissions with caching
     const {
         data: filePermissions = [],
-        refetch: refetchPermissions,
         isLoading: isLoadingPermissions,
     } = api.permissions.getFilePermissions.useQuery(
         { fileId },
@@ -73,34 +73,36 @@ export function ShareModal({
                 fileId != null &&
                 typeof fileId === 'number' &&
                 fileId > 0,
+            staleTime: 5 * 60 * 1000, // 5 minutes
+            cacheTime: 10 * 60 * 1000, // 10 minutes
             refetchOnWindowFocus: false,
-            refetchOnMount: true,
+            refetchOnMount: false,
+            refetchOnReconnect: false,
         }
     )
+
+    // Get utils for cache invalidation
+    const utils = api.useUtils()
 
     // tRPC mutations for permission management
     const setPermissionMutation = api.permissions.setPermission.useMutation({
         onSuccess: () => {
-            refetchPermissions()
+            // Use cache invalidation instead of manual refetch
+            invalidateAllPermissionCaches(utils, fileId)
         },
         onError: (error) => {
             console.error('Error setting permission:', error)
-        },
-        onSettled: () => {
-            // Ensure loading states are cleared even if there's an error
         },
     })
 
     const removePermissionMutation =
         api.permissions.removePermission.useMutation({
             onSuccess: () => {
-                refetchPermissions()
+                // Use cache invalidation instead of manual refetch
+                invalidateAllPermissionCaches(utils, fileId)
             },
             onError: (error) => {
                 console.error('Error removing permission:', error)
-            },
-            onSettled: () => {
-                // Ensure loading states are cleared even if there's an error
             },
         })
 

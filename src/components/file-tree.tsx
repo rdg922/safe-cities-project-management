@@ -197,21 +197,40 @@ function FileTreeNode({
     const { toast } = useToast()
 
     // Permissions - Get user's permission for this file using the hierarchical permission system
+    // Use aggressive caching since permissions don't change frequently
     const { data: userPermission } = api.permissions.getUserPermission.useQuery(
         { fileId: node.id },
-        { enabled: !!node.id }
+        {
+            enabled: !!node.id,
+            staleTime: 5 * 60 * 1000, // 5 minutes
+            cacheTime: 10 * 60 * 1000, // 10 minutes
+            refetchOnWindowFocus: false,
+            refetchOnMount: false,
+        }
     )
 
     // Check if user can share this file (has edit permission anywhere in hierarchy)
     const { data: canShareFile } = api.permissions.canShareFile.useQuery(
         { fileId: node.id },
-        { enabled: !!node.id }
+        {
+            enabled: !!node.id,
+            staleTime: 5 * 60 * 1000, // 5 minutes
+            cacheTime: 10 * 60 * 1000, // 10 minutes
+            refetchOnWindowFocus: false,
+            refetchOnMount: false,
+        }
     )
 
     // Check if user can edit this file (has edit permission anywhere in hierarchy)
     const { data: canEditFile } = api.permissions.canEditFile.useQuery(
         { fileId: node.id },
-        { enabled: !!node.id }
+        {
+            enabled: !!node.id,
+            staleTime: 5 * 60 * 1000, // 5 minutes
+            cacheTime: 10 * 60 * 1000, // 10 minutes
+            refetchOnWindowFocus: false,
+            refetchOnMount: false,
+        }
     )
 
     // Permission checks based on hierarchical permission levels

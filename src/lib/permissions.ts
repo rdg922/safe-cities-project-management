@@ -6,6 +6,7 @@ import {
     users,
     type SharePermission,
 } from '~/server/db/schema'
+import { invalidatePermissionCache } from './permissions-optimized'
 
 // Permission hierarchy: edit > comment > view
 const PERMISSION_HIERARCHY = {
@@ -140,9 +141,10 @@ export async function setFilePermission(
         ),
     })
 
+    let result
     if (existing) {
         // Update existing permission
-        return await db
+        result = await db
             .update(filePermissions)
             .set({
                 permission,
@@ -157,7 +159,7 @@ export async function setFilePermission(
             .returning()
     } else {
         // Create new permission
-        return await db
+        result = await db
             .insert(filePermissions)
             .values({
                 fileId,
@@ -166,13 +168,18 @@ export async function setFilePermission(
             })
             .returning()
     }
+
+    // Invalidate permission cache for this user
+    await invalidatePermissionCache(fileId, userId)
+
+    return result
 }
 
 /**
  * Removes permission for a user on a specific file
  */
 export async function removeFilePermission(fileId: number, userId: string) {
-    return await db
+    const result = await db
         .delete(filePermissions)
         .where(
             and(
@@ -181,6 +188,11 @@ export async function removeFilePermission(fileId: number, userId: string) {
             )
         )
         .returning()
+
+    // Invalidate permission cache for this user
+    await invalidatePermissionCache(fileId, userId)
+
+    return result
 }
 
 /**
