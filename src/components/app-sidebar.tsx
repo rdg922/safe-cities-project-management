@@ -464,6 +464,10 @@ export function AppSidebar() {
                                                     node.type === 'sheet'
                                                 ) {
                                                     window.location.href = `/sheets/${id}`
+                                                } else if (
+                                                    node.type === 'form'
+                                                ) {
+                                                    window.location.href = `/forms/${id}`
                                                 }
                                             }
                                         }}
@@ -594,6 +598,11 @@ export function AppSidebar() {
                                         onCreateSheet={(parentId) => {
                                             setSelectedParentId(parentId)
                                             setNewFileType('sheet')
+                                            setIsNewFileDialogOpen(true)
+                                        }}
+                                        onCreateForm={(parentId) => {
+                                            setSelectedParentId(parentId)
+                                            setNewFileType('form')
                                             setIsNewFileDialogOpen(true)
                                         }}
                                         onCreateFolder={(parentId) => {

@@ -291,7 +291,7 @@ export const formsRouter = createTRPCRouter({
             })
         )
         .mutation(async ({ ctx, input }) => {
-            const { userId } = ctx.auth
+            const { userId } = ctx.auth!
 
             // Check if form exists and is accepting responses
             const form = await ctx.db.query.forms.findFirst({

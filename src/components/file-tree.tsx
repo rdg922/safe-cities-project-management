@@ -11,6 +11,7 @@ import {
     Trash2,
     Plus,
     AlertCircle,
+    ClipboardList,
     Sheet,
     Share2,
 } from 'lucide-react'
@@ -42,7 +43,7 @@ export type FileNode = {
     id: number
     filename: string
     name?: string // Some files might use 'name' instead of 'filename'
-    type?: 'folder' | 'page' | 'sheet'
+    type?: 'folder' | 'page' | 'sheet' | 'form'
     isFolder?: boolean
     parentId?: number | null
     children?: FileNode[]
@@ -57,24 +58,15 @@ interface FileTreeProps {
     onMove?: (dragId: number, dropId: number) => void
     onCreateFile?: (parentId: number | null) => void
     onCreateSheet?: (parentId: number | null) => void
+    onCreateForm?: (parentId: number | null) => void
     onCreateFolder?: (parentId: number | null) => void
     onRename?: (id: number, filename: string) => void
     onDelete?: (id: number) => void
 }
 
-interface FileTreeNodeProps {
+interface FileTreeNodeProps extends Omit<FileTreeProps, 'items'> {
     node: FileNode
     level: number
-    onSelectFile?: (fileId: number) => void
-    activeFileId?: number
-    selectedFileIds?: number[]
-    onMultiSelectFile?: (fileIds: number[]) => void
-    onMove?: (dragId: number, dropId: number) => void
-    onCreateFile?: (parentId: number | null) => void
-    onCreateSheet?: (parentId: number | null) => void
-    onCreateFolder?: (parentId: number | null) => void
-    onRename?: (id: number, filename: string) => void
-    onDelete?: (id: number) => void
 }
 
 export function FileTree(props: FileTreeProps) {
@@ -153,6 +145,7 @@ export function FileTree(props: FileTreeProps) {
                         onMove={props.onMove}
                         onCreateFile={props.onCreateFile}
                         onCreateSheet={props.onCreateSheet}
+                        onCreateForm={props.onCreateForm}
                         onCreateFolder={props.onCreateFolder}
                         onRename={props.onRename}
                         onDelete={props.onDelete}
@@ -179,6 +172,7 @@ function FileTreeNode({
     onCreateFile,
     onCreateSheet,
     onCreateFolder,
+    onCreateForm,
     onRename,
     onDelete,
 }: FileTreeNodeProps) {
@@ -449,6 +443,12 @@ function FileTreeNode({
             setIsExpanded(true) // Expand folder when creating new subfolder
         }
     }
+    const handleCreateForm = () => {
+        if (onCreateForm) {
+            onCreateForm(node.id)
+            setIsExpanded(true) // Expand folder when creating new form
+        }
+    }
 
     const handleRename = () => {
         setRenameValue(node.filename || node.name || '')
@@ -572,6 +572,16 @@ function FileTreeNode({
                                             onClick={(e) => {
                                                 e.preventDefault()
                                                 e.stopPropagation()
+                                                handleCreateForm()
+                                            }}
+                                        >
+                                            <Plus size={14} className="mr-2" />{' '}
+                                            New Form
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                e.stopPropagation()
                                                 handleCreateFolder()
                                             }}
                                         >
@@ -625,11 +635,22 @@ function FileTreeNode({
                 ) : (
                     <div className="flex items-center gap-1 flex-1 group">
                         <div className="ml-5 flex items-center">
-                            {node.type === 'sheet' ? (
-                                <Sheet className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
-                            ) : (
-                                <FileText className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
-                            )}
+                            {(() => {
+                                switch (node.type) {
+                                    case 'sheet':
+                                        return (
+                                            <Sheet className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
+                                        )
+                                    case 'form':
+                                        return (
+                                            <ClipboardList className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
+                                        )
+                                    default:
+                                        return (
+                                            <FileText className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
+                                        )
+                                }
+                            })()}
                         </div>
                         <span className="text-sm truncate flex-1">
                             {node.filename || node.name}
