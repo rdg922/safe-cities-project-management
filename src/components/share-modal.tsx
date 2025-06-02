@@ -62,24 +62,22 @@ export function ShareModal({
     const { data: allUsers = [], isLoading } = api.user.getAllUsers.useQuery()
 
     // Get existing file permissions with caching
-    const {
-        data: filePermissions = [],
-        isLoading: isLoadingPermissions,
-    } = api.permissions.getFilePermissions.useQuery(
-        { fileId },
-        {
-            enabled:
-                isOpen &&
-                fileId != null &&
-                typeof fileId === 'number' &&
-                fileId > 0,
-            staleTime: 5 * 60 * 1000, // 5 minutes
-            cacheTime: 10 * 60 * 1000, // 10 minutes
-            refetchOnWindowFocus: false,
-            refetchOnMount: false,
-            refetchOnReconnect: false,
-        }
-    )
+    const { data: filePermissions = [], isLoading: isLoadingPermissions } =
+        api.permissions.getFilePermissions.useQuery(
+            { fileId },
+            {
+                enabled:
+                    isOpen &&
+                    fileId != null &&
+                    typeof fileId === 'number' &&
+                    fileId > 0,
+                staleTime: 5 * 60 * 1000, // 5 minutes
+                cacheTime: 10 * 60 * 1000, // 10 minutes
+                refetchOnWindowFocus: false,
+                refetchOnMount: false,
+                refetchOnReconnect: false,
+            }
+        )
 
     // Get utils for cache invalidation
     const utils = api.useUtils()
