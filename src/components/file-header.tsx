@@ -15,9 +15,11 @@ import {
     PenSquare,
     Share2,
     Users,
+    Download,
 } from 'lucide-react'
 import { useChatToggle } from '~/hooks/use-chat-toggle'
 import { ShareModal } from '~/components/share-modal'
+import { downloadFile } from '~/utils/pdfExport.client'
 
 type Permission = 'view' | 'comment' | 'edit'
 
@@ -26,6 +28,7 @@ interface FileHeaderProps {
     fileId: number
     permission: Permission
     savingStatus?: 'saving' | 'saved' | 'idle'
+    content: string
 }
 
 const permissionIcons = {
@@ -45,9 +48,22 @@ export function FileHeader({
     fileId,
     permission,
     savingStatus = 'idle',
+    content,
 }: FileHeaderProps) {
     const { toggleChat } = useChatToggle({ pageTitle: filename })
     const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+
+    const handleDownload = async () => {
+        try {
+            // Get the actual content of the file
+            await downloadFile(content, `${filename}.pdf`)
+        } catch (error) {
+            console.error('Error downloading file:', error)
+            // You might want to show a toast notification here
+        }
+    }
+        
+
 
     return (
         <>
@@ -102,8 +118,14 @@ export function FileHeader({
                         <MessageSquare size={16} />
                         Chat
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal size={16} />
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-2"
+                        onClick={handleDownload}
+                    >
+                        <Download size={16} />
+                    Download
                     </Button>
                 </div>
             </div>
