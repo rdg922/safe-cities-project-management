@@ -1,12 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import {
-    Trash2,
-    Edit2,
-    MoreHorizontal,
-    FolderPlus,
-} from 'lucide-react'
+import { Trash2, Edit2, MoreHorizontal, FolderPlus } from 'lucide-react'
 import Link from 'next/link'
 import { redirect, usePathname, useRouter } from 'next/navigation'
 import {
@@ -59,7 +54,9 @@ export function AppSidebar() {
     const pathname = usePathname()
     const router = useRouter()
     const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false)
-    const [newFileDialogType, setNewFileDialogType] = useState<NewFileType | undefined>(undefined)
+    const [newFileDialogType, setNewFileDialogType] = useState<
+        NewFileType | undefined
+    >(undefined)
 
     // Get current user from Clerk
     const { user: clerkUser, isLoaded: isUserLoaded } = useUser()
@@ -82,9 +79,6 @@ export function AppSidebar() {
 
     const [activeFileId, setActiveFileId] = useState<number | undefined>()
     const [selectedFileIds, setSelectedFileIds] = useState<number[]>([])
-    const [selectedParentId, setSelectedParentId] = useState<number | null>(
-        null
-    )
 
     // Fetch current user profile from our database
     const { data: userProfile, isLoading: isUserProfileLoading } =
@@ -216,7 +210,6 @@ export function AppSidebar() {
                         onOpenChange={setIsNewFileDialogOpen}
                         fileType={newFileDialogType}
                         onCreateFile={handleCreateFile}
-                        parentId={selectedParentId}
                     />
                 </SidebarHeader>
                 <SidebarSeparator />
@@ -287,7 +280,9 @@ export function AppSidebar() {
                                     }}
                                 >
                                     <Plus size={16} />
-                                    <span className="sr-only">Add Programme</span>
+                                    <span className="sr-only">
+                                        Add Programme
+                                    </span>
                                 </SidebarGroupAction>
                                 {/* <SidebarGroupAction onClick={() => setIsNewPageDialogOpen(true)}>
                   <Plus size={16} />
@@ -448,26 +443,23 @@ export function AppSidebar() {
                                                     }
                                                 }
                                             }
-                                        }}                        onCreateFile={(parentId) => {
-                            setSelectedParentId(parentId)
-                            setNewFileDialogType('page')
-                            setIsNewFileDialogOpen(true)
-                        }}
-                        onCreateSheet={(parentId) => {
-                            setSelectedParentId(parentId)
-                            setNewFileDialogType('sheet')
-                            setIsNewFileDialogOpen(true)
-                        }}
-                        onCreateForm={(parentId) => {
-                            setSelectedParentId(parentId)
-                            setNewFileDialogType('form')
-                            setIsNewFileDialogOpen(true)
-                        }}
-                        onCreateFolder={(parentId) => {
-                            setSelectedParentId(parentId)
-                            setNewFileDialogType('folder')
-                            setIsNewFileDialogOpen(true)
-                        }}
+                                        }}
+                                        onCreateFile={(parentId) => {
+                                            setNewFileDialogType('page')
+                                            setIsNewFileDialogOpen(true)
+                                        }}
+                                        onCreateSheet={(parentId) => {
+                                            setNewFileDialogType('sheet')
+                                            setIsNewFileDialogOpen(true)
+                                        }}
+                                        onCreateForm={(parentId) => {
+                                            setNewFileDialogType('form')
+                                            setIsNewFileDialogOpen(true)
+                                        }}
+                                        onCreateFolder={(parentId) => {
+                                            setNewFileDialogType('folder')
+                                            setIsNewFileDialogOpen(true)
+                                        }}
                                         onRename={(id, filename) => {
                                             renameFileMutation.mutate(
                                                 { id, name: filename },

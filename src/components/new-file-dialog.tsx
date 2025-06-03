@@ -34,6 +34,8 @@ import {
     SelectValue,
 } from '~/components/ui/select'
 import { FILE_TYPES, type FileType } from '~/server/db/schema'
+import { FileTreeSelector } from '~/components/file-tree-selector'
+import { api } from '~/trpc/react'
 
 export type NewFileType = 'page' | 'sheet' | 'form' | 'folder' | 'programme'
 
@@ -46,7 +48,6 @@ interface NewFileDialogProps {
         type: FileType
         parentId?: number
     }) => void
-    parentId?: number | null
     defaultName?: string
 }
 
@@ -55,18 +56,25 @@ export function NewFileDialog({
     onOpenChange,
     fileType,
     onCreateFile,
-    parentId,
     defaultName = '',
 }: NewFileDialogProps) {
     const [selectedType, setSelectedType] = useState<NewFileType>(
         fileType || 'page'
     )
     const [fileName, setFileName] = useState(defaultName)
+    const [selectedParentId, setSelectedParentId] = useState<number | null>(
+        null
+    )
+
+    // Get file tree for parent selection
+    const { data: fileTree = [], isLoading: isLoadingFileTree } =
+        api.files.getFileTree.useQuery()
 
     // Reset state when dialog opens/closes or fileType changes
     useEffect(() => {
         if (open) {
             setFileName(defaultName)
+            setSelectedParentId(null)
             if (fileType) {
                 setSelectedType(fileType)
             }
@@ -75,6 +83,9 @@ export function NewFileDialog({
 
     const handleCreate = () => {
         if (!fileName.trim()) return
+        
+        // Only require parent selection for non-programme files
+        if (selectedType !== 'programme' && selectedParentId === null) return
 
         // Map our display types to schema types
         const typeMapping: Record<NewFileType, FileType> = {
@@ -88,11 +99,12 @@ export function NewFileDialog({
         onCreateFile({
             name: fileName,
             type: typeMapping[selectedType],
-            parentId: parentId || undefined,
+            parentId: selectedType === 'programme' ? undefined : selectedParentId ?? undefined,
         })
 
         // Reset form
         setFileName('')
+        setSelectedParentId(null)
         onOpenChange(false)
     }
 
@@ -145,10 +157,9 @@ export function NewFileDialog({
                             : 'Create New File'}
                     </DialogTitle>
                     <DialogDescription>
-                        {fileType 
-                            ? config.description 
-                            : 'Choose the type of file you want to create'
-                        }
+                        {fileType
+                            ? config.description
+                            : 'Choose the type of file you want to create'}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -189,6 +200,12 @@ export function NewFileDialog({
                                             Folder
                                         </div>
                                     </SelectItem>
+                                    <SelectItem value="programme">
+                                        <div className="flex items-center gap-2">
+                                            <Folder className="h-4 w-4 text-blue-600" />
+                                            Programme
+                                        </div>
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -202,11 +219,45 @@ export function NewFileDialog({
                             placeholder={config.placeholder}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
-                                    handleCreate()
+                                    // For programmes, no parent is required
+                                    // For other files, parent selection is required
+                                    if (selectedType === 'programme' || selectedParentId !== null) {
+                                        handleCreate()
+                                    }
                                 }
                             }}
                         />
                     </div>
+                    {/* Only show parent selection for non-programme files */}
+                    {selectedType !== 'programme' && (
+                        <div className="grid gap-2">
+                            <Label>Parent Location *</Label>
+                            {isLoadingFileTree ? (
+                                <div className="border rounded-md p-4 text-center text-muted-foreground">
+                                    Loading file tree...
+                                </div>
+                            ) : (
+                                <FileTreeSelector
+                                    files={fileTree}
+                                    selectedId={selectedParentId}
+                                    onSelect={setSelectedParentId}
+                                />
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                                Select a parent folder or programme for your new{' '}
+                                {config.title.toLowerCase()}. Only folders and
+                                programmes can contain other files.
+                            </p>
+                        </div>
+                    )}
+                    {/* Show information for programmes */}
+                    {selectedType === 'programme' && (
+                        <div className="grid gap-2">
+                            <p className="text-sm text-muted-foreground">
+                                Programmes are created at the root level and can contain folders and files.
+                            </p>
+                        </div>
+                    )}
                 </div>
                 <DialogFooter>
                     <Button
@@ -215,7 +266,13 @@ export function NewFileDialog({
                     >
                         Cancel
                     </Button>
-                    <Button onClick={handleCreate} disabled={!fileName.trim()}>
+                    <Button
+                        onClick={handleCreate}
+                        disabled={
+                            !fileName.trim() || 
+                            (selectedType !== 'programme' && selectedParentId === null)
+                        }
+                    >
                         Create {config.title}
                     </Button>
                 </DialogFooter>

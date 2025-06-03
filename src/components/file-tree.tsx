@@ -219,10 +219,14 @@ function FileTreeNode({
     // Configure drag source
     const [{ isDragging }, drag] = useDrag(() => ({
         type: node.isFolder ? ItemTypes.FOLDER : ItemTypes.FILE,
-        item: { 
-            id: node.id, 
+        item: {
+            id: node.id,
             type: node.isFolder ? 'folder' : 'file',
-            nodeType: node.type // Include the actual node type (programme, folder, etc.)
+            nodeType: node.type, // Include the actual node type (programme, folder, etc.)
+        },
+        canDrag: () => {
+            // Prevent programmes from being dragged
+            return node.type !== 'programme'
         },
         collect: (monitor) => ({
             isDragging: monitor.isDragging(),
@@ -237,12 +241,7 @@ function FileTreeNode({
             if (item.id === node.id || isParentOfChild(item.id, node)) {
                 return false
             }
-            
-            // Prevent programmes from being dragged into other programmes
-            if (item.nodeType === 'programme' && node.type === 'programme') {
-                return false
-            }
-            
+
             return true
         },
         hover: (item: any, monitor) => {
@@ -533,17 +532,22 @@ function FileTreeNode({
                             ) : (
                                 <ChevronRight className="h-4 w-4 mr-1 text-muted-foreground shrink-0" />
                             )}
-                            <Folder className={cn(
-                                "h-4 w-4 mr-2 shrink-0",
-                                node.type === 'programme' 
-                                    ? "text-blue-600 dark:text-blue-400" 
-                                    : "text-muted-foreground"
-                            )} />
+                            <Folder
+                                className={cn(
+                                    'h-4 w-4 mr-2 shrink-0',
+                                    node.type === 'programme'
+                                        ? 'text-blue-600 dark:text-blue-400'
+                                        : 'text-muted-foreground'
+                                )}
+                            />
                         </div>
-                        <span className={cn(
-                            "text-sm truncate flex-1",
-                            node.type === 'programme' && "font-semibold text-blue-700 dark:text-blue-300"
-                        )}>
+                        <span
+                            className={cn(
+                                'text-sm truncate flex-1',
+                                node.type === 'programme' &&
+                                    'font-semibold text-blue-700 dark:text-blue-300'
+                            )}
+                        >
                             {node.filename || node.name}
                         </span>
                         <DropdownMenu>
