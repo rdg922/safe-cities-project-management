@@ -69,12 +69,12 @@ export const chatRouter = createTRPCRouter({
 
             const pageName = page?.name || 'page'
 
-            // 3. Detect @mentions in the message
-            const mentionPattern = /@(\w+)/g
-            const mentions = [...input.content.matchAll(mentionPattern)]
-            const mentionedUsernames = [
-                ...new Set(mentions.map((match) => match[1].toLowerCase())),
-            ]
+            // // 3. Detect @mentions in the message
+            // const mentionPattern = /@(\w+)/g
+            // const mentions = [...input.content.matchAll(mentionPattern)]
+            // const mentionedUsernames = [
+            //     ...new Set(mentions.map((match) => match[1].toLowerCase())),
+            // ]
 
             // 4. Get current user info for notifications
             const currentUser = await ctx.db.query.users.findFirst({
@@ -83,29 +83,29 @@ export const chatRouter = createTRPCRouter({
             })
 
             // 5. Handle @mentions first (higher priority)
-            if (mentionedUsernames.length > 0) {
-                // Find users by name (case-insensitive)
-                const mentionedUsers = await ctx.db.query.users.findMany({
-                    where: sql`LOWER(${users.name}) = ANY(${mentionedUsernames})`,
-                    columns: { id: true, name: true },
-                })
+            // if (mentionedUsernames.length > 0) {
+            //     // Find users by name (case-insensitive)
+            //     const mentionedUsers = await ctx.db.query.users.findMany({
+            //         where: sql`LOWER(${users.name}) = ANY(${mentionedUsernames})`,
+            //         columns: { id: true, name: true },
+            //     })
 
-                if (mentionedUsers.length > 0) {
-                    await ctx.db.insert(notifications).values(
-                        mentionedUsers
-                            .filter((user) => user.id !== userId) // Don't notify self
-                            .map((user) => ({
-                                userId: user.id,
-                                pageId: input.fileId,
-                                content: `${currentUser?.name || 'Someone'} mentioned you in ${pageName}: "${input.content.slice(0, 100)}"`,
-                                type: 'mention',
-                                read: false,
-                                createdAt: new Date(),
-                                updatedAt: new Date(),
-                            }))
-                    )
-                }
-            }
+            //     if (mentionedUsers.length > 0) {
+            //         await ctx.db.insert(notifications).values(
+            //             mentionedUsers
+            //                 .filter((user) => user.id !== userId) // Don't notify self
+            //                 .map((user) => ({
+            //                     userId: user.id,
+            //                     pageId: input.fileId,
+            //                     content: `${currentUser?.name || 'Someone'} mentioned you in ${pageName}: "${input.content.slice(0, 100)}"`,
+            //                     type: 'mention',
+            //                     read: false,
+            //                     createdAt: new Date(),
+            //                     updatedAt: new Date(),
+            //                 }))
+            //         )
+            //     }
+            // }
 
             // 6. Find all users who have sent a message in this file (page), except the sender and mentioned users
             const usersInChat = await ctx.db
@@ -118,14 +118,13 @@ export const chatRouter = createTRPCRouter({
                     )
                 )
 
-            const mentionedUserIds = new Set(
-                (
-                    await ctx.db.query.users.findMany({
-                        where: sql`LOWER(${users.name}) = ANY(${mentionedUsernames})`,
-                        columns: { id: true },
-                    })
-                ).map((u) => u.id)
-            )
+            const mentionedUserIds = new Set()
+            //     (
+            //         await ctx.db.query.users.findMany({
+            //             where: sql`LOWER(${users.name}) = ANY(${mentionedUsernames})`,
+            //             columns: { id: true },
+            //         })
+            //     ).map((u) => u.id)
 
             // 7. Insert chat notifications for users not already mentioned
             const chatNotificationUsers = usersInChat.filter(
