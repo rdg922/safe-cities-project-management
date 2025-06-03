@@ -35,29 +35,31 @@ import {
 import { format } from 'date-fns'
 import { cn } from '~/lib/utils'
 
+interface FormField {
+    id: number
+    label: string
+    description: string | null
+    type: string
+    required: boolean
+    order: number
+    options: Array<{ text: string }>
+    validation: Record<string, unknown>
+    placeholder: string | null
+    defaultValue: string | null
+}
+
 interface FormPreviewProps {
     form: {
         id: number
         title: string
         description: string | null
         showProgressBar: boolean
-        fields: Array<{
-            id: number
-            label: string
-            description: string | null
-            type: string
-            required: boolean
-            order: number
-            options: any
-            validation: any
-            placeholder: string | null
-            defaultValue: string | null
-        }>
+        fields: FormField[]
     }
 }
 
 export function FormPreview({ form }: FormPreviewProps) {
-    const [formData, setFormData] = useState<Record<number, any>>({})
+    const [formData, setFormData] = useState<Record<number, string | string[]>>({})
     const [currentStep, setCurrentStep] = useState(0)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [isSubmitted, setIsSubmitted] = useState(false)
@@ -83,86 +85,59 @@ export function FormPreview({ form }: FormPreviewProps) {
         },
     })
 
-    const handleFieldChange = (fieldId: number, value: any) => {
+    const handleFieldChange = (fieldId: number, value: string | string[]) => {
         setFormData((prev) => ({
             ...prev,
             [fieldId]: value,
         }))
     }
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         setIsSubmitting(true)
 
-        // Validate required fields
-        const missingFields = form.fields.filter(
-            (field) =>
-                field.required &&
-                (!formData[field.id] || formData[field.id] === '')
-        )
-
-        if (missingFields.length > 0) {
-            toast({
-                title: 'Please fill in all required fields',
-                description: `Missing: ${missingFields.map((f) => f.label).join(', ')}`,
-                variant: 'destructive',
+        try {
+            await submitFormMutation.mutateAsync({
+                formId: form.id,
+                submitterName: submitterName || undefined,
+                submitterEmail: submitterEmail || undefined,
+                responses: Object.entries(formData).map(([fieldId, value]) => ({
+                    fieldId: Number(fieldId),
+                    value,
+                })),
             })
-            setIsSubmitting(false)
-            return
+        } catch (error) {
+            // Error is handled by the mutation
         }
-
-        // Prepare submission data
-        const responses = form.fields.map((field) => ({
-            fieldId: field.id,
-            value: formData[field.id] || null,
-        }))
-
-        submitFormMutation.mutate({
-            formId: form.id,
-            responses,
-            submitterName: submitterName || undefined,
-            submitterEmail: submitterEmail || undefined,
-        })
     }
 
-    const renderField = (field: any) => {
-        const value = formData[field.id] || field.defaultValue || ''
+    const renderField = (field: FormField) => {
+        const value = formData[field.id] ?? ''
 
         switch (field.type) {
             case 'text':
-                return (
-                    <Input
-                        value={value}
-                        onChange={(e) =>
-                            handleFieldChange(field.id, e.target.value)
-                        }
-                        placeholder={field.placeholder || ''}
-                        required={field.required}
-                    />
-                )
-
             case 'email':
-                return (
-                    <Input
-                        type="email"
-                        value={value}
-                        onChange={(e) =>
-                            handleFieldChange(field.id, e.target.value)
-                        }
-                        placeholder={field.placeholder || 'Enter your email'}
-                        required={field.required}
-                    />
-                )
-
             case 'number':
                 return (
                     <Input
-                        type="number"
-                        value={value}
+                        type={field.type}
+                        value={value as string}
                         onChange={(e) =>
                             handleFieldChange(field.id, e.target.value)
                         }
-                        placeholder={field.placeholder || ''}
+                        placeholder={field.placeholder ?? ''}
+                        required={field.required}
+                    />
+                )
+
+            case 'textarea':
+                return (
+                    <Textarea
+                        value={value as string}
+                        onChange={(e) =>
+                            handleFieldChange(field.id, e.target.value)
+                        }
+                        placeholder={field.placeholder ?? ''}
                         required={field.required}
                     />
                 )
@@ -179,19 +154,21 @@ export function FormPreview({ form }: FormPreviewProps) {
                                 )}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {value
-                                    ? format(new Date(value), 'PPP')
-                                    : field.placeholder || 'Pick a date'}
+                                {value ? (
+                                    format(new Date(value as string), 'PPP')
+                                ) : (
+                                    <span>Pick a date</span>
+                                )}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
+                        <PopoverContent className="w-auto p-0">
                             <Calendar
                                 mode="single"
-                                selected={value ? new Date(value) : undefined}
+                                selected={value ? new Date(value as string) : undefined}
                                 onSelect={(date) =>
                                     handleFieldChange(
                                         field.id,
-                                        date?.toISOString()
+                                        date?.toISOString() ?? ''
                                     )
                                 }
                                 initialFocus
@@ -200,142 +177,28 @@ export function FormPreview({ form }: FormPreviewProps) {
                     </Popover>
                 )
 
-            case 'textarea':
-                return (
-                    <Textarea
-                        value={value}
-                        onChange={(e) =>
-                            handleFieldChange(field.id, e.target.value)
-                        }
-                        placeholder={field.placeholder || ''}
-                        required={field.required}
-                        rows={4}
-                    />
-                )
-
             case 'select':
                 return (
                     <Select
-                        value={value}
-                        onValueChange={(val) =>
-                            handleFieldChange(field.id, val)
-                        }
+                        value={value as string}
+                        onValueChange={(val) => handleFieldChange(field.id, val)}
                         required={field.required}
                     >
                         <SelectTrigger>
-                            <SelectValue
-                                placeholder={
-                                    field.placeholder || 'Select an option'
-                                }
-                            />
+                            <SelectValue placeholder={field.placeholder ?? 'Select an option'} />
                         </SelectTrigger>
                         <SelectContent>
-                            {field.options?.map((option: any) => (
-                                <SelectItem
-                                    key={option.value}
-                                    value={option.value}
-                                >
-                                    {option.label}
+                            {field.options?.map((option) => (
+                                <SelectItem key={option.text} value={option.text}>
+                                    {option.text}
                                 </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
                 )
 
-            case 'multiselect':
-                const multiValues = Array.isArray(value) ? value : []
-                return (
-                    <div className="space-y-2">
-                        {field.options?.map((option: any) => (
-                            <div
-                                key={option.value}
-                                className="flex items-center space-x-2"
-                            >
-                                <Checkbox
-                                    id={`${field.id}-${option.value}`}
-                                    checked={multiValues.includes(option.value)}
-                                    onCheckedChange={(checked) => {
-                                        const newValues = checked
-                                            ? [...multiValues, option.value]
-                                            : multiValues.filter(
-                                                  (v: string) =>
-                                                      v !== option.value
-                                              )
-                                        handleFieldChange(field.id, newValues)
-                                    }}
-                                />
-                                <Label htmlFor={`${field.id}-${option.value}`}>
-                                    {option.label}
-                                </Label>
-                            </div>
-                        ))}
-                    </div>
-                )
-
-            case 'radio':
-                return (
-                    <RadioGroup
-                        value={value}
-                        onValueChange={(val) =>
-                            handleFieldChange(field.id, val)
-                        }
-                        required={field.required}
-                    >
-                        {field.options?.map((option: any) => (
-                            <div
-                                key={option.value}
-                                className="flex items-center space-x-2"
-                            >
-                                <RadioGroupItem
-                                    value={option.value}
-                                    id={`${field.id}-${option.value}`}
-                                />
-                                <Label htmlFor={`${field.id}-${option.value}`}>
-                                    {option.label}
-                                </Label>
-                            </div>
-                        ))}
-                    </RadioGroup>
-                )
-
-            case 'checkbox':
-                const checkboxValues = Array.isArray(value) ? value : []
-                return (
-                    <div className="space-y-2">
-                        {field.options?.map((option: any) => (
-                            <div
-                                key={option.value}
-                                className="flex items-center space-x-2"
-                            >
-                                <Checkbox
-                                    id={`${field.id}-${option.value}`}
-                                    checked={checkboxValues.includes(
-                                        option.value
-                                    )}
-                                    onCheckedChange={(checked) => {
-                                        const newValues = checked
-                                            ? [...checkboxValues, option.value]
-                                            : checkboxValues.filter(
-                                                  (v: string) =>
-                                                      v !== option.value
-                                              )
-                                        handleFieldChange(field.id, newValues)
-                                    }}
-                                />
-                                <Label htmlFor={`${field.id}-${option.value}`}>
-                                    {option.label}
-                                </Label>
-                            </div>
-                        ))}
-                    </div>
-                )
-
             default:
-                return (
-                    <div className="text-muted-foreground text-sm">
-                        Unsupported field type: {field.type}
-                    </div>
-                )
+                return null
         }
     }
 

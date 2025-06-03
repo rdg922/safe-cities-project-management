@@ -22,8 +22,7 @@ import {
 // Validation schemas for form field options and validation rules
 const fieldOptionsSchema = z.array(
     z.object({
-        value: z.string(),
-        label: z.string(),
+        text: z.string(),
     })
 )
 

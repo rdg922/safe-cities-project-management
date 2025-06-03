@@ -68,9 +68,6 @@ export const FORM_FIELD_TYPES = [
     'number',
     'date',
     'select',
-    'multiselect',
-    'radio',
-    'checkbox',
     'textarea',
 ] as const
 
