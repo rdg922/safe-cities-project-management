@@ -72,7 +72,6 @@ export const FORM_FIELD_TYPES = [
     'radio',
     'checkbox',
     'textarea',
-    'file',
 ] as const
 
 export const formFieldTypeSchema = z.enum(FORM_FIELD_TYPES)

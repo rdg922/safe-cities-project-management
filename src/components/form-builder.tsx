@@ -33,7 +33,6 @@ import {
     Circle,
     Square,
     AlignLeft,
-    Paperclip,
 } from 'lucide-react'
 import { FORM_FIELD_TYPES } from '~/server/db/schema'
 
@@ -73,7 +72,6 @@ const FIELD_TYPE_ICONS = {
     radio: Circle,
     checkbox: CheckSquare,
     textarea: AlignLeft,
-    file: Paperclip,
 }
 
 const FIELD_TYPE_LABELS = {
@@ -86,7 +84,6 @@ const FIELD_TYPE_LABELS = {
     radio: 'Radio Buttons',
     checkbox: 'Checkboxes',
     textarea: 'Long Text',
-    file: 'File Upload',
 }
 
 export function FormBuilder({ form, onUpdate }: FormBuilderProps) {

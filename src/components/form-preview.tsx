@@ -25,7 +25,7 @@ import {
 } from '~/components/ui/select'
 import { Progress } from '~/components/ui/progress'
 import { Badge } from '~/components/ui/badge'
-import { CalendarIcon, Upload } from 'lucide-react'
+import { CalendarIcon } from 'lucide-react'
 import { Calendar } from '~/components/ui/calendar'
 import {
     Popover,
@@ -327,46 +327,6 @@ export function FormPreview({ form }: FormPreviewProps) {
                                 </Label>
                             </div>
                         ))}
-                    </div>
-                )
-
-            case 'file':
-                return (
-                    <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-                        <Upload className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                        <div className="mt-4">
-                            <Label
-                                htmlFor={`file-${field.id}`}
-                                className="cursor-pointer"
-                            >
-                                <span className="text-sm font-medium text-primary hover:text-primary/80">
-                                    Upload a file
-                                </span>
-                                <Input
-                                    id={`file-${field.id}`}
-                                    type="file"
-                                    className="sr-only"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0]
-                                        if (file) {
-                                            handleFieldChange(
-                                                field.id,
-                                                file.name
-                                            )
-                                        }
-                                    }}
-                                />
-                            </Label>
-                            <p className="text-xs text-muted-foreground mt-1">
-                                {field.placeholder ||
-                                    'Click to upload or drag and drop'}
-                            </p>
-                        </div>
-                        {value && (
-                            <Badge variant="secondary" className="mt-2">
-                                {value}
-                            </Badge>
-                        )}
                     </div>
                 )
 
