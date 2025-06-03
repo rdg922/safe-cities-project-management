@@ -1,64 +1,20 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import {
-    Trash2,
-    Edit2,
-    MoreHorizontal,
-    FolderPlus,
-    FileText,
-    Sheet,
-    ClipboardList,
-} from 'lucide-react'
+import { Trash2, Edit2, MoreHorizontal, FolderPlus, FileText, Sheet, ClipboardList } from 'lucide-react'
 import Link from 'next/link'
 import { redirect, usePathname, useRouter } from 'next/navigation'
-import {
-    Bell,
-    Home,
-    MessageSquare,
-    Plus,
-    Users,
-    File,
-    UserCircle,
-    LogOut,
-    Settings,
-    Folder,
-} from 'lucide-react'
+import { Bell, Home, MessageSquare, Plus, Users, File, UserCircle, LogOut, Settings, Folder } from 'lucide-react'
 import { FileTree, type FileNode } from '~/components/file-tree'
 import { api } from '~/trpc/react'
 import { invalidatePermissionCaches } from '~/lib/cache-invalidation'
 import { ultraFastFileCreationInvalidation } from '~/lib/cache-invalidation-ultra-fast'
 import { useUser } from '@clerk/nextjs'
-import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarGroup,
-    SidebarGroupAction,
-    SidebarGroupContent,
-    SidebarGroupLabel,
-    SidebarHeader,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    SidebarSeparator,
-} from '~/components/ui/sidebar'
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupAction, SidebarGroupContent,
+    SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarSeparator } from '~/components/ui/sidebar'
 import { Button } from '~/components/ui/button'
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '~/components/ui/dialog'
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '~/components/ui/dropdown-menu'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '~/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { SignOutButton } from '@clerk/nextjs'

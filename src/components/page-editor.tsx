@@ -7,21 +7,7 @@ import { Button } from "~/components/ui/button"
 import { Badge } from "~/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs"
 import { Textarea } from "~/components/ui/textarea"
-import {
-  Bold,
-  CheckSquare,
-  Code,
-  Heading1,
-  Heading2,
-  Heading3,
-  ImageIcon,
-  Italic,
-  Link,
-  List,
-  ListOrdered,
-  Table,
-  Upload,
-} from "lucide-react"
+import { Bold, CheckSquare, Code, Heading1, Heading2, Heading3, ImageIcon, Italic, Link, List, ListOrdered, Table, Upload } from "lucide-react"
 import { Separator } from "~/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip"
 import { toast } from "~/hooks/use-toast"

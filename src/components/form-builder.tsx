@@ -10,31 +10,10 @@ import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Textarea } from '~/components/ui/textarea'
 import { Switch } from '~/components/ui/switch'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { Badge } from '~/components/ui/badge'
 import { Separator } from '~/components/ui/separator'
-import {
-    Plus,
-    GripVertical,
-    Trash2,
-    Edit2,
-    Type,
-    Mail,
-    Hash,
-    Calendar,
-    List,
-    CheckSquare,
-    Circle,
-    Square,
-    AlignLeft,
-    Paperclip,
-} from 'lucide-react'
+import { Plus, GripVertical, Trash2, Edit2, Type, Mail, Hash, Calendar, List, CheckSquare, Circle, Square, AlignLeft, Paperclip } from 'lucide-react'
 import { FORM_FIELD_TYPES } from '~/server/db/schema'
 
 interface FormBuilderProps {

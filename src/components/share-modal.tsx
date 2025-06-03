@@ -2,27 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { X, Search, Trash2, ChevronDown } from 'lucide-react'
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from '~/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
 import { Button } from '~/components/ui/button'
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '~/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '~/components/ui/avatar'
 import { api } from '~/trpc/react'
-import {
-    smartInvalidatePermissionCaches,
-    instantPermissionCacheInvalidation,
-    invalidateFileTreePermissions,
-} from '~/lib/cache-invalidation-ultra-fast'
+import { smartInvalidatePermissionCaches, instantPermissionCacheInvalidation, invalidateFileTreePermissions } from '~/lib/cache-invalidation-ultra-fast'
 
 type SharePermission = 'view' | 'edit' | 'comment'
 

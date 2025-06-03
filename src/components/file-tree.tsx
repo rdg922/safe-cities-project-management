@@ -1,20 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import {
-    ChevronRight,
-    Folder,
-    FileText,
-    ChevronDown,
-    MoreHorizontal,
-    Edit2,
-    Trash2,
-    Plus,
-    AlertCircle,
-    ClipboardList,
-    Sheet,
-    Share2,
-} from 'lucide-react'
+import { ChevronRight, Folder, FileText, ChevronDown, MoreHorizontal, Edit2, Trash2, Plus, AlertCircle, ClipboardList, Sheet, Share2 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
@@ -22,20 +9,8 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { useToast } from '~/hooks/use-toast'
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '~/components/ui/dropdown-menu'
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '~/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { api } from '~/trpc/react'
 import { ShareModal } from '~/components/share-modal'
 import { useBatchPermissions } from '~/hooks/use-batch-permissions'
