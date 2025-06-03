@@ -18,6 +18,11 @@ import {
 } from '~/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '~/components/ui/avatar'
 import { api } from '~/trpc/react'
+import {
+    smartInvalidatePermissionCaches,
+    instantPermissionCacheInvalidation,
+    invalidateFileTreePermissions,
+} from '~/lib/cache-invalidation-ultra-fast'
 
 type SharePermission = 'view' | 'edit' | 'comment'
 
@@ -27,6 +32,14 @@ interface SharedUser {
     email: string
     permission: SharePermission
     isLoading?: boolean
+}
+
+interface InheritedUser {
+    id: string
+    name: string
+    email: string
+    permission: SharePermission
+    sourceFileName: string
 }
 
 interface ShareModalProps {
@@ -56,51 +69,125 @@ export function ShareModal({
 }: ShareModalProps) {
     const [searchQuery, setSearchQuery] = useState('')
     const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([])
+    const [inheritedUsers, setInheritedUsers] = useState<InheritedUser[]>([])
+    const [filePermissions, setFilePermissions] = useState<any[]>([])
+    const [isLoadingPermissions, setIsLoadingPermissions] = useState(false)
 
     // Get all users from the database
     const { data: allUsers = [], isLoading } = api.user.getAllUsers.useQuery()
 
-    // Get existing file permissions
-    const {
-        data: filePermissions = [],
-        refetch: refetchPermissions,
-        isLoading: isLoadingPermissions,
-    } = api.permissions.getFilePermissions.useQuery(
-        { fileId },
-        {
-            enabled:
-                isOpen &&
-                fileId != null &&
-                typeof fileId === 'number' &&
-                fileId > 0,
-            refetchOnWindowFocus: false,
-            refetchOnMount: true,
-        }
-    )
+    // Get utils for async permission fetching and cache invalidation
+    const utils = api.useUtils()
 
-    // tRPC mutations for permission management
+    // Async function to fetch file permissions
+    const fetchFilePermissions = async () => {
+        if (!isOpen || !fileId || typeof fileId !== 'number' || fileId <= 0) {
+            return
+        }
+
+        setIsLoadingPermissions(true)
+        try {
+            // Force fresh fetch from server instead of using cache
+            // This ensures we get the latest permission state after mutations
+            const permissionsData =
+                await utils.permissions.getFilePermissionsWithInherited.fetch({
+                    fileId,
+                })
+            setFilePermissions(permissionsData?.directPermissions || [])
+
+            // Process inherited permissions
+            const inheritedPerms: InheritedUser[] = (
+                permissionsData?.inheritedPermissions || []
+            ).map((perm: any) => ({
+                id: perm.user.id,
+                name: perm.user.name || perm.user.email || 'Unknown User',
+                email: perm.user.email || '',
+                permission: perm.permission,
+                sourceFileName: perm.sourceFile?.name || 'Unknown',
+            }))
+            setInheritedUsers(inheritedPerms)
+        } catch (error) {
+            console.error('Error fetching permissions:', error)
+            setFilePermissions([])
+            setInheritedUsers([])
+        } finally {
+            setIsLoadingPermissions(false)
+        }
+    }
+
+    // Fetch permissions when modal opens or fileId changes
+    useEffect(() => {
+        if (isOpen && fileId) {
+            fetchFilePermissions()
+        } else {
+            setFilePermissions([])
+            setInheritedUsers([])
+        }
+    }, [isOpen, fileId])
+
+    // tRPC mutations for permission management with ultra-fast cache invalidation
     const setPermissionMutation = api.permissions.setPermission.useMutation({
-        onSuccess: () => {
-            refetchPermissions()
+        onSuccess: async () => {
+            console.log(
+                `✏️ Permission set for file ${fileId}, starting cache invalidation...`
+            )
+
+            // Instant UI feedback with minimal cache invalidation
+            await instantPermissionCacheInvalidation(utils, fileId)
+            console.log(
+                `✅ Instant cache invalidation completed for file ${fileId}`
+            )
+
+            // Specific file tree invalidation to ensure it updates immediately
+            await invalidateFileTreePermissions(utils, fileId)
+
+            // Force invalidate the specific inherited permissions query
+            await utils.permissions.getFilePermissionsWithInherited.invalidate({
+                fileId,
+            })
+
+            // Background smart cache invalidation (includes server-side async rebuild)
+            smartInvalidatePermissionCaches(utils, fileId)
+
+            // Refresh modal data with fresh fetch
+            await fetchFilePermissions()
+            console.log(`🔄 Modal data refreshed for file ${fileId}`)
         },
         onError: (error) => {
             console.error('Error setting permission:', error)
-        },
-        onSettled: () => {
-            // Ensure loading states are cleared even if there's an error
         },
     })
 
     const removePermissionMutation =
         api.permissions.removePermission.useMutation({
-            onSuccess: () => {
-                refetchPermissions()
+            onSuccess: async () => {
+                console.log(
+                    `🗑️ Permission removed for file ${fileId}, starting cache invalidation...`
+                )
+
+                // Instant UI feedback with minimal cache invalidation
+                await instantPermissionCacheInvalidation(utils, fileId)
+                console.log(
+                    `✅ Instant cache invalidation completed for file ${fileId}`
+                )
+
+                // Specific file tree invalidation to ensure it updates immediately
+                await invalidateFileTreePermissions(utils, fileId)
+
+                // Force invalidate the specific inherited permissions query
+                await utils.permissions.getFilePermissionsWithInherited.invalidate(
+                    { fileId }
+                )
+
+                // Background smart cache invalidation (includes server-side async rebuild)
+                smartInvalidatePermissionCaches(utils, fileId)
+
+                // Refresh modal data with fresh fetch
+                await fetchFilePermissions()
+                console.log(`🔄 Modal data refreshed for file ${fileId}`)
             },
             onError: (error) => {
                 console.error('Error removing permission:', error)
-            },
-            onSettled: () => {
-                // Ensure loading states are cleared even if there's an error
             },
         })
 
@@ -480,6 +567,75 @@ export function ShareModal({
                                     ))}
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Inherited permissions section */}
+                    {inheritedUsers.length > 0 && (
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-medium text-muted-foreground">
+                                    Inherited permissions
+                                </h4>
+                                <div className="h-px flex-1 bg-border" />
+                            </div>
+                            <div className="space-y-2">
+                                {inheritedUsers.map((user) => (
+                                    <div
+                                        key={user.id}
+                                        className="flex items-center justify-between p-3 rounded-md border border-dashed border-muted-foreground/20 bg-muted/30"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarFallback className="text-xs bg-muted/50 text-muted-foreground/70">
+                                                    {getInitials(user.name)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="space-y-0.5">
+                                                <div className="text-sm font-medium text-muted-foreground">
+                                                    {user.name}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground/60">
+                                                    {user.email}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground/60 flex items-center gap-1">
+                                                    <span className="inline-block w-1 h-1 rounded-full bg-muted-foreground/40" />
+                                                    Inherited from "
+                                                    {user.sourceFileName}"
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-xs text-muted-foreground/80 px-2 py-1 bg-muted/60 rounded-md border border-muted-foreground/10">
+                                                {
+                                                    permissionLabels[
+                                                        user.permission
+                                                    ]
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Information about inherited permissions */}
+                            <div className="rounded-md border border-blue-200/60 bg-blue-50/50 p-3 dark:border-blue-800/30 dark:bg-blue-950/20">
+                                <div className="flex items-start gap-2">
+                                    <div className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50">
+                                        <div className="h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400" />
+                                    </div>
+                                    <div className="text-xs text-blue-800 dark:text-blue-200">
+                                        <span className="font-medium">
+                                            Note:
+                                        </span>{' '}
+                                        These users have access through
+                                        inheritance from parent folders. These
+                                        are minimum permissions and can be
+                                        overridden by granting higher
+                                        permissions directly.
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
