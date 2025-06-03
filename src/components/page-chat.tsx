@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Send, Smile } from 'lucide-react'
+import { useChatSidebar } from '~/components/ui/chat-sidebar-provider'
 
 interface PageChatProps {
     pageTitle: string
@@ -14,7 +15,12 @@ interface PageChatProps {
 
 export function PageChat({ pageTitle }: PageChatProps) {
     const params = useParams()
-    const fileId = Number(params.pageId)
+    const { fileId: contextFileId } = useChatSidebar()
+
+    // Try to get fileId from context first, fallback to URL params for backward compatibility
+    const fileId =
+        contextFileId || Number(params.pageId) || Number(params.formId)
+
     const [newMessage, setNewMessage] = useState('')
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const [isActive, setIsActive] = useState(true)

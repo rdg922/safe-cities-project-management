@@ -410,6 +410,31 @@ export const notifications = createTable(
     ]
 )
 
+// Form-Sheet sync: tracks forms that are synced to sheets for live updates
+export const formSheetSyncs = createTable(
+    'form_sheet_sync',
+    (d) => ({
+        id: d.serial().primaryKey(),
+        formId: d
+            .integer()
+            .references(() => forms.id, { onDelete: 'cascade' })
+            .notNull(),
+        sheetId: d
+            .integer()
+            .references(() => files.id, { onDelete: 'cascade' })
+            .notNull(),
+        isActive: d.boolean().default(true),
+        lastSyncAt: d.timestamp().defaultNow(),
+        createdAt: d.timestamp().notNull().defaultNow(),
+        updatedAt: d.timestamp().defaultNow(),
+    }),
+    (t) => [
+        index('form_sheet_sync_form_idx').on(t.formId),
+        index('form_sheet_sync_sheet_idx').on(t.sheetId),
+        unique('form_sheet_sync_unique').on(t.formId, t.sheetId),
+    ]
+)
+
 // TypeScript types for better type safety
 export type File = {
     id: number
@@ -572,6 +597,10 @@ export const filesRelations = relations(files, ({ one, many }) => ({
     filePermissions: many(filePermissions),
     messages: many(messages),
     comments: many(comments),
+    syncedFromForms: many(formSheetSyncs, {
+        fields: [files.id],
+        references: [formSheetSyncs.sheetId],
+    }),
     createdBy: one(users, {
         fields: [files.createdBy],
         references: [users.id],
@@ -678,6 +707,7 @@ export const formsRelations = relations(forms, ({ one, many }) => ({
     }),
     fields: many(formFields),
     submissions: many(formSubmissions),
+    syncedSheets: many(formSheetSyncs),
 }))
 
 export const formFieldsRelations = relations(formFields, ({ one, many }) => ({
@@ -711,5 +741,16 @@ export const formResponsesRelations = relations(formResponses, ({ one }) => ({
     field: one(formFields, {
         fields: [formResponses.fieldId],
         references: [formFields.id],
+    }),
+}))
+
+export const formSheetSyncsRelations = relations(formSheetSyncs, ({ one }) => ({
+    form: one(forms, {
+        fields: [formSheetSyncs.formId],
+        references: [forms.id],
+    }),
+    sheet: one(files, {
+        fields: [formSheetSyncs.sheetId],
+        references: [files.id],
     }),
 }))

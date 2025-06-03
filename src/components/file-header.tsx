@@ -34,7 +34,7 @@ export function FileHeader({
     permission,
     savingStatus = 'idle',
 }: FileHeaderProps) {
-    const { toggleChat } = useChatToggle({ pageTitle: filename })
+    const { toggleChat } = useChatToggle({ pageTitle: filename, fileId })
     const [isShareModalOpen, setIsShareModalOpen] = useState(false)
 
     return (

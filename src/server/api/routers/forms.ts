@@ -13,11 +13,13 @@ import {
     formSubmissions,
     formResponses,
     sheetContent,
+    formSheetSyncs,
     FILE_TYPES,
     FORM_FIELD_TYPES,
     formFieldTypeSchema,
     type FormField,
 } from '~/server/db/schema'
+import { createSyncedSheetData } from '~/lib/sheet-utils'
 
 // Validation schemas for form field options and validation rules
 const fieldOptionsSchema = z.array(
@@ -384,6 +386,107 @@ export const formsRouter = createTRPCRouter({
                 })
             }
 
+            // Trigger sync to all active synced sheets for this form
+            try {
+                await ctx.db.transaction(async (tx) => {
+                    // Find all active synced sheets for this form
+                    const syncedSheets = await tx.query.formSheetSyncs.findMany(
+                        {
+                            where: and(
+                                eq(formSheetSyncs.formId, input.formId),
+                                eq(formSheetSyncs.isActive, true)
+                            ),
+                            with: {
+                                sheet: {
+                                    with: {
+                                        sheetContent: true,
+                                    },
+                                },
+                            },
+                        }
+                    )
+
+                    if (syncedSheets.length > 0) {
+                        // Get form with latest submissions (including the one we just created)
+                        const formWithSubmissions =
+                            await tx.query.forms.findFirst({
+                                where: eq(forms.id, input.formId),
+                                with: {
+                                    fields: {
+                                        orderBy: asc(formFields.order),
+                                    },
+                                    submissions: {
+                                        with: {
+                                            responses: {
+                                                with: {
+                                                    field: true,
+                                                },
+                                            },
+                                            user: {
+                                                columns: {
+                                                    id: true,
+                                                    name: true,
+                                                    email: true,
+                                                },
+                                            },
+                                        },
+                                        orderBy: desc(
+                                            formSubmissions.createdAt
+                                        ),
+                                    },
+                                },
+                            })
+
+                        if (formWithSubmissions) {
+                            // Update each synced sheet
+                            for (const sync of syncedSheets) {
+                                // Use the utility function to create properly formatted sheet data
+                                const sheetData = createSyncedSheetData(
+                                    formWithSubmissions.submissions,
+                                    formWithSubmissions.fields
+                                )
+
+                                // Update the existing schema to maintain metadata
+                                const currentSchema = sync.sheet.sheetContent
+                                    ? JSON.parse(
+                                          sync.sheet.sheetContent.schema || '{}'
+                                      )
+                                    : {}
+
+                                const updatedSchema = {
+                                    ...currentSchema,
+                                    syncMetadata: {
+                                        ...currentSchema.syncMetadata,
+                                        lastSyncAt: new Date().toISOString(),
+                                    },
+                                }
+
+                                // Update sheet content
+                                await tx
+                                    .update(sheetContent)
+                                    .set({
+                                        content: JSON.stringify(sheetData),
+                                        schema: JSON.stringify(updatedSchema),
+                                        updatedAt: new Date(),
+                                    })
+                                    .where(
+                                        eq(sheetContent.fileId, sync.sheetId)
+                                    )
+
+                                // Update sync timestamp
+                                await tx
+                                    .update(formSheetSyncs)
+                                    .set({ lastSyncAt: new Date() })
+                                    .where(eq(formSheetSyncs.id, sync.id))
+                            }
+                        }
+                    }
+                })
+            } catch (error) {
+                // Log error but don't fail the submission
+                console.error('Error syncing to sheets:', error)
+            }
+
             return { submissionId: submission.id }
         }),
 
@@ -434,8 +537,8 @@ export const formsRouter = createTRPCRouter({
             return submissionsWithParsedResponses
         }),
 
-    // Export form submissions to sheet
-    exportToSheet: protectedProcedure
+    // Sync form submissions to sheet (replaces exportToSheet)
+    syncToSheet: protectedProcedure
         .input(
             z.object({
                 formId: z.number(),
@@ -445,6 +548,23 @@ export const formsRouter = createTRPCRouter({
         )
         .mutation(async ({ ctx, input }) => {
             const { userId } = ctx.auth
+
+            // Check if form already has an active sync
+            const existingSync = await ctx.db.query.formSheetSyncs.findFirst({
+                where: and(
+                    eq(formSheetSyncs.formId, input.formId),
+                    eq(formSheetSyncs.isActive, true)
+                ),
+                with: {
+                    sheet: true,
+                },
+            })
+
+            if (existingSync) {
+                throw new Error(
+                    `Form is already synced to sheet: ${existingSync.sheet.name}`
+                )
+            }
 
             // Get form with fields and submissions
             const form = await ctx.db.query.forms.findFirst({
@@ -498,62 +618,139 @@ export const formsRouter = createTRPCRouter({
                 throw new Error('Failed to create sheet file')
             }
 
-            // Prepare sheet data
-            const headers = [
-                'Submission ID',
-                'Submitted At',
-                'Submitter Name',
-                'Submitter Email',
-                ...form.fields.map((field) => field.label),
-            ]
+            // Use the utility function to create properly formatted sheet data
+            const sheetData = createSyncedSheetData(
+                form.submissions,
+                form.fields
+            )
 
-            const rows = form.submissions.map((submission) => {
-                const row = [
-                    submission.id.toString(),
-                    submission.createdAt.toISOString(),
-                    submission.user?.name || submission.submitterName || '',
-                    submission.user?.email || submission.submitterEmail || '',
-                ]
-
-                // Add response values for each field
-                for (const field of form.fields) {
-                    const response = submission.responses.find(
-                        (r) => r.fieldId === field.id
-                    )
-                    if (response) {
-                        const value = response.value
-                            ? JSON.parse(response.value)
-                            : ''
-                        row.push(
-                            Array.isArray(value)
-                                ? value.join(', ')
-                                : String(value)
-                        )
-                    } else {
-                        row.push('')
-                    }
-                }
-
-                return row
-            })
-
-            const sheetData = [headers, ...rows]
+            // Generate schema with form data column metadata
+            const formDataColumnCount = 4 + form.fields.length // System columns + form fields
+            const schema = {
+                formDataColumnCount,
+                syncMetadata: {
+                    formId: input.formId,
+                    isLiveSync: true,
+                    lastSyncAt: new Date().toISOString(),
+                },
+            }
 
             // Create sheet content
             await ctx.db.insert(sheetContent).values({
                 fileId: sheetFile.id,
                 content: JSON.stringify(sheetData),
-                schema: JSON.stringify({
-                    columns: headers.map((header, index) => ({
-                        id: index,
-                        label: header,
-                        type: 'text',
-                    })),
-                }),
+                schema: JSON.stringify(schema),
                 version: 1,
             })
 
-            return { sheetFile, totalSubmissions: form.submissions.length }
+            // Create sync relationship
+            await ctx.db.insert(formSheetSyncs).values({
+                formId: input.formId,
+                sheetId: sheetFile.id,
+                isActive: true,
+                lastSyncAt: new Date(),
+            })
+
+            return {
+                sheetFile,
+                totalSubmissions: form.submissions.length,
+                isLiveSync: true,
+            }
+        }),
+
+    // Update synced sheets when new form submission is added
+    updateSyncedSheets: protectedProcedure
+        .input(z.object({ formId: z.number() }))
+        .mutation(async ({ ctx, input }) => {
+            // Find all active synced sheets for this form
+            const syncedSheets = await ctx.db.query.formSheetSyncs.findMany({
+                where: and(
+                    eq(formSheetSyncs.formId, input.formId),
+                    eq(formSheetSyncs.isActive, true)
+                ),
+                with: {
+                    sheet: {
+                        with: {
+                            sheetContent: true,
+                        },
+                    },
+                },
+            })
+
+            if (syncedSheets.length === 0) {
+                return { updatedSheets: 0 }
+            }
+
+            // Get form with latest submissions
+            const form = await ctx.db.query.forms.findFirst({
+                where: eq(forms.id, input.formId),
+                with: {
+                    fields: {
+                        orderBy: asc(formFields.order),
+                    },
+                    submissions: {
+                        with: {
+                            responses: {
+                                with: {
+                                    field: true,
+                                },
+                            },
+                            user: {
+                                columns: {
+                                    id: true,
+                                    name: true,
+                                    email: true,
+                                },
+                            },
+                        },
+                        orderBy: desc(formSubmissions.createdAt),
+                    },
+                },
+            })
+
+            if (!form) {
+                throw new Error('Form not found')
+            }
+
+            // Update each synced sheet
+            for (const sync of syncedSheets) {
+                // Use the utility function to create properly formatted sheet data
+                const sheetData = createSyncedSheetData(
+                    form.submissions,
+                    form.fields
+                )
+
+                // Update the existing schema to maintain metadata
+                const currentSchema = sync.sheet.sheetContent
+                    ? JSON.parse(sync.sheet.sheetContent.schema || '{}')
+                    : {}
+
+                const updatedSchema = {
+                    ...currentSchema,
+                    syncMetadata: {
+                        ...currentSchema.syncMetadata,
+                        lastSyncAt: new Date().toISOString(),
+                    },
+                }
+
+                // Update sheet content
+                await ctx.db
+                    .update(sheetContent)
+                    .set({
+                        content: JSON.stringify(sheetData),
+                        schema: JSON.stringify(updatedSchema),
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(sheetContent.fileId, sync.sheetId))
+
+                // Update sync timestamp
+                await ctx.db
+                    .update(formSheetSyncs)
+                    .set({ lastSyncAt: new Date() })
+                    .where(eq(formSheetSyncs.id, sync.id))
+            }
+
+            return { updatedSheets: syncedSheets.length }
         }),
 
     // Get form statistics
@@ -585,6 +782,89 @@ export const formsRouter = createTRPCRouter({
             return {
                 totalSubmissions: totalSubmissions[0]?.count ?? 0,
                 submissionsByDate,
+            }
+        }),
+
+    // Get sync status for a form
+    getSyncStatus: protectedProcedure
+        .input(z.object({ formId: z.number() }))
+        .query(async ({ ctx, input }) => {
+            const syncedSheets = await ctx.db.query.formSheetSyncs.findMany({
+                where: and(
+                    eq(formSheetSyncs.formId, input.formId),
+                    eq(formSheetSyncs.isActive, true)
+                ),
+                with: {
+                    sheet: {
+                        columns: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                },
+            })
+
+            return {
+                isSync: syncedSheets.length > 0,
+                syncedSheets: syncedSheets.map((sync) => ({
+                    id: sync.id,
+                    sheetId: sync.sheetId,
+                    sheetName: sync.sheet.name,
+                    lastSyncAt: sync.lastSyncAt,
+                    isActive: sync.isActive,
+                })),
+            }
+        }),
+
+    // Disable sync for a form-sheet relationship
+    disableSync: protectedProcedure
+        .input(z.object({ syncId: z.number() }))
+        .mutation(async ({ ctx, input }) => {
+            await ctx.db
+                .update(formSheetSyncs)
+                .set({
+                    isActive: false,
+                    updatedAt: new Date(),
+                })
+                .where(eq(formSheetSyncs.id, input.syncId))
+
+            return { success: true }
+        }),
+
+    // Get sync metadata for a sheet
+    getSyncMetadataBySheetId: publicProcedure
+        .input(z.object({ sheetId: z.number() }))
+        .query(async ({ ctx, input }) => {
+            const syncRelation = await ctx.db.query.formSheetSyncs.findFirst({
+                where: and(
+                    eq(formSheetSyncs.sheetId, input.sheetId),
+                    eq(formSheetSyncs.isActive, true)
+                ),
+                with: {
+                    form: {
+                        with: {
+                            fields: {
+                                orderBy: [asc(formFields.order)],
+                            },
+                        },
+                    },
+                },
+            })
+
+            if (!syncRelation) {
+                return null
+            }
+
+            // Calculate form data column count (submission metadata + form field columns)
+            const formDataColumnCount = 4 + syncRelation.form.fields.length // ID, Date, Name, Email + form fields
+
+            return {
+                formId: syncRelation.formId,
+                isLiveSync: syncRelation.isActive,
+                formDataColumnCount,
+                lastSyncAt:
+                    syncRelation.lastSyncAt?.toISOString() ||
+                    new Date().toISOString(),
             }
         }),
 })
