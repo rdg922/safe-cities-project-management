@@ -29,6 +29,7 @@ import {
     Copy,
     Eye,
     EyeOff,
+    CheckCircle,
 } from 'lucide-react'
 import {
     Dialog,
@@ -99,22 +100,43 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
         },
     })
 
-    const exportMutation = api.forms.exportToSheet.useMutation({
+    const syncMutation = api.forms.syncToSheet.useMutation({
         onSuccess: (data) => {
             toast({
-                title: 'Form exported successfully!',
-                description: `Data exported to ${data.sheetFile.name}. ${data.totalSubmissions} submissions included.`,
+                title: 'Form synced successfully!',
+                description: `Live sync enabled to ${data.sheetFile.name}. ${data.totalSubmissions} submissions included.`,
             })
             setIsExportDialogOpen(false)
+            // Refetch sync status
+            syncStatus.refetch()
         },
         onError: (error) => {
             toast({
-                title: 'Export failed',
+                title: 'Sync failed',
                 description: error.message,
                 variant: 'destructive',
             })
         },
     })
+
+    const disableSyncMutation = api.forms.disableSync.useMutation({
+        onSuccess: () => {
+            toast({
+                title: 'Sync disabled',
+                description: 'Form is no longer syncing to sheet.',
+            })
+            syncStatus.refetch()
+        },
+        onError: (error) => {
+            toast({
+                title: 'Failed to disable sync',
+                description: error.message,
+                variant: 'destructive',
+            })
+        },
+    })
+
+    const syncStatus = api.forms.getSyncStatus.useQuery({ formId: form.id })
 
     const handleUpdateSettings = () => {
         updateSettingsMutation.mutate({
@@ -123,12 +145,15 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
         })
     }
 
-    const handleExport = () => {
-        exportMutation.mutate({
+    const handleSync = () => {
+        syncMutation.mutate({
             formId: form.id,
-            sheetName: `${form.title} - Submissions`,
-            parentId: form.file.parentId || undefined,
+            sheetName: `${form.title} - Live Sync`,
         })
+    }
+
+    const handleDisableSync = (syncId: number) => {
+        disableSyncMutation.mutate({ syncId })
     }
 
     const getFormUrl = () => {
@@ -441,76 +466,111 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
                 </CardContent>
             </Card>
 
-            {/* Data Export */}
+            {/* Live Sync */}
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Download className="h-5 w-5" />
-                        Export Data
+                        Live Sync to Sheet
                     </CardTitle>
                     <CardDescription>
-                        Export form responses to external formats
+                        Create live-syncing sheets that automatically update when new form submissions are received
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <Dialog
-                        open={isExportDialogOpen}
-                        onOpenChange={setIsExportDialogOpen}
-                    >
-                        <DialogTrigger asChild>
-                            <Button variant="outline">
-                                <Download className="mr-2 h-4 w-4" />
-                                Export to Sheet
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Export Form Data</DialogTitle>
-                                <DialogDescription>
-                                    This will export all form responses to a
-                                    spreadsheet format. The export will include
-                                    all submitted data and timestamps.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4">
-                                <div className="rounded-lg border p-4">
-                                    <h4 className="font-medium mb-2">
-                                        Export will include:
-                                    </h4>
-                                    <ul className="text-sm text-muted-foreground space-y-1">
-                                        <li>• All form responses</li>
-                                        <li>• Submission timestamps</li>
-                                        <li>
-                                            • Submitter information (if
-                                            provided)
-                                        </li>
-                                        <li>• Field labels and values</li>
-                                    </ul>
+                <CardContent className="space-y-4">
+                    {syncStatus.data?.isSync ? (
+                        <div className="space-y-3">
+                            <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                                <div className="flex items-center gap-2 text-green-800 font-medium mb-2">
+                                    <CheckCircle className="h-4 w-4" />
+                                    Live Sync Active
                                 </div>
+                                <p className="text-sm text-green-700">
+                                    This form is automatically syncing submissions to the following sheets:
+                                </p>
                             </div>
-                            <DialogFooter>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setIsExportDialogOpen(false)}
-                                >
-                                    Cancel
+                            
+                            {syncStatus.data.syncedSheets.map((sync) => (
+                                <div key={sync.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                    <div className="space-y-1">
+                                        <p className="font-medium">{sync.sheetName}</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            Last synced: {sync.lastSyncAt ? new Date(sync.lastSyncAt).toLocaleString() : 'Never'}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleDisableSync(sync.id)}
+                                        disabled={disableSyncMutation.isPending}
+                                    >
+                                        {disableSyncMutation.isPending ? (
+                                            <RefreshCw className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            'Disable Sync'
+                                        )}
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <Dialog
+                            open={isExportDialogOpen}
+                            onOpenChange={setIsExportDialogOpen}
+                        >
+                            <DialogTrigger asChild>
+                                <Button variant="outline">
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Sync to Sheet
                                 </Button>
-                                <Button
-                                    onClick={handleExport}
-                                    disabled={exportMutation.isPending}
-                                >
-                                    {exportMutation.isPending ? (
-                                        <>
-                                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                            Exporting...
-                                        </>
-                                    ) : (
-                                        'Export Data'
-                                    )}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Create Live Sync Sheet</DialogTitle>
+                                    <DialogDescription>
+                                        This will create a live-syncing sheet that automatically updates 
+                                        whenever new form submissions are received. The form data columns 
+                                        will be protected from editing.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                    <div className="rounded-lg border p-4">
+                                        <h4 className="font-medium mb-2">
+                                            Live sync will include:
+                                        </h4>
+                                        <ul className="text-sm text-muted-foreground space-y-1">
+                                            <li>• All current and future form responses</li>
+                                            <li>• Automatic updates when new submissions arrive</li>
+                                            <li>• Protected form data columns (non-editable)</li>
+                                            <li>• Submission timestamps and submitter info</li>
+                                            <li>• Additional editable columns for your notes</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setIsExportDialogOpen(false)}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        onClick={handleSync}
+                                        disabled={syncMutation.isPending}
+                                    >
+                                        {syncMutation.isPending ? (
+                                            <>
+                                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                                Creating Sync...
+                                            </>
+                                        ) : (
+                                            'Create Live Sync'
+                                        )}
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
                 </CardContent>
             </Card>
 
