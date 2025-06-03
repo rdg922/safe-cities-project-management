@@ -65,6 +65,7 @@ import { Label } from '~/components/ui/label'
 import { SignOutButton } from '@clerk/nextjs'
 import { ThemeToggle } from './tiptap-templates/simple/theme-toggle'
 import { FILE_TYPES } from '~/server/db/schema'
+import { useMobile } from '~/hooks/use-mobile'
 
 export function AppSidebar() {
     const pathname = usePathname()
@@ -203,6 +204,8 @@ export function AppSidebar() {
         })
     }
 
+    const isMobile = useMobile()
+
     return (
         <>
             <Sidebar>
@@ -222,6 +225,7 @@ export function AppSidebar() {
                         <div>
                             <ThemeToggle />
                         </div>
+                        <div>{isMobile && <SidebarTrigger />}</div>
                     </div>
                     <Dialog
                         open={isNewFileDialogOpen}
