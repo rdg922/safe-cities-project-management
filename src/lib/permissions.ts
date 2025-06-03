@@ -5,7 +5,17 @@ import {
     filePermissions,
     users,
     type SharePermission,
+    type File,
 } from '~/server/db/schema'
+import {
+    invalidatePermissionCache,
+    getFileDescendantsFast,
+} from './permissions-optimized'
+import {
+    superFastPermissionCheck,
+    invalidateSpecificPermission,
+    asyncRebuildEffectivePermissions,
+} from './permissions-ultra-fast'
 
 // Permission hierarchy: edit > comment > view
 const PERMISSION_HIERARCHY = {
@@ -16,55 +26,14 @@ const PERMISSION_HIERARCHY = {
 
 /**
  * Gets the highest permission level for a user on a specific file.
- * Considers permissions on the file itself and all its ancestors.
+ * Uses ultra-fast caching system for optimal performance.
  */
 export async function getUserFilePermission(
     userId: string,
     fileId: number
 ): Promise<SharePermission | null> {
-    // Check if user is admin
-    const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-    })
-
-    if (user?.role === 'admin') {
-        return 'edit' // Admins bypass all permissions
-    }
-
-    // Get the file and build ancestor path
-    const fileAncestors = await getFileAncestors(fileId)
-
-    if (fileAncestors.length === 0) {
-        return null // File not found
-    }
-
-    const ancestorIds = fileAncestors.map((f) => f.id)
-
-    // Get all permissions for this user on this file and its ancestors
-    const permissions = await db.query.filePermissions.findMany({
-        where: and(
-            eq(filePermissions.userId, userId),
-            inArray(filePermissions.fileId, ancestorIds)
-        ),
-    })
-
-    if (permissions.length === 0) {
-        return null // No permissions found
-    }
-
-    // Find the highest permission level
-    let highestPermission: SharePermission = 'view'
-    let highestLevel = 0
-
-    for (const permission of permissions) {
-        const level = PERMISSION_HIERARCHY[permission.permission]
-        if (level > highestLevel) {
-            highestLevel = level
-            highestPermission = permission.permission
-        }
-    }
-
-    return highestPermission
+    // Use the ultra-fast permission check
+    return await superFastPermissionCheck(userId, fileId)
 }
 
 /**
@@ -80,14 +49,14 @@ export async function getFileAncestors(fileId: number) {
     let currentFileId: number | null = fileId
 
     while (currentFileId !== null) {
-        const file = await db.query.files.findFirst({
+        const file = (await db.query.files.findFirst({
             where: eq(files.id, currentFileId),
             columns: {
                 id: true,
                 name: true,
                 parentId: true,
             },
-        })
+        })) as { id: number; name: string; parentId: number | null } | undefined
 
         if (!file) break
 
@@ -126,6 +95,7 @@ export async function getFileDescendants(fileId: number): Promise<number[]> {
 
 /**
  * Sets permission for a user on a specific file
+ * Uses minimal cache invalidation and async rebuilding for optimal performance.
  */
 export async function setFilePermission(
     fileId: number,
@@ -140,9 +110,10 @@ export async function setFilePermission(
         ),
     })
 
+    let result
     if (existing) {
         // Update existing permission
-        return await db
+        result = await db
             .update(filePermissions)
             .set({
                 permission,
@@ -157,7 +128,7 @@ export async function setFilePermission(
             .returning()
     } else {
         // Create new permission
-        return await db
+        result = await db
             .insert(filePermissions)
             .values({
                 fileId,
@@ -166,13 +137,22 @@ export async function setFilePermission(
             })
             .returning()
     }
+
+    // Minimal cache invalidation - only invalidate specific user-file permission
+    invalidateSpecificPermission(userId, fileId)
+
+    // Trigger async rebuild in background (non-blocking)
+    asyncRebuildEffectivePermissions(fileId, userId)
+
+    return result
 }
 
 /**
  * Removes permission for a user on a specific file
+ * Uses minimal cache invalidation and async rebuilding for optimal performance.
  */
 export async function removeFilePermission(fileId: number, userId: string) {
-    return await db
+    const result = await db
         .delete(filePermissions)
         .where(
             and(
@@ -181,6 +161,14 @@ export async function removeFilePermission(fileId: number, userId: string) {
             )
         )
         .returning()
+
+    // Minimal cache invalidation - only invalidate specific user-file permission
+    invalidateSpecificPermission(userId, fileId)
+
+    // Trigger async rebuild in background (non-blocking)
+    asyncRebuildEffectivePermissions(fileId, userId)
+
+    return result
 }
 
 /**
@@ -203,18 +191,17 @@ export async function getFilePermissions(fileId: number) {
 
 /**
  * Checks if a user has at least the specified permission level on a file
+ * Uses ultra-fast caching system for optimal performance.
  */
 export async function hasPermission(
     userId: string,
     fileId: number,
     requiredPermission: SharePermission
 ): Promise<boolean> {
-    const userPermission = await getUserFilePermission(userId, fileId)
-
-    if (!userPermission) return false
-
-    const userLevel = PERMISSION_HIERARCHY[userPermission]
-    const requiredLevel = PERMISSION_HIERARCHY[requiredPermission]
-
-    return userLevel >= requiredLevel
+    const result = await superFastPermissionCheck(
+        userId,
+        fileId,
+        requiredPermission
+    )
+    return result !== null
 }

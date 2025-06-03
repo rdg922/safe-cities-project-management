@@ -1,4 +1,4 @@
-import { eq, sql, desc, asc, ne } from 'drizzle-orm'
+import { eq, sql, desc, asc, ne, and } from 'drizzle-orm'
 import { z } from 'zod'
 
 import {
@@ -15,8 +15,15 @@ import {
     type FileType,
     users,
     filePermissions,
+    effectivePermissions,
     notifications,
 } from '~/server/db/schema'
+import {
+    getUserPermissionContext,
+    getAccessibleFiles,
+    getUsersWithFileAccess,
+} from '~/lib/permissions-simple'
+import { rebuildEffectivePermissionsForUser } from '~/lib/permissions-optimized'
 
 export const filesRouter = createTRPCRouter({
     // Create a new file (page, sheet, folder, or form)
@@ -90,6 +97,37 @@ export const filesRouter = createTRPCRouter({
                 })
             }
 
+            // Rebuild effective permissions for users who have access to the parent folder
+            // This ensures that inherited permissions are properly calculated for the new file
+            if (file && input.parentId) {
+                try {
+                    // Get all users who have permissions on the parent folder
+                    const parentPermissions =
+                        await ctx.db.query.effectivePermissions.findMany({
+                            where: eq(
+                                effectivePermissions.fileId,
+                                input.parentId
+                            ),
+                            columns: { userId: true },
+                        })
+
+                    const uniqueUserIds = [
+                        ...new Set(parentPermissions.map((p) => p.userId)),
+                    ]
+
+                    // Rebuild effective permissions for each user to include the new file
+                    for (const userId of uniqueUserIds) {
+                        await rebuildEffectivePermissionsForUser(userId)
+                    }
+                } catch (error) {
+                    console.error(
+                        'Error rebuilding effective permissions for new file:',
+                        error
+                    )
+                    // Don't fail the file creation if permission cache update fails
+                }
+            }
+
             return file
         }),
 
@@ -124,62 +162,26 @@ export const filesRouter = createTRPCRouter({
     getFilteredFileTree: protectedProcedure.query(async ({ ctx }) => {
         const { userId } = ctx.auth
 
-        // Get all files
-        const allFiles = await ctx.db.query.files.findMany({
-            orderBy: [asc(files.order), asc(files.name)],
-        })
+        // Get all files once and user permission context
+        const [allFiles, permissionContext] = await Promise.all([
+            ctx.db.query.files.findMany({
+                orderBy: [asc(files.order), asc(files.name)],
+                columns: {
+                    id: true,
+                    name: true,
+                    type: true,
+                    parentId: true,
+                    order: true,
+                },
+            }),
+            getUserPermissionContext(userId),
+        ])
 
-        // Get files user has access to
-        const accessibleFileIds = new Set<number>()
-
-        // Check if user is admin
-        const user = await ctx.db.query.users.findFirst({
-            where: eq(users.id, userId),
-        })
-
-        if (user?.role === 'admin') {
-            // Admins can see all files
-            allFiles.forEach((file) => accessibleFileIds.add(file.id))
-        } else {
-            // Get direct permissions for this user
-            const directPermissions =
-                await ctx.db.query.filePermissions.findMany({
-                    where: eq(filePermissions.userId, userId),
-                    columns: { fileId: true },
-                })
-
-            // Add files with direct permissions and their descendants
-            for (const permission of directPermissions) {
-                accessibleFileIds.add(permission.fileId)
-
-                // Add all descendants of this file
-                const addDescendants = (parentId: number) => {
-                    allFiles
-                        .filter((file) => file.parentId === parentId)
-                        .forEach((child) => {
-                            accessibleFileIds.add(child.id)
-                            addDescendants(child.id)
-                        })
-                }
-                addDescendants(permission.fileId)
-            }
-
-            // Add ancestor folders for accessible files (so users can see the path)
-            const filesToCheck = Array.from(accessibleFileIds)
-            for (const fileId of filesToCheck) {
-                const file = allFiles.find((f) => f.id === fileId)
-                if (file && file.parentId) {
-                    let currentParentId: number | null = file.parentId
-                    while (currentParentId) {
-                        accessibleFileIds.add(currentParentId)
-                        const parent = allFiles.find(
-                            (f) => f.id === currentParentId
-                        )
-                        currentParentId = parent?.parentId ?? null
-                    }
-                }
-            }
-        }
+        // Get accessible files using optimized permission context
+        const accessibleFileIds = await getAccessibleFiles(
+            permissionContext,
+            allFiles
+        )
 
         // Filter files to only include accessible ones
         const filteredFiles = allFiles.filter((file) =>
@@ -294,42 +296,38 @@ export const filesRouter = createTRPCRouter({
                 })
                 .where(eq(files.id, input.fileId))
 
-            // Get file info for notification
-            const file = await ctx.db.query.files.findFirst({
-                where: eq(files.id, input.fileId),
-                columns: { name: true },
-            })
+            // Optimized notification query - get file and user info in parallel
+            const [file, currentUser, usersWithAccessIds] = await Promise.all([
+                ctx.db.query.files.findFirst({
+                    where: eq(files.id, input.fileId),
+                    columns: { name: true },
+                }),
+                ctx.db.query.users.findFirst({
+                    where: eq(users.id, userId),
+                    columns: { name: true },
+                }),
+                // Use optimized function for faster lookup
+                getUsersWithFileAccess(input.fileId),
+            ])
 
-            // Get current user info for notifications
-            const currentUser = await ctx.db.query.users.findFirst({
-                where: eq(users.id, userId),
-                columns: { name: true },
-            })
-
-            if (file && currentUser) {
-                // Find users who have permission to view this file and should be notified of edits
-                const usersWithAccess = await ctx.db
-                    .select({
-                        userId: filePermissions.userId,
-                    })
-                    .from(filePermissions)
-                    .where(eq(filePermissions.fileId, input.fileId))
-
+            if (file && currentUser && usersWithAccessIds.length > 0) {
                 // Create edit notifications for users with access (excluding the editor)
-                if (usersWithAccess.length > 0) {
-                    await ctx.db.insert(notifications).values(
-                        usersWithAccess
-                            .filter((user) => user.userId !== userId) // Don't notify self
-                            .map((user) => ({
-                                userId: user.userId,
-                                pageId: input.fileId,
-                                content: `${currentUser.name} edited the page "${file.name}"`,
-                                type: 'edit',
-                                read: false,
-                                createdAt: new Date(),
-                                updatedAt: new Date(),
-                            }))
-                    )
+                const notificationsToInsert = usersWithAccessIds
+                    .filter((accessUserId) => accessUserId !== userId)
+                    .map((accessUserId) => ({
+                        userId: accessUserId,
+                        pageId: input.fileId,
+                        content: `${currentUser.name} edited the page "${file.name}"`,
+                        type: 'edit',
+                        read: false,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                    }))
+
+                if (notificationsToInsert.length > 0) {
+                    await ctx.db
+                        .insert(notifications)
+                        .values(notificationsToInsert)
                 }
             }
 
@@ -367,42 +365,38 @@ export const filesRouter = createTRPCRouter({
                 })
                 .where(eq(files.id, input.fileId))
 
-            // Get file info for notification
-            const file = await ctx.db.query.files.findFirst({
-                where: eq(files.id, input.fileId),
-                columns: { name: true },
-            })
+            // Optimized notification query - get file and user info in parallel
+            const [file, currentUser, usersWithAccessIds] = await Promise.all([
+                ctx.db.query.files.findFirst({
+                    where: eq(files.id, input.fileId),
+                    columns: { name: true },
+                }),
+                ctx.db.query.users.findFirst({
+                    where: eq(users.id, userId),
+                    columns: { name: true },
+                }),
+                // Use optimized function for faster lookup
+                getUsersWithFileAccess(input.fileId),
+            ])
 
-            // Get current user info for notifications
-            const currentUser = await ctx.db.query.users.findFirst({
-                where: eq(users.id, userId),
-                columns: { name: true },
-            })
-
-            if (file && currentUser) {
-                // Find users who have permission to view this file and should be notified of edits
-                const usersWithAccess = await ctx.db
-                    .select({
-                        userId: filePermissions.userId,
-                    })
-                    .from(filePermissions)
-                    .where(eq(filePermissions.fileId, input.fileId))
-
+            if (file && currentUser && usersWithAccessIds.length > 0) {
                 // Create edit notifications for users with access (excluding the editor)
-                if (usersWithAccess.length > 0) {
-                    await ctx.db.insert(notifications).values(
-                        usersWithAccess
-                            .filter((user) => user.userId !== userId) // Don't notify self
-                            .map((user) => ({
-                                userId: user.userId,
-                                pageId: input.fileId,
-                                content: `${currentUser.name} edited the sheet "${file.name}"`,
-                                type: 'edit',
-                                read: false,
-                                createdAt: new Date(),
-                                updatedAt: new Date(),
-                            }))
-                    )
+                const notificationsToInsert = usersWithAccessIds
+                    .filter((accessUserId) => accessUserId !== userId)
+                    .map((accessUserId) => ({
+                        userId: accessUserId,
+                        pageId: input.fileId,
+                        content: `${currentUser.name} edited the sheet "${file.name}"`,
+                        type: 'edit',
+                        read: false,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                    }))
+
+                if (notificationsToInsert.length > 0) {
+                    await ctx.db
+                        .insert(notifications)
+                        .values(notificationsToInsert)
                 }
             }
 
@@ -456,6 +450,9 @@ export const filesRouter = createTRPCRouter({
                     updatedBy: userId,
                 })
                 .where(eq(files.id, input.fileId))
+
+            // Note: Simple permissions approach doesn't require cache invalidation
+            // as permissions are computed on-demand from the database
 
             return { success: true }
         }),

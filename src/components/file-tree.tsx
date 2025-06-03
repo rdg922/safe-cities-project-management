@@ -38,6 +38,7 @@ import {
 } from '~/components/ui/dialog'
 import { api } from '~/trpc/react'
 import { ShareModal } from '~/components/share-modal'
+import { useBatchPermissions } from '~/hooks/use-batch-permissions'
 
 export type FileNode = {
     id: number
@@ -67,11 +68,19 @@ interface FileTreeProps {
 interface FileTreeNodeProps extends Omit<FileTreeProps, 'items'> {
     node: FileNode
     level: number
+    getPermissions: (fileId: number) => {
+        userPermission: any
+        canEdit: boolean
+        canShare: boolean
+    }
 }
 
 export function FileTree(props: FileTreeProps) {
     // Create a ref to store component data for range selection
     const rootRef = useRef<HTMLDivElement>(null)
+
+    // Use batch permissions for all files in the tree
+    const { getPermissions } = useBatchPermissions(props.items)
 
     // Store the props in the DOM element for access from child components
     useEffect(() => {
@@ -138,6 +147,7 @@ export function FileTree(props: FileTreeProps) {
                         key={item.id}
                         node={item}
                         level={0}
+                        getPermissions={getPermissions}
                         onSelectFile={props.onSelectFile}
                         activeFileId={props.activeFileId}
                         selectedFileIds={props.selectedFileIds}
@@ -164,6 +174,7 @@ const ItemTypes = {
 function FileTreeNode({
     node,
     level,
+    getPermissions,
     onSelectFile,
     activeFileId,
     selectedFileIds = [],
@@ -196,29 +207,14 @@ function FileTreeNode({
     const nodeRef = useRef<HTMLDivElement>(null)
     const { toast } = useToast()
 
-    // Permissions - Get user's permission for this file using the hierarchical permission system
-    const { data: userPermission } = api.permissions.getUserPermission.useQuery(
-        { fileId: node.id },
-        { enabled: !!node.id }
-    )
-
-    // Check if user can share this file (has edit permission anywhere in hierarchy)
-    const { data: canShareFile } = api.permissions.canShareFile.useQuery(
-        { fileId: node.id },
-        { enabled: !!node.id }
-    )
-
-    // Check if user can edit this file (has edit permission anywhere in hierarchy)
-    const { data: canEditFile } = api.permissions.canEditFile.useQuery(
-        { fileId: node.id },
-        { enabled: !!node.id }
-    )
+    // Get permissions for this file from the batch query
+    const permissions = getPermissions(node.id)
+    const { userPermission, canEdit, canShare } = permissions
 
     // Permission checks based on hierarchical permission levels
-    const canCreate = canEditFile ?? false // Edit permission anywhere in hierarchy allows creating files
-    const canRename = canEditFile ?? false // Edit permission anywhere in hierarchy allows renaming
-    const canDelete = canEditFile ?? false // Edit permission anywhere in hierarchy allows deleting
-    const canShare = canShareFile ?? false // Use the hierarchical permission check for sharing
+    const canCreate = canEdit // Edit permission anywhere in hierarchy allows creating files
+    const canRename = canEdit // Edit permission anywhere in hierarchy allows renaming
+    const canDelete = canEdit // Edit permission anywhere in hierarchy allows deleting
 
     // Configure drag source
     const [{ isDragging }, drag] = useDrag(() => ({
@@ -731,6 +727,7 @@ function FileTreeNode({
                                 onCreateFolder={onCreateFolder}
                                 onRename={onRename}
                                 onDelete={onDelete}
+                                getPermissions={getPermissions}
                             />
                         ))}
                     </div>

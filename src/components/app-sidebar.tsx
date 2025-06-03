@@ -11,7 +11,7 @@ import {
     ClipboardList,
 } from 'lucide-react'
 import Link from 'next/link'
-import { redirect, usePathname } from 'next/navigation'
+import { redirect, usePathname, useRouter } from 'next/navigation'
 import {
     Bell,
     Home,
@@ -26,6 +26,8 @@ import {
 } from 'lucide-react'
 import { FileTree, type FileNode } from '~/components/file-tree'
 import { api } from '~/trpc/react'
+import { invalidatePermissionCaches } from '~/lib/cache-invalidation'
+import { ultraFastFileCreationInvalidation } from '~/lib/cache-invalidation-ultra-fast'
 import { useUser } from '@clerk/nextjs'
 import {
     Sidebar,
@@ -65,6 +67,7 @@ import { FILE_TYPES } from '~/server/db/schema'
 
 export function AppSidebar() {
     const pathname = usePathname()
+    const router = useRouter()
     const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false)
     const [newFileName, setNewFileName] = useState('')
     const [newFileType, setNewFileType] = useState<'page' | 'sheet' | 'form'>(
@@ -75,11 +78,20 @@ export function AppSidebar() {
     const { user: clerkUser, isLoaded: isUserLoaded } = useUser()
 
     // Fetch file tree structure using the new files router with permission filtering
+    // Use aggressive caching to prevent unnecessary reloads
     const {
         data: fileTree = [],
         isLoading: isFileTreeLoading,
         refetch: refetchFileTree,
-    } = api.files.getFilteredFileTree.useQuery()
+    } = api.files.getFilteredFileTree.useQuery(undefined, {
+        staleTime: 10 * 60 * 1000, // 10 minutes - don't refetch unless absolutely necessary
+        gcTime: 15 * 60 * 1000, // 15 minutes - keep in memory (renamed from cacheTime in newer React Query)
+        refetchOnWindowFocus: false, // Don't refetch when window gets focus
+        refetchOnMount: false, // Don't refetch when component mounts if we have cached data
+        refetchOnReconnect: false, // Don't refetch when network reconnects
+        // Only refetch if data is older than 10 minutes
+        refetchInterval: false, // Disable automatic background refetch
+    })
 
     const [activeFileId, setActiveFileId] = useState<number | undefined>()
     const [selectedFileIds, setSelectedFileIds] = useState<number[]>([])
@@ -95,20 +107,24 @@ export function AppSidebar() {
             enabled: isUserLoaded && !!clerkUser,
         })
 
+    // Get query client for cache invalidation
+    const utils = api.useUtils()
+
     // Handle new file creation (page or sheet)
     const createFileMutation = api.files.create.useMutation({
         onSuccess: async (data) => {
             setNewFileName('')
             setIsNewFileDialogOpen(false)
-            await refetchFileTree()
+            // Invalidate both file and permission caches for new file creation
+            await ultraFastFileCreationInvalidation(utils)
 
-            // Navigate to the new file
+            // Navigate to the new file using client-side navigation to preserve cache
             if (data && data.type === FILE_TYPES.PAGE) {
-                window.location.href = `/pages/${data.id}`
+                router.push(`/pages/${data.id}`)
             } else if (data && data.type === FILE_TYPES.SHEET) {
-                window.location.href = `/sheets/${data.id}`
+                router.push(`/sheets/${data.id}`)
             } else if (data && data.type === FILE_TYPES.FORM) {
-                window.location.href = `/forms/${data.id}`
+                router.push(`/forms/${data.id}`)
             }
         },
     })
@@ -118,27 +134,31 @@ export function AppSidebar() {
         onSuccess: async () => {
             setNewFolderName('')
             setIsNewFolderDialogOpen(false)
-            await refetchFileTree()
+            // Invalidate both file and permission caches for new folder creation
+            await ultraFastFileCreationInvalidation(utils)
         },
     })
 
     // Handle renaming files
     const renameFileMutation = api.files.update.useMutation({
         onSuccess: async () => {
-            await refetchFileTree()
+            // Invalidate cache instead of manual refetch
+            await utils.files.getFilteredFileTree.invalidate()
         },
     })
 
     // Handle deleting files
     const deleteFileMutation = api.files.delete.useMutation({
         onSuccess: async () => {
-            await refetchFileTree()
+            // Invalidate cache instead of manual refetch
+            await utils.files.getFilteredFileTree.invalidate()
         },
     })
 
     const updateFileMutation = api.files.update.useMutation({
         onSuccess: async () => {
-            refetchFileTree()
+            // Invalidate cache instead of manual refetch
+            await utils.files.getFilteredFileTree.invalidate()
         },
     })
 
@@ -452,22 +472,22 @@ export function AppSidebar() {
                                         onSelectFile={(id) => {
                                             setActiveFileId(id)
                                             setSelectedFileIds([id]) // Reset multi-selection on regular click
-                                            // Navigate to the appropriate route based on file type
+                                            // Navigate to the appropriate route based on file type using client-side navigation
                                             const node = findNodeById(
                                                 fileTree,
                                                 id
                                             )
                                             if (node && !node.isFolder) {
                                                 if (node.type === 'page') {
-                                                    window.location.href = `/pages/${id}`
+                                                    router.push(`/pages/${id}`)
                                                 } else if (
                                                     node.type === 'sheet'
                                                 ) {
-                                                    window.location.href = `/sheets/${id}`
+                                                    router.push(`/sheets/${id}`)
                                                 } else if (
                                                     node.type === 'form'
                                                 ) {
-                                                    window.location.href = `/forms/${id}`
+                                                    router.push(`/forms/${id}`)
                                                 }
                                             }
                                         }}
@@ -551,7 +571,7 @@ export function AppSidebar() {
                                                     void Promise.all(
                                                         promises
                                                     ).then(() => {
-                                                        refetchFileTree()
+                                                        utils.files.getFilteredFileTree.invalidate()
                                                     })
                                                 } else {
                                                     // Single item move
@@ -567,7 +587,7 @@ export function AppSidebar() {
                                                             {
                                                                 onSuccess:
                                                                     () => {
-                                                                        refetchFileTree() // Refresh to show the new structure
+                                                                        utils.files.getFilteredFileTree.invalidate() // Refresh to show the new structure
                                                                     },
                                                             }
                                                         )
@@ -582,7 +602,7 @@ export function AppSidebar() {
                                                             {
                                                                 onSuccess:
                                                                     () => {
-                                                                        refetchFileTree() // Refresh to show the new structure
+                                                                        utils.files.getFilteredFileTree.invalidate() // Refresh to show the new structure
                                                                     },
                                                             }
                                                         )
@@ -644,7 +664,7 @@ export function AppSidebar() {
 
                                                 void Promise.all(promises).then(
                                                     () => {
-                                                        refetchFileTree()
+                                                        utils.files.getFilteredFileTree.invalidate()
                                                         setSelectedFileIds([])
                                                     }
                                                 )
@@ -654,7 +674,7 @@ export function AppSidebar() {
                                                     { id },
                                                     {
                                                         onSuccess: () => {
-                                                            refetchFileTree()
+                                                            utils.files.getFilteredFileTree.invalidate()
                                                             if (
                                                                 selectedFileIds.includes(
                                                                     id
