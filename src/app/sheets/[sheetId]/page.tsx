@@ -26,6 +26,12 @@ export default function SheetPage() {
         { enabled: !!sheetId }
     )
 
+    // Get sync metadata for this sheet if it's synced from a form
+    const { data: syncMetadata } = api.forms.getSyncMetadataBySheetId.useQuery(
+        { sheetId },
+        { enabled: !!sheetId }
+    )
+
     // Update local permission when user permission loads
     useEffect(() => {
         if (userPermission) {
@@ -80,6 +86,7 @@ export default function SheetPage() {
                     sheetId={sheetId}
                     sheetName={sheet.name}
                     readOnly={isReadOnly}
+                    syncMetadata={syncMetadata || undefined}
                 />
             </div>
         </div>

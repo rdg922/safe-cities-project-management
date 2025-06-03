@@ -10,17 +10,19 @@ import { toast } from '~/hooks/use-toast'
 import { formatDistanceToNow } from 'date-fns'
 
 export default function ChatsPage() {
-    const { 
-        data: recentChats = [], 
+    const {
+        data: recentChats = [],
         isLoading,
-        error 
+        error,
     } = api.chat.getRecentChats.useQuery()
     const [searchQuery, setSearchQuery] = useState('')
 
     // Filter chats based on search query
     const filteredChats = (recentChats || []).filter(
         (chat) =>
-            chat?.file?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            chat?.file?.name
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase()) ||
             chat?.lastMessage?.content
                 ?.toLowerCase()
                 .includes(searchQuery.toLowerCase())
@@ -56,7 +58,8 @@ export default function ChatsPage() {
                 <CardContent className="p-0">
                     {error && (
                         <div className="p-4 text-center text-destructive">
-                            Failed to load chats. Please try refreshing the page.
+                            Failed to load chats. Please try refreshing the
+                            page.
                         </div>
                     )}
                     {isLoading && (
@@ -81,14 +84,18 @@ export default function ChatsPage() {
                                                 {chat?.file?.name || 'Untitled'}
                                             </h3>
                                             <span className="text-xs text-muted-foreground">
-                                                {chat?.lastMessage?.createdAt && formatDistanceToNow(
-                                                    new Date(chat.lastMessage.createdAt),
-                                                    { addSuffix: true }
-                                                )}
+                                                {chat?.lastMessage?.createdAt &&
+                                                    formatDistanceToNow(
+                                                        new Date(
+                                                            chat.lastMessage.createdAt
+                                                        ),
+                                                        { addSuffix: true }
+                                                    )}
                                             </span>
                                         </div>
                                         <p className="text-sm text-muted-foreground truncate">
-                                            {chat?.lastMessage?.content || 'No messages yet'}
+                                            {chat?.lastMessage?.content ||
+                                                'No messages yet'}
                                         </p>
                                     </div>
                                 </Link>

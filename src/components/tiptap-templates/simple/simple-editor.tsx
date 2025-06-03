@@ -5,7 +5,6 @@ import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
-import { Image } from "@tiptap/extension-image"
 import { TaskList } from "@tiptap/extension-task-list"
 import { TextAlign } from "@tiptap/extension-text-align"
 import { Typography } from "@tiptap/extension-typography"
@@ -19,6 +18,7 @@ import { Link } from "@/components/tiptap-extension/link-extension"
 import { Selection } from "@/components/tiptap-extension/selection-extension"
 import { TrailingNode } from "@/components/tiptap-extension/trailing-node-extension"
 import { AssignableTaskItem } from "~/components/tiptap-extension/assignable-task-item-extension"
+import { ResizableImage } from "~/components/tiptap-extension/resizable-image-extension"
 
 import UniqueId from "tiptap-unique-id";
 
@@ -221,7 +221,7 @@ export function SimpleEditor({ initialContent, readOnly = false, onUpdate }: Sim
       TaskList,
       AssignableTaskItem,
       Highlight.configure({ multicolor: true }),
-      Image,
+      ResizableImage,
       Typography,
       Superscript,
       Subscript,

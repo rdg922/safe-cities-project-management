@@ -1,38 +1,46 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse, NextRequest } from 'next/server'
+import { updateSession } from '@/utils/supabase/middleware'
 
 const isOnboardingRoute = createRouteMatcher(['/onboarding'])
 const isApiRoute = createRouteMatcher(['/api(.*)'])
+const isSupabaseRoute = createRouteMatcher([
+  '/pages/:id(\\d+)',
+  '/sheets/:id(\\d+)',
+  '/forms/:id(\\d+)',
+])
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
-    // Skip custom logic for API routes, but still allow Clerk to handle auth
-    if (isApiRoute(req)) {
-        return NextResponse.next()
-    }
-
-    const { userId, sessionClaims, redirectToSignIn } = await auth()
-
-    if (!userId) {
-        return redirectToSignIn()
-    }
-
-    if (
-        !sessionClaims?.metadata?.onboardingComplete &&
-        !isOnboardingRoute(req)
-    ) {
-        const onboardingUrl = new URL('/onboarding', req.url)
-        return NextResponse.redirect(onboardingUrl)
-    }
-
-    // otherwise keep going
+  if (isApiRoute(req)) {
     return NextResponse.next()
+  }
+
+  const { userId, sessionClaims, redirectToSignIn } = await auth()
+
+  if (!userId) {
+    return redirectToSignIn()
+  }
+
+  if (
+    !sessionClaims?.metadata?.onboardingComplete &&
+    !isOnboardingRoute(req)
+  ) {
+    const onboardingUrl = new URL('/onboarding', req.url)
+    return NextResponse.redirect(onboardingUrl)
+  }
+
+  // Only sync Supabase session for pages, sheets, and forms routes
+  if (isSupabaseRoute(req)) {
+    return await updateSession(req)
+  }
+
+  return NextResponse.next()
 })
 
 export const config = {
-    matcher: [
-        // Skip Next.js internals and static files, but include API routes for Clerk auth
-        '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-        // Explicitly include API routes for Clerk authentication
-        '/api/(.*)',
-    ],
+  matcher: [
+    // Keep Clerk auth and onboarding everywhere except static assets
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    '/api/(.*)',
+  ],
 }

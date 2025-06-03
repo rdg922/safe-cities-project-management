@@ -50,7 +50,7 @@ export function FileHeader({
     savingStatus = 'idle',
     content,
 }: FileHeaderProps) {
-    const { toggleChat } = useChatToggle({ pageTitle: filename })
+    const { toggleChat } = useChatToggle({ pageTitle: filename, fileId })
     const [isShareModalOpen, setIsShareModalOpen] = useState(false)
 
     const handleDownload = async () => {

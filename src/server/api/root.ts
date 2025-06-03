@@ -5,6 +5,7 @@ import { filesRouter } from '~/server/api/routers/files'
 import { permissionsRouter } from '~/server/api/routers/permissions'
 import { notificationsRouter } from '~/server/api/routers/notifications'
 import { commentsRouter } from '~/server/api/routers/comments'
+import { formsRouter } from '~/server/api/routers/forms'
 import { createCallerFactory, createTRPCRouter } from '~/server/api/trpc'
 
 /**
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
     permissions: permissionsRouter, // Hierarchical permissions
     notification: notificationsRouter, // Robust notifications
     comments: commentsRouter, // Comments system with notifications
+    forms: formsRouter, // Forms system
 })
 
 // export type definition of API
