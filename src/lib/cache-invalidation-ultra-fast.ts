@@ -11,10 +11,10 @@ import { api } from '~/trpc/react'
 export function ultraFastInvalidateFileCaches(
     utils: ReturnType<typeof api.useUtils>
 ) {
-    // Only invalidate the most critical file-related caches
+    // Invalidate both file tree queries used throughout the app
     return Promise.all([
         utils.files.getFilteredFileTree.invalidate(),
-        // Skip getFileTree to reduce load - it will refresh naturally on next use
+        utils.files.getFileTree.invalidate(), // Also invalidate for NewFileDialog
     ])
 }
 
@@ -177,8 +177,9 @@ export function ultraFastFileCreationInvalidation(
 ) {
     return Promise.all([
         ultraFastInvalidateFileCaches(utils),
-        // Only invalidate broad permission caches, not specific ones
+        // Also invalidate permission-related caches that affect file tree visibility
         utils.permissions.getUserAccessibleFiles.invalidate(),
+        utils.permissions.batchCheckPermissions.invalidate(),
     ])
 }
 

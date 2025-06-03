@@ -49,6 +49,7 @@ import { ThemeToggle } from './tiptap-templates/simple/theme-toggle'
 import { FILE_TYPES } from '~/server/db/schema'
 import { useMobile } from '~/hooks/use-mobile'
 import { NewFileDialog, type NewFileType } from './new-file-dialog'
+import { navigateToFile } from '~/lib/navigation-utils'
 
 export function AppSidebar() {
     const pathname = usePathname()
@@ -89,24 +90,6 @@ export function AppSidebar() {
     // Get query client for cache invalidation
     const utils = api.useUtils()
 
-    // Handle new file creation (unified for all types)
-    const createFileMutation = api.files.create.useMutation({
-        onSuccess: async (data) => {
-            setIsNewFileDialogOpen(false)
-            // Invalidate both file and permission caches for new file creation
-            await ultraFastFileCreationInvalidation(utils)
-
-            // Navigate to the new file using client-side navigation to preserve cache
-            if (data && data.type === FILE_TYPES.PAGE) {
-                router.push(`/pages/${data.id}`)
-            } else if (data && data.type === FILE_TYPES.SHEET) {
-                router.push(`/sheets/${data.id}`)
-            } else if (data && data.type === FILE_TYPES.FORM) {
-                router.push(`/forms/${data.id}`)
-            }
-        },
-    })
-
     // Handle renaming files
     const renameFileMutation = api.files.update.useMutation({
         onSuccess: async () => {
@@ -129,15 +112,6 @@ export function AppSidebar() {
             await utils.files.getFilteredFileTree.invalidate()
         },
     })
-
-    // Handle file creation from the new dialog
-    const handleCreateFile = (data: {
-        name: string
-        type: any
-        parentId?: number
-    }) => {
-        createFileMutation.mutate(data)
-    }
 
     // Helper function to find a node by ID in the file tree
     const findNodeById = (nodes: FileNode[], id: number): FileNode | null => {
@@ -209,7 +183,6 @@ export function AppSidebar() {
                         open={isNewFileDialogOpen}
                         onOpenChange={setIsNewFileDialogOpen}
                         fileType={newFileDialogType}
-                        onCreateFile={handleCreateFile}
                     />
                 </SidebarHeader>
                 <SidebarSeparator />
@@ -311,17 +284,29 @@ export function AppSidebar() {
                                                 fileTree,
                                                 id
                                             )
-                                            if (node && !node.isFolder) {
-                                                if (node.type === 'page') {
-                                                    router.push(`/pages/${id}`)
-                                                } else if (
-                                                    node.type === 'sheet'
-                                                ) {
-                                                    router.push(`/sheets/${id}`)
-                                                } else if (
-                                                    node.type === 'form'
-                                                ) {
-                                                    router.push(`/forms/${id}`)
+                                            if (
+                                                node &&
+                                                !node.isFolder &&
+                                                node.type
+                                            ) {
+                                                // Map the node type to FILE_TYPES
+                                                const typeMapping = {
+                                                    page: FILE_TYPES.PAGE,
+                                                    sheet: FILE_TYPES.SHEET,
+                                                    form: FILE_TYPES.FORM,
+                                                    folder: FILE_TYPES.FOLDER,
+                                                    programme:
+                                                        FILE_TYPES.PROGRAMME,
+                                                } as const
+
+                                                const fileType =
+                                                    typeMapping[node.type]
+                                                if (fileType) {
+                                                    navigateToFile(
+                                                        router,
+                                                        id,
+                                                        fileType
+                                                    )
                                                 }
                                             }
                                         }}

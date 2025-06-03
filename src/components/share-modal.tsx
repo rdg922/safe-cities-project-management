@@ -416,8 +416,9 @@ export function ShareModal({
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="p-3 text-sm text-muted-foreground">
-                                        No users found
+                                    <div className="p-3 text-sm text-muted-foreground text-center">
+                                        No users found. They may not have been
+                                        added to Safe Cities yet.
                                     </div>
                                 )}
                             </div>

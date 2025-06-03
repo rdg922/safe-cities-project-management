@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
     FileText,
     Sheet,
@@ -36,6 +37,8 @@ import {
 import { FILE_TYPES, type FileType } from '~/server/db/schema'
 import { FileTreeSelector } from '~/components/file-tree-selector'
 import { api } from '~/trpc/react'
+import { navigateToFile } from '~/lib/navigation-utils'
+import { ultraFastFileCreationInvalidation } from '~/lib/cache-invalidation-ultra-fast'
 
 export type NewFileType = 'page' | 'sheet' | 'form' | 'folder' | 'programme'
 
@@ -43,11 +46,11 @@ interface NewFileDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
     fileType?: NewFileType // If passed, shows specific dialog for this type
-    onCreateFile: (data: {
+    onCreateFile?: (data: {
         name: string
         type: FileType
         parentId?: number
-    }) => void
+    }) => void // Made optional since we'll handle creation internally
     defaultName?: string
 }
 
@@ -58,6 +61,7 @@ export function NewFileDialog({
     onCreateFile,
     defaultName = '',
 }: NewFileDialogProps) {
+    const router = useRouter()
     const [selectedType, setSelectedType] = useState<NewFileType>(
         fileType || 'page'
     )
@@ -66,9 +70,41 @@ export function NewFileDialog({
         null
     )
 
-    // Get file tree for parent selection
+    // Get file tree for parent selection - use the same filtered query as sidebar
     const { data: fileTree = [], isLoading: isLoadingFileTree } =
-        api.files.getFileTree.useQuery()
+        api.files.getFilteredFileTree.useQuery()
+
+    // Get query client for cache invalidation
+    const utils = api.useUtils()
+
+    // Handle file creation mutation
+    const createFileMutation = api.files.create.useMutation({
+        onSuccess: async (data) => {
+            // Close dialog first
+            onOpenChange(false)
+
+            // Invalidate both file and permission caches for new file creation
+            await ultraFastFileCreationInvalidation(utils)
+
+            // Call the external callback if provided (for backwards compatibility)
+            if (onCreateFile && data) {
+                onCreateFile({
+                    name: fileName,
+                    type: data.type,
+                    parentId: data.parentId ?? undefined,
+                })
+            }
+
+            // Navigate to the new file if it's a navigable type
+            if (data && data.id) {
+                navigateToFile(router, data.id, data.type)
+            }
+
+            // Reset form
+            setFileName('')
+            setSelectedParentId(null)
+        },
+    })
 
     // Reset state when dialog opens/closes or fileType changes
     useEffect(() => {
@@ -83,7 +119,7 @@ export function NewFileDialog({
 
     const handleCreate = () => {
         if (!fileName.trim()) return
-        
+
         // Only require parent selection for non-programme files
         if (selectedType !== 'programme' && selectedParentId === null) return
 
@@ -96,16 +132,15 @@ export function NewFileDialog({
             programme: FILE_TYPES.PROGRAMME,
         }
 
-        onCreateFile({
+        // Create the file using mutation
+        createFileMutation.mutate({
             name: fileName,
             type: typeMapping[selectedType],
-            parentId: selectedType === 'programme' ? undefined : selectedParentId ?? undefined,
+            parentId:
+                selectedType === 'programme'
+                    ? undefined
+                    : (selectedParentId ?? undefined),
         })
-
-        // Reset form
-        setFileName('')
-        setSelectedParentId(null)
-        onOpenChange(false)
     }
 
     const getFileTypeConfig = (type: NewFileType) => {
@@ -221,7 +256,10 @@ export function NewFileDialog({
                                 if (e.key === 'Enter') {
                                     // For programmes, no parent is required
                                     // For other files, parent selection is required
-                                    if (selectedType === 'programme' || selectedParentId !== null) {
+                                    if (
+                                        selectedType === 'programme' ||
+                                        selectedParentId !== null
+                                    ) {
                                         handleCreate()
                                     }
                                 }
@@ -254,7 +292,8 @@ export function NewFileDialog({
                     {selectedType === 'programme' && (
                         <div className="grid gap-2">
                             <p className="text-sm text-muted-foreground">
-                                Programmes are created at the root level and can contain folders and files.
+                                Programmes are created at the root level and can
+                                contain folders and files.
                             </p>
                         </div>
                     )}
@@ -269,11 +308,15 @@ export function NewFileDialog({
                     <Button
                         onClick={handleCreate}
                         disabled={
-                            !fileName.trim() || 
-                            (selectedType !== 'programme' && selectedParentId === null)
+                            !fileName.trim() ||
+                            (selectedType !== 'programme' &&
+                                selectedParentId === null) ||
+                            createFileMutation.isPending
                         }
                     >
-                        Create {config.title}
+                        {createFileMutation.isPending
+                            ? 'Creating...'
+                            : `Create ${config.title}`}
                     </Button>
                 </DialogFooter>
             </DialogContent>

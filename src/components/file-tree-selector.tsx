@@ -11,10 +11,12 @@ import {
 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { Button } from '~/components/ui/button'
+import { useBatchPermissions } from '~/hooks/use-batch-permissions'
 
 interface FileTreeNode {
     id: number
     name: string
+    filename?: string // For compatibility with useBatchPermissions
     type?: 'folder' | 'page' | 'sheet' | 'form' | 'programme'
     isFolder?: boolean
     parentId?: number | null
@@ -33,6 +35,11 @@ interface FileTreeNodeProps {
     level: number
     selectedId?: number | null
     onSelect: (fileId: number | null) => void
+    getPermissions: (fileId: number) => {
+        userPermission: any
+        canEdit: boolean
+        canShare: boolean
+    }
 }
 
 function FileTreeNodeComponent({
@@ -40,13 +47,28 @@ function FileTreeNodeComponent({
     level,
     selectedId,
     onSelect,
+    getPermissions,
 }: FileTreeNodeProps) {
     const [isExpanded, setIsExpanded] = useState(true)
     const isSelected = selectedId === node.id
     const hasChildren = node.children && node.children.length > 0
 
+    // Get permissions for this file
+    const permissions = getPermissions(node.id)
+    const { userPermission, canEdit } = permissions
+
     // Only allow folders and programmes to be selectable as parents
-    const isSelectable = node.type === 'folder' || node.type === 'programme'
+    // AND only if the user has edit permissions
+    const isBaseSelectable = node.type === 'folder' || node.type === 'programme'
+    const isSelectable = isBaseSelectable && canEdit
+
+    // Get permission display text
+    const getPermissionText = () => {
+        if (!userPermission) return ''
+        if (userPermission === 'view') return '(view)'
+        if (userPermission === 'comment') return '(comment)'
+        return ''
+    }
 
     const getIcon = () => {
         switch (node.type) {
@@ -119,10 +141,16 @@ function FileTreeNodeComponent({
                         className={cn(
                             'text-sm truncate flex-1',
                             node.type === 'programme' &&
-                                'font-semibold text-blue-700 dark:text-blue-300'
+                                'font-semibold text-blue-700 dark:text-blue-300',
+                            !isSelectable && 'text-muted-foreground'
                         )}
                     >
                         {node.name}
+                        {!isSelectable && userPermission && (
+                            <span className="ml-1 text-xs italic text-muted-foreground">
+                                {getPermissionText()}
+                            </span>
+                        )}
                     </span>
                 </div>
             </div>
@@ -136,6 +164,7 @@ function FileTreeNodeComponent({
                             level={level + 1}
                             selectedId={selectedId}
                             onSelect={onSelect}
+                            getPermissions={getPermissions}
                         />
                     ))}
                 </div>
@@ -150,6 +179,38 @@ export function FileTreeSelector({
     onSelect,
     className,
 }: FileTreeSelectorProps) {
+    // Transform FileTreeNode[] to FileNode[] for useBatchPermissions compatibility
+    const transformToFileNodes = (nodes: FileTreeNode[]): any[] => {
+        return nodes.map((node) => ({
+            ...node,
+            filename: node.filename || node.name, // Ensure filename is present
+            children: node.children
+                ? transformToFileNodes(node.children)
+                : undefined,
+        }))
+    }
+
+    const fileNodes = transformToFileNodes(files)
+
+    // Get batch permissions for all files in the tree
+    const { getPermissions, isLoading } = useBatchPermissions(fileNodes)
+
+    // Show loading state while permissions are being fetched
+    if (isLoading) {
+        return (
+            <div
+                className={cn(
+                    'border rounded-md p-2 max-h-64 overflow-y-auto flex items-center justify-center',
+                    className
+                )}
+            >
+                <div className="text-sm text-muted-foreground">
+                    Loading permissions...
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div
             className={cn(
@@ -164,6 +225,7 @@ export function FileTreeSelector({
                     level={0}
                     selectedId={selectedId}
                     onSelect={onSelect}
+                    getPermissions={getPermissions}
                 />
             ))}
         </div>
