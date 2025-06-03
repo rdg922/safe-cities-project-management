@@ -6,9 +6,6 @@ import {
     Edit2,
     MoreHorizontal,
     FolderPlus,
-    FileText,
-    Sheet,
-    ClipboardList,
 } from 'lucide-react'
 import Link from 'next/link'
 import { redirect, usePathname, useRouter } from 'next/navigation'
@@ -23,6 +20,7 @@ import {
     LogOut,
     Settings,
     Folder,
+    FileText,
 } from 'lucide-react'
 import { FileTree, type FileNode } from '~/components/file-tree'
 import { api } from '~/trpc/react'
@@ -46,35 +44,22 @@ import {
 } from '~/components/ui/sidebar'
 import { Button } from '~/components/ui/button'
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '~/components/ui/dialog'
-import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
-import { Input } from '~/components/ui/input'
-import { Label } from '~/components/ui/label'
 import { SignOutButton } from '@clerk/nextjs'
 import { ThemeToggle } from './tiptap-templates/simple/theme-toggle'
 import { FILE_TYPES } from '~/server/db/schema'
 import { useMobile } from '~/hooks/use-mobile'
+import { NewFileDialog, type NewFileType } from './new-file-dialog'
 
 export function AppSidebar() {
     const pathname = usePathname()
     const router = useRouter()
     const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false)
-    const [newFileName, setNewFileName] = useState('')
-    const [newFileType, setNewFileType] = useState<'page' | 'sheet' | 'form'>(
-        'page'
-    )
+    const [newFileDialogType, setNewFileDialogType] = useState<NewFileType | undefined>(undefined)
 
     // Get current user from Clerk
     const { user: clerkUser, isLoaded: isUserLoaded } = useUser()
@@ -97,8 +82,6 @@ export function AppSidebar() {
 
     const [activeFileId, setActiveFileId] = useState<number | undefined>()
     const [selectedFileIds, setSelectedFileIds] = useState<number[]>([])
-    const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false)
-    const [newFolderName, setNewFolderName] = useState('')
     const [selectedParentId, setSelectedParentId] = useState<number | null>(
         null
     )
@@ -112,10 +95,9 @@ export function AppSidebar() {
     // Get query client for cache invalidation
     const utils = api.useUtils()
 
-    // Handle new file creation (page or sheet)
+    // Handle new file creation (unified for all types)
     const createFileMutation = api.files.create.useMutation({
         onSuccess: async (data) => {
-            setNewFileName('')
             setIsNewFileDialogOpen(false)
             // Invalidate both file and permission caches for new file creation
             await ultraFastFileCreationInvalidation(utils)
@@ -128,16 +110,6 @@ export function AppSidebar() {
             } else if (data && data.type === FILE_TYPES.FORM) {
                 router.push(`/forms/${data.id}`)
             }
-        },
-    })
-
-    // Handle new folder creation
-    const createFolderMutation = api.files.create.useMutation({
-        onSuccess: async () => {
-            setNewFolderName('')
-            setIsNewFolderDialogOpen(false)
-            // Invalidate both file and permission caches for new folder creation
-            await ultraFastFileCreationInvalidation(utils)
         },
     })
 
@@ -164,14 +136,13 @@ export function AppSidebar() {
         },
     })
 
-    const handleAddFile = () => {
-        if (!newFileName.trim()) return
-
-        createFileMutation.mutate({
-            name: newFileName,
-            type: newFileType,
-            parentId: selectedParentId || undefined,
-        })
+    // Handle file creation from the new dialog
+    const handleCreateFile = (data: {
+        name: string
+        type: any
+        parentId?: number
+    }) => {
+        createFileMutation.mutate(data)
     }
 
     // Helper function to find a node by ID in the file tree
@@ -227,164 +198,26 @@ export function AppSidebar() {
                         </div>
                         <div>{isMobile && <SidebarTrigger />}</div>
                     </div>
-                    <Dialog
+                    <Button
+                        size="sm"
+                        className="w-full justify-start gap-2"
+                        onClick={() => {
+                            setNewFileDialogType(undefined)
+                            setIsNewFileDialogOpen(true)
+                        }}
+                    >
+                        <Plus size={16} />
+                        New File
+                    </Button>
+
+                    {/* Unified New File Dialog */}
+                    <NewFileDialog
                         open={isNewFileDialogOpen}
                         onOpenChange={setIsNewFileDialogOpen}
-                    >
-                        <DialogTrigger asChild>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        size="sm"
-                                        className="w-full justify-start gap-2"
-                                    >
-                                        <Plus size={16} />
-                                        New File
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start">
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                            setNewFileType('page')
-                                            setIsNewFileDialogOpen(true)
-                                        }}
-                                    >
-                                        <FileText size={16} className="mr-2" />
-                                        New Page
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                            setNewFileType('sheet')
-                                            setIsNewFileDialogOpen(true)
-                                        }}
-                                    >
-                                        <Sheet size={16} className="mr-2" />
-                                        New Sheet
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                            setNewFileType('form')
-                                            setIsNewFileDialogOpen(true)
-                                        }}
-                                    >
-                                        <ClipboardList
-                                            size={16}
-                                            className="mr-2"
-                                        />
-                                        New Form
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>
-                                    Create New{' '}
-                                    {newFileType === 'page'
-                                        ? 'Page'
-                                        : newFileType === 'sheet'
-                                          ? 'Sheet'
-                                          : 'Form'}
-                                </DialogTitle>
-                                <DialogDescription>
-                                    Add a new {newFileType} to the system.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="file-name">
-                                        {newFileType === 'page'
-                                            ? 'Page'
-                                            : newFileType === 'sheet'
-                                              ? 'Sheet'
-                                              : 'Form'}{' '}
-                                        Name
-                                    </Label>
-                                    <Input
-                                        id="file-name"
-                                        value={newFileName}
-                                        onChange={(e) =>
-                                            setNewFileName(e.target.value)
-                                        }
-                                        placeholder={`Enter ${newFileType} name`}
-                                    />
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button
-                                    variant="outline"
-                                    onClick={() =>
-                                        setIsNewFileDialogOpen(false)
-                                    }
-                                >
-                                    Cancel
-                                </Button>
-                                <Button onClick={handleAddFile}>
-                                    Create{' '}
-                                    {newFileType === 'page'
-                                        ? 'Page'
-                                        : newFileType === 'sheet'
-                                          ? 'Sheet'
-                                          : 'Form'}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-
-                    {/* New Folder Dialog */}
-                    <Dialog
-                        open={isNewFolderDialogOpen}
-                        onOpenChange={setIsNewFolderDialogOpen}
-                    >
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Create New Folder</DialogTitle>
-                                <DialogDescription>
-                                    Add a new folder to organize your pages.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="folder-name">
-                                        Folder Name
-                                    </Label>
-                                    <Input
-                                        id="folder-name"
-                                        value={newFolderName}
-                                        onChange={(e) =>
-                                            setNewFolderName(e.target.value)
-                                        }
-                                        placeholder="Enter folder name"
-                                    />
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button
-                                    variant="outline"
-                                    onClick={() =>
-                                        setIsNewFolderDialogOpen(false)
-                                    }
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={() => {
-                                        if (newFolderName.trim()) {
-                                            createFolderMutation.mutate({
-                                                name: newFolderName,
-                                                type: FILE_TYPES.FOLDER,
-                                                parentId:
-                                                    selectedParentId ||
-                                                    undefined,
-                                            })
-                                        }
-                                    }}
-                                >
-                                    Create Folder
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                        fileType={newFileDialogType}
+                        onCreateFile={handleCreateFile}
+                        parentId={selectedParentId}
+                    />
                 </SidebarHeader>
                 <SidebarSeparator />
                 <SidebarContent>
@@ -444,16 +277,17 @@ export function AppSidebar() {
                     <SidebarGroup>
                         <SidebarGroupLabel className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <span>Files</span>
+                                <span>Programmes</span>
                             </div>
                             <div className="flex gap-1">
                                 <SidebarGroupAction
-                                    onClick={() =>
-                                        setIsNewFolderDialogOpen(true)
-                                    }
+                                    onClick={() => {
+                                        setNewFileDialogType('programme')
+                                        setIsNewFileDialogOpen(true)
+                                    }}
                                 >
-                                    <FolderPlus size={16} />
-                                    <span className="sr-only">Add Folder</span>
+                                    <Plus size={16} />
+                                    <span className="sr-only">Add Programme</span>
                                 </SidebarGroupAction>
                                 {/* <SidebarGroupAction onClick={() => setIsNewPageDialogOpen(true)}>
                   <Plus size={16} />
@@ -614,26 +448,26 @@ export function AppSidebar() {
                                                     }
                                                 }
                                             }
-                                        }}
-                                        onCreateFile={(parentId) => {
-                                            setSelectedParentId(parentId)
-                                            setNewFileType('page')
-                                            setIsNewFileDialogOpen(true)
-                                        }}
-                                        onCreateSheet={(parentId) => {
-                                            setSelectedParentId(parentId)
-                                            setNewFileType('sheet')
-                                            setIsNewFileDialogOpen(true)
-                                        }}
-                                        onCreateForm={(parentId) => {
-                                            setSelectedParentId(parentId)
-                                            setNewFileType('form')
-                                            setIsNewFileDialogOpen(true)
-                                        }}
-                                        onCreateFolder={(parentId) => {
-                                            setSelectedParentId(parentId)
-                                            setIsNewFolderDialogOpen(true)
-                                        }}
+                                        }}                        onCreateFile={(parentId) => {
+                            setSelectedParentId(parentId)
+                            setNewFileDialogType('page')
+                            setIsNewFileDialogOpen(true)
+                        }}
+                        onCreateSheet={(parentId) => {
+                            setSelectedParentId(parentId)
+                            setNewFileDialogType('sheet')
+                            setIsNewFileDialogOpen(true)
+                        }}
+                        onCreateForm={(parentId) => {
+                            setSelectedParentId(parentId)
+                            setNewFileDialogType('form')
+                            setIsNewFileDialogOpen(true)
+                        }}
+                        onCreateFolder={(parentId) => {
+                            setSelectedParentId(parentId)
+                            setNewFileDialogType('folder')
+                            setIsNewFileDialogOpen(true)
+                        }}
                                         onRename={(id, filename) => {
                                             renameFileMutation.mutate(
                                                 { id, name: filename },

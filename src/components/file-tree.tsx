@@ -44,7 +44,7 @@ export type FileNode = {
     id: number
     filename: string
     name?: string // Some files might use 'name' instead of 'filename'
-    type?: 'folder' | 'page' | 'sheet' | 'form'
+    type?: 'folder' | 'page' | 'sheet' | 'form' | 'programme'
     isFolder?: boolean
     parentId?: number | null
     children?: FileNode[]
@@ -219,7 +219,11 @@ function FileTreeNode({
     // Configure drag source
     const [{ isDragging }, drag] = useDrag(() => ({
         type: node.isFolder ? ItemTypes.FOLDER : ItemTypes.FILE,
-        item: { id: node.id, type: node.isFolder ? 'folder' : 'file' },
+        item: { 
+            id: node.id, 
+            type: node.isFolder ? 'folder' : 'file',
+            nodeType: node.type // Include the actual node type (programme, folder, etc.)
+        },
         collect: (monitor) => ({
             isDragging: monitor.isDragging(),
         }),
@@ -230,7 +234,16 @@ function FileTreeNode({
         accept: [ItemTypes.FILE, ItemTypes.FOLDER],
         canDrop: (item: any) => {
             // Prevent dropping on itself or dropping a parent into its child
-            return item.id !== node.id && !isParentOfChild(item.id, node)
+            if (item.id === node.id || isParentOfChild(item.id, node)) {
+                return false
+            }
+            
+            // Prevent programmes from being dragged into other programmes
+            if (item.nodeType === 'programme' && node.type === 'programme') {
+                return false
+            }
+            
+            return true
         },
         hover: (item: any, monitor) => {
             // Auto-expand folders after hovering for a second
@@ -520,9 +533,17 @@ function FileTreeNode({
                             ) : (
                                 <ChevronRight className="h-4 w-4 mr-1 text-muted-foreground shrink-0" />
                             )}
-                            <Folder className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
+                            <Folder className={cn(
+                                "h-4 w-4 mr-2 shrink-0",
+                                node.type === 'programme' 
+                                    ? "text-blue-600 dark:text-blue-400" 
+                                    : "text-muted-foreground"
+                            )} />
                         </div>
-                        <span className="text-sm truncate flex-1">
+                        <span className={cn(
+                            "text-sm truncate flex-1",
+                            node.type === 'programme' && "font-semibold text-blue-700 dark:text-blue-300"
+                        )}>
                             {node.filename || node.name}
                         </span>
                         <DropdownMenu>

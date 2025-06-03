@@ -57,6 +57,7 @@ export const FILE_TYPES = {
     PAGE: 'page',
     SHEET: 'sheet',
     FORM: 'form',
+    PROGRAMME: 'programme',
 } as const
 
 export type FileType = (typeof FILE_TYPES)[keyof typeof FILE_TYPES]
