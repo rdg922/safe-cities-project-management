@@ -1,7 +1,12 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
-import { ReactGrid, type CellChange, type Column, type DefaultCellTypes } from '@silevis/reactgrid'
+import {
+    ReactGrid,
+    type CellChange,
+    type Column,
+    type DefaultCellTypes,
+} from '@silevis/reactgrid'
 import '@silevis/reactgrid/styles.scss'
 import { applyChangesToSheet, type SheetData } from '~/lib/sheet-utils'
 import { isFormDataColumn } from '~/lib/form-sync-utils'
@@ -34,12 +39,12 @@ export function SheetEditor({
 }: SheetEditorProps) {
     const [sheet, setSheet] = useState<SheetData>(initialData)
     const timeoutRef = useRef<NodeJS.Timeout | null>(null)
-    
+
     const isLiveSyncSheet = syncMetadata?.isLiveSync
     const formDataColumnCount = syncMetadata?.formDataColumnCount || 0
     const updateMutation = api.files.updateSheetContent.useMutation({
         onSuccess: () => {
-            toast({ 
+            toast({
                 title: '✅ Sheet saved',
                 description: 'Your changes have been saved successfully.',
             })
@@ -57,7 +62,7 @@ export function SheetEditor({
     const addColumn = () => {
         const newSheet = { ...sheet }
         const currentColCount = newSheet.rows[0]?.cells.length || 0
-        
+
         // Convert column index to letter (A, B, C, ..., AA, AB, etc.)
         const getColumnLetter = (index: number): string => {
             let result = ''
@@ -68,9 +73,9 @@ export function SheetEditor({
             }
             return result
         }
-        
+
         const columnLetter = getColumnLetter(currentColCount) // currentColCount already accounts for row header
-        
+
         // Add header cell to header row
         if (newSheet.rows[0]) {
             newSheet.rows[0].cells.push({
@@ -78,7 +83,7 @@ export function SheetEditor({
                 text: columnLetter,
             } as DefaultCellTypes)
         }
-        
+
         // Add empty cells to all data rows
         for (let i = 1; i < newSheet.rows.length; i++) {
             newSheet.rows[i]?.cells.push({
@@ -86,20 +91,20 @@ export function SheetEditor({
                 text: '',
             } as DefaultCellTypes)
         }
-        
+
         // Update cells array
-        newSheet.cells = newSheet.rows.map(row => row.cells)
-        
+        newSheet.cells = newSheet.rows.map((row) => row.cells)
+
         setSheet(newSheet)
-        
+
         // Save the updated sheet
         updateMutation.mutate({
             fileId: sheetId,
             content: JSON.stringify(newSheet),
         })
-        
+
         toast({
-            title: 'Column added',
+            title: '📊 Column added',
             description: `New column ${columnLetter} has been added to the sheet.`,
         })
     }
@@ -109,7 +114,7 @@ export function SheetEditor({
         const newSheet = { ...sheet }
         const newRowIndex = newSheet.rows.length
         const colCount = newSheet.rows[0]?.cells.length || 0
-        
+
         // Create new row
         const newRow = {
             rowId: `row-${newRowIndex}`,
@@ -122,7 +127,7 @@ export function SheetEditor({
                         text: `${newRowIndex}`,
                     } as DefaultCellTypes
                 }
-                
+
                 // Regular data cell
                 return {
                     type: 'text',
@@ -130,22 +135,22 @@ export function SheetEditor({
                 } as DefaultCellTypes
             }),
         }
-        
+
         newSheet.rows.push(newRow)
-        
+
         // Update cells array
-        newSheet.cells = newSheet.rows.map(row => row.cells)
-        
+        newSheet.cells = newSheet.rows.map((row) => row.cells)
+
         setSheet(newSheet)
-        
+
         // Save the updated sheet
         updateMutation.mutate({
             fileId: sheetId,
             content: JSON.stringify(newSheet),
         })
-        
+
         toast({
-            title: 'Row added',
+            title: '📝 Row added',
             description: `New row ${newRowIndex} has been added to the sheet.`,
         })
     }
@@ -154,14 +159,21 @@ export function SheetEditor({
         if (readOnly) return // Don't allow changes in read-only mode
 
         // Filter out changes to form data columns if this is a live sync sheet
-        const allowedChanges = isLiveSyncSheet 
-            ? changes.filter(change => !isFormDataColumn(change.columnId as number, formDataColumnCount))
+        const allowedChanges = isLiveSyncSheet
+            ? changes.filter(
+                  (change) =>
+                      !isFormDataColumn(
+                          change.columnId as number,
+                          formDataColumnCount
+                      )
+              )
             : changes
 
         if (allowedChanges.length === 0) {
             toast({
                 title: '🛡️ Cannot edit form data',
-                description: 'Form data columns are protected and cannot be edited. Try adding a new column for your notes.',
+                description:
+                    'Form data columns are protected and cannot be edited. Try adding a new column for your notes.',
                 variant: 'destructive',
             })
             return
@@ -170,14 +182,19 @@ export function SheetEditor({
         if (allowedChanges.length < changes.length) {
             toast({
                 title: '⚠️ Some edits blocked',
-                description: 'Form data columns are protected. Only additional columns can be edited.',
+                description:
+                    'Form data columns are protected. Only additional columns can be edited.',
                 variant: 'default',
             })
         }
 
-        const newSheet = applyChangesToSheet(sheet, allowedChanges, formDataColumnCount)
+        const newSheet = applyChangesToSheet(
+            sheet,
+            allowedChanges,
+            formDataColumnCount
+        )
         setSheet(newSheet)
-        
+
         // debounce save
         if (timeoutRef.current) clearTimeout(timeoutRef.current)
         timeoutRef.current = setTimeout(() => {
@@ -191,7 +208,8 @@ export function SheetEditor({
     // Derive column definitions from the first row's cells
     const columns: Column[] =
         sheet.rows[0]?.cells.map((_, index) => {
-            const isFormDataCol = isLiveSyncSheet && isFormDataColumn(index, formDataColumnCount)
+            const isFormDataCol =
+                isLiveSyncSheet && isFormDataColumn(index, formDataColumnCount)
             return {
                 columnId: index,
                 width: index === 0 ? 60 : 120,
@@ -221,31 +239,26 @@ export function SheetEditor({
                     }
                 `}</style>
             )}
-            
+
             {/* Header with controls */}
             <div className="flex items-center justify-between p-4 border-b">
                 <div className="flex items-center gap-4">
-                    <h2 className="text-lg font-semibold">{sheetName || 'Sheet'}</h2>
+                    <h2 className="text-lg font-semibold">
+                        {sheetName || 'Sheet'}
+                    </h2>
                     {isLiveSyncSheet && (
-                        <Badge variant="secondary" className="flex items-center gap-1">
+                        <Badge
+                            variant="secondary"
+                            className="flex items-center gap-1"
+                        >
                             <Activity className="h-3 w-3" />
                             Live Sync
                         </Badge>
                     )}
                 </div>
-                
+
                 {!readOnly && (
                     <div className="flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={addRow}
-                            disabled={updateMutation.isPending}
-                            className="flex items-center gap-2"
-                        >
-                            <Plus className="h-4 w-4" />
-                            Add Row
-                        </Button>
                         <Button
                             variant="outline"
                             size="sm"
@@ -274,23 +287,33 @@ export function SheetEditor({
                                 <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">
                                     Live Sync Active
                                 </h4>
-                                <Badge variant="outline" className="text-xs border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300">
+                                <Badge
+                                    variant="outline"
+                                    className="text-xs border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300"
+                                >
                                     <Shield className="h-3 w-3 mr-1" />
                                     Protected
                                 </Badge>
                             </div>
                             <p className="text-sm text-blue-800 dark:text-blue-200">
-                                The first {formDataColumnCount} columns contain form submission data and are protected from editing. 
-                                You can add and edit additional columns for your notes and analysis.
+                                The first {formDataColumnCount} columns contain
+                                form submission data and are protected from
+                                editing. You can add and edit additional columns
+                                for your notes and analysis.
                             </p>
                             <div className="mt-2 text-xs text-blue-700 dark:text-blue-300">
-                                Last synced: {syncMetadata?.lastSyncAt ? new Date(syncMetadata.lastSyncAt).toLocaleString() : 'Unknown'}
+                                Last synced:{' '}
+                                {syncMetadata?.lastSyncAt
+                                    ? new Date(
+                                          syncMetadata.lastSyncAt
+                                      ).toLocaleString()
+                                    : 'Unknown'}
                             </div>
                         </div>
                     </CardContent>
                 </Card>
             )}
-            
+
             <div className="flex-1 min-h-0 p-4">
                 <div className="rg-container dark:bg-background dark:text-foreground rounded-lg border">
                     <ReactGrid

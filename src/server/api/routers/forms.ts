@@ -390,47 +390,52 @@ export const formsRouter = createTRPCRouter({
             try {
                 await ctx.db.transaction(async (tx) => {
                     // Find all active synced sheets for this form
-                    const syncedSheets = await tx.query.formSheetSyncs.findMany({
-                        where: and(
-                            eq(formSheetSyncs.formId, input.formId),
-                            eq(formSheetSyncs.isActive, true)
-                        ),
-                        with: {
-                            sheet: {
-                                with: {
-                                    sheetContent: true,
+                    const syncedSheets = await tx.query.formSheetSyncs.findMany(
+                        {
+                            where: and(
+                                eq(formSheetSyncs.formId, input.formId),
+                                eq(formSheetSyncs.isActive, true)
+                            ),
+                            with: {
+                                sheet: {
+                                    with: {
+                                        sheetContent: true,
+                                    },
                                 },
                             },
-                        },
-                    })
+                        }
+                    )
 
                     if (syncedSheets.length > 0) {
                         // Get form with latest submissions (including the one we just created)
-                        const formWithSubmissions = await tx.query.forms.findFirst({
-                            where: eq(forms.id, input.formId),
-                            with: {
-                                fields: {
-                                    orderBy: asc(formFields.order),
-                                },
-                                submissions: {
-                                    with: {
-                                        responses: {
-                                            with: {
-                                                field: true,
-                                            },
-                                        },
-                                        user: {
-                                            columns: {
-                                                id: true,
-                                                name: true,
-                                                email: true,
-                                            },
-                                        },
+                        const formWithSubmissions =
+                            await tx.query.forms.findFirst({
+                                where: eq(forms.id, input.formId),
+                                with: {
+                                    fields: {
+                                        orderBy: asc(formFields.order),
                                     },
-                                    orderBy: desc(formSubmissions.createdAt),
+                                    submissions: {
+                                        with: {
+                                            responses: {
+                                                with: {
+                                                    field: true,
+                                                },
+                                            },
+                                            user: {
+                                                columns: {
+                                                    id: true,
+                                                    name: true,
+                                                    email: true,
+                                                },
+                                            },
+                                        },
+                                        orderBy: desc(
+                                            formSubmissions.createdAt
+                                        ),
+                                    },
                                 },
-                            },
-                        })
+                            })
 
                         if (formWithSubmissions) {
                             // Update each synced sheet
@@ -443,7 +448,9 @@ export const formsRouter = createTRPCRouter({
 
                                 // Update the existing schema to maintain metadata
                                 const currentSchema = sync.sheet.sheetContent
-                                    ? JSON.parse(sync.sheet.sheetContent.schema || '{}')
+                                    ? JSON.parse(
+                                          sync.sheet.sheetContent.schema || '{}'
+                                      )
                                     : {}
 
                                 const updatedSchema = {
@@ -462,7 +469,9 @@ export const formsRouter = createTRPCRouter({
                                         schema: JSON.stringify(updatedSchema),
                                         updatedAt: new Date(),
                                     })
-                                    .where(eq(sheetContent.fileId, sync.sheetId))
+                                    .where(
+                                        eq(sheetContent.fileId, sync.sheetId)
+                                    )
 
                                 // Update sync timestamp
                                 await tx
@@ -552,7 +561,9 @@ export const formsRouter = createTRPCRouter({
             })
 
             if (existingSync) {
-                throw new Error(`Form is already synced to sheet: ${existingSync.sheet.name}`)
+                throw new Error(
+                    `Form is already synced to sheet: ${existingSync.sheet.name}`
+                )
             }
 
             // Get form with fields and submissions
@@ -608,7 +619,10 @@ export const formsRouter = createTRPCRouter({
             }
 
             // Use the utility function to create properly formatted sheet data
-            const sheetData = createSyncedSheetData(form.submissions, form.fields)
+            const sheetData = createSyncedSheetData(
+                form.submissions,
+                form.fields
+            )
 
             // Generate schema with form data column metadata
             const formDataColumnCount = 4 + form.fields.length // System columns + form fields
@@ -637,10 +651,10 @@ export const formsRouter = createTRPCRouter({
                 lastSyncAt: new Date(),
             })
 
-            return { 
-                sheetFile, 
+            return {
+                sheetFile,
                 totalSubmissions: form.submissions.length,
-                isLiveSync: true 
+                isLiveSync: true,
             }
         }),
 
@@ -701,7 +715,10 @@ export const formsRouter = createTRPCRouter({
             // Update each synced sheet
             for (const sync of syncedSheets) {
                 // Use the utility function to create properly formatted sheet data
-                const sheetData = createSyncedSheetData(form.submissions, form.fields)
+                const sheetData = createSyncedSheetData(
+                    form.submissions,
+                    form.fields
+                )
 
                 // Update the existing schema to maintain metadata
                 const currentSchema = sync.sheet.sheetContent
@@ -789,7 +806,7 @@ export const formsRouter = createTRPCRouter({
 
             return {
                 isSync: syncedSheets.length > 0,
-                syncedSheets: syncedSheets.map(sync => ({
+                syncedSheets: syncedSheets.map((sync) => ({
                     id: sync.id,
                     sheetId: sync.sheetId,
                     sheetName: sync.sheet.name,
@@ -805,7 +822,7 @@ export const formsRouter = createTRPCRouter({
         .mutation(async ({ ctx, input }) => {
             await ctx.db
                 .update(formSheetSyncs)
-                .set({ 
+                .set({
                     isActive: false,
                     updatedAt: new Date(),
                 })
@@ -845,7 +862,9 @@ export const formsRouter = createTRPCRouter({
                 formId: syncRelation.formId,
                 isLiveSync: syncRelation.isActive,
                 formDataColumnCount,
-                lastSyncAt: syncRelation.lastSyncAt?.toISOString() || new Date().toISOString(),
+                lastSyncAt:
+                    syncRelation.lastSyncAt?.toISOString() ||
+                    new Date().toISOString(),
             }
         }),
 })

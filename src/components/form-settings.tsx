@@ -474,7 +474,8 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
                         Live Sync to Sheet
                     </CardTitle>
                     <CardDescription>
-                        Create live-syncing sheets that automatically update when new form submissions are received
+                        Create live-syncing sheets that automatically update
+                        when new form submissions are received
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -486,22 +487,35 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
                                     Live Sync Active
                                 </div>
                                 <p className="text-sm text-green-700">
-                                    This form is automatically syncing submissions to the following sheets:
+                                    This form is automatically syncing
+                                    submissions to the following sheets:
                                 </p>
                             </div>
-                            
+
                             {syncStatus.data.syncedSheets.map((sync) => (
-                                <div key={sync.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                <div
+                                    key={sync.id}
+                                    className="flex items-center justify-between p-3 border rounded-lg"
+                                >
                                     <div className="space-y-1">
-                                        <p className="font-medium">{sync.sheetName}</p>
+                                        <p className="font-medium">
+                                            {sync.sheetName}
+                                        </p>
                                         <p className="text-sm text-muted-foreground">
-                                            Last synced: {sync.lastSyncAt ? new Date(sync.lastSyncAt).toLocaleString() : 'Never'}
+                                            Last synced:{' '}
+                                            {sync.lastSyncAt
+                                                ? new Date(
+                                                      sync.lastSyncAt
+                                                  ).toLocaleString()
+                                                : 'Never'}
                                         </p>
                                     </div>
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => handleDisableSync(sync.id)}
+                                        onClick={() =>
+                                            handleDisableSync(sync.id)
+                                        }
                                         disabled={disableSyncMutation.isPending}
                                     >
                                         {disableSyncMutation.isPending ? (
@@ -526,11 +540,15 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
                             </DialogTrigger>
                             <DialogContent>
                                 <DialogHeader>
-                                    <DialogTitle>Create Live Sync Sheet</DialogTitle>
+                                    <DialogTitle>
+                                        Create Live Sync Sheet
+                                    </DialogTitle>
                                     <DialogDescription>
-                                        This will create a live-syncing sheet that automatically updates 
-                                        whenever new form submissions are received. The form data columns 
-                                        will be protected from editing.
+                                        This will create a live-syncing sheet
+                                        that automatically updates whenever new
+                                        form submissions are received. The form
+                                        data columns will be protected from
+                                        editing.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="space-y-4">
@@ -539,18 +557,35 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
                                             Live sync will include:
                                         </h4>
                                         <ul className="text-sm text-muted-foreground space-y-1">
-                                            <li>• All current and future form responses</li>
-                                            <li>• Automatic updates when new submissions arrive</li>
-                                            <li>• Protected form data columns (non-editable)</li>
-                                            <li>• Submission timestamps and submitter info</li>
-                                            <li>• Additional editable columns for your notes</li>
+                                            <li>
+                                                • All current and future form
+                                                responses
+                                            </li>
+                                            <li>
+                                                • Automatic updates when new
+                                                submissions arrive
+                                            </li>
+                                            <li>
+                                                • Protected form data columns
+                                                (non-editable)
+                                            </li>
+                                            <li>
+                                                • Submission timestamps and
+                                                submitter info
+                                            </li>
+                                            <li>
+                                                • Additional editable columns
+                                                for your notes
+                                            </li>
                                         </ul>
                                     </div>
                                 </div>
                                 <DialogFooter>
                                     <Button
                                         variant="outline"
-                                        onClick={() => setIsExportDialogOpen(false)}
+                                        onClick={() =>
+                                            setIsExportDialogOpen(false)
+                                        }
                                     >
                                         Cancel
                                     </Button>
