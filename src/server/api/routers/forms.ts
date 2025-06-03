@@ -24,8 +24,7 @@ import { createSyncedSheetData } from '~/lib/sheet-utils'
 // Validation schemas for form field options and validation rules
 const fieldOptionsSchema = z.array(
     z.object({
-        value: z.string(),
-        label: z.string(),
+        text: z.string(),
     })
 )
 

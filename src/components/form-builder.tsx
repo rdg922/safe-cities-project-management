@@ -33,7 +33,6 @@ import {
     Circle,
     Square,
     AlignLeft,
-    Paperclip,
 } from 'lucide-react'
 import { FORM_FIELD_TYPES } from '~/server/db/schema'
 
@@ -59,8 +58,7 @@ interface FormBuilderProps {
 }
 
 interface FieldOption {
-    value: string
-    label: string
+    text: string
 }
 
 const FIELD_TYPE_ICONS = {
@@ -69,11 +67,7 @@ const FIELD_TYPE_ICONS = {
     number: Hash,
     date: Calendar,
     select: List,
-    multiselect: List,
-    radio: Circle,
-    checkbox: CheckSquare,
     textarea: AlignLeft,
-    file: Paperclip,
 }
 
 const FIELD_TYPE_LABELS = {
@@ -82,11 +76,7 @@ const FIELD_TYPE_LABELS = {
     number: 'Number',
     date: 'Date',
     select: 'Dropdown',
-    multiselect: 'Multi-select',
-    radio: 'Radio Buttons',
-    checkbox: 'Checkboxes',
     textarea: 'Long Text',
-    file: 'File Upload',
 }
 
 export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
@@ -101,7 +91,6 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
         type: 'text',
         required: false,
         placeholder: '',
-        defaultValue: '',
         options: [] as FieldOption[],
         validation: {},
     })
@@ -187,7 +176,6 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
             type: 'text',
             required: false,
             placeholder: '',
-            defaultValue: '',
             options: [],
             validation: {},
         })
@@ -202,6 +190,14 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
             return
         }
 
+        if (fieldForm.type === 'select' && fieldForm.options.length === 0) {
+            toast({
+                title: 'Dropdown fields must have at least one option',
+                variant: 'destructive',
+            })
+            return
+        }
+
         const fieldData = {
             formId: form.id,
             label: fieldForm.label,
@@ -209,12 +205,7 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
             type: fieldForm.type as any,
             required: fieldForm.required,
             placeholder: fieldForm.placeholder || undefined,
-            defaultValue: fieldForm.defaultValue || undefined,
-            options: ['select', 'multiselect', 'radio', 'checkbox'].includes(
-                fieldForm.type
-            )
-                ? fieldForm.options
-                : undefined,
+            options: fieldForm.type === 'select' ? fieldForm.options : undefined,
             validation:
                 Object.keys(fieldForm.validation).length > 0
                     ? fieldForm.validation
@@ -227,6 +218,14 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
     const handleUpdateField = () => {
         if (!editingFieldId || !fieldForm.label.trim()) return
 
+        if (fieldForm.type === 'select' && fieldForm.options.length === 0) {
+            toast({
+                title: 'Dropdown fields must have at least one option',
+                variant: 'destructive',
+            })
+            return
+        }
+
         const fieldData = {
             fieldId: editingFieldId,
             label: fieldForm.label,
@@ -234,12 +233,7 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
             type: fieldForm.type as any,
             required: fieldForm.required,
             placeholder: fieldForm.placeholder || undefined,
-            defaultValue: fieldForm.defaultValue || undefined,
-            options: ['select', 'multiselect', 'radio', 'checkbox'].includes(
-                fieldForm.type
-            )
-                ? fieldForm.options
-                : undefined,
+            options: fieldForm.type === 'select' ? fieldForm.options : undefined,
             validation:
                 Object.keys(fieldForm.validation).length > 0
                     ? fieldForm.validation
@@ -254,13 +248,12 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
         setIsAddingField(false)
         setFieldForm({
             label: field.label,
-            description: field.description || '',
+            description: field.description ?? '',
             type: field.type,
             required: field.required,
-            placeholder: field.placeholder || '',
-            defaultValue: field.defaultValue || '',
-            options: field.options || [],
-            validation: field.validation || {},
+            placeholder: field.placeholder ?? '',
+            options: field.options ?? [],
+            validation: field.validation ?? {},
         })
     }
 
@@ -269,6 +262,13 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
         setEditingFieldId(null)
         resetFieldForm()
     }
+
+    // Add effect to handle type changes
+    useEffect(() => {
+        if (fieldForm.type === 'select' && fieldForm.options.length === 0) {
+            addOption()
+        }
+    }, [fieldForm.type])
 
     const handleCancelEdit = () => {
         setEditingFieldId(null)
@@ -297,19 +297,18 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
     const addOption = () => {
         setFieldForm((prev) => ({
             ...prev,
-            options: [...prev.options, { value: '', label: '' }],
+            options: [...prev.options, { text: '' }],
         }))
     }
 
     const updateOption = (
         index: number,
-        field: 'value' | 'label',
         value: string
     ) => {
         setFieldForm((prev) => ({
             ...prev,
             options: prev.options.map((option, i) =>
-                i === index ? { ...option, [field]: value } : option
+                i === index ? { text: value } : option
             ),
         }))
     }
@@ -321,12 +320,8 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
         }))
     }
 
-    const needsOptions = [
-        'select',
-        'multiselect',
-        'radio',
-        'checkbox',
-    ].includes(fieldForm.type)
+    const needsOptions = ['select'].includes(fieldForm.type)
+    const showPlaceholder = !['select', 'date'].includes(fieldForm.type)
 
     const renderFieldEditor = () => {
         return (
@@ -363,6 +358,8 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
                                     setFieldForm((prev) => ({
                                         ...prev,
                                         type: value,
+                                        // Reset options when changing type
+                                        options: value === 'select' ? [{ text: '' }] : [],
                                     }))
                                 }
                             >
@@ -399,7 +396,7 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
                         />
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
+                    {showPlaceholder && (
                         <div className="space-y-2">
                             <Label htmlFor="field-placeholder">
                                 Placeholder
@@ -416,21 +413,7 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
                                 placeholder="Placeholder text"
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="field-default">Default Value</Label>
-                            <Input
-                                id="field-default"
-                                value={fieldForm.defaultValue}
-                                onChange={(e) =>
-                                    setFieldForm((prev) => ({
-                                        ...prev,
-                                        defaultValue: e.target.value,
-                                    }))
-                                }
-                                placeholder="Default value"
-                            />
-                        </div>
-                    </div>
+                    )}
 
                     <div className="flex items-center space-x-2">
                         <Switch
@@ -467,23 +450,11 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
                                         className="flex items-center gap-2"
                                     >
                                         <Input
-                                            placeholder="Option value"
-                                            value={option.value}
+                                            placeholder="Option"
+                                            value={option.text}
                                             onChange={(e) =>
                                                 updateOption(
                                                     index,
-                                                    'value',
-                                                    e.target.value
-                                                )
-                                            }
-                                        />
-                                        <Input
-                                            placeholder="Option label"
-                                            value={option.label}
-                                            onChange={(e) =>
-                                                updateOption(
-                                                    index,
-                                                    'label',
                                                     e.target.value
                                                 )
                                             }
