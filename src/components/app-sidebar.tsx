@@ -19,9 +19,9 @@ import {
 } from 'lucide-react'
 import { FileTree, type FileNode } from '~/components/file-tree'
 import { api } from '~/trpc/react'
-import { invalidatePermissionCaches } from '~/lib/cache-invalidation'
-import { ultraFastFileCreationInvalidation } from '~/lib/cache-invalidation-ultra-fast'
+import { ultraFastInvalidatePermissionCaches, ultraFastFileCreationInvalidation } from '~/lib/streamlined-cache-invalidation'
 import { useUser } from '@clerk/nextjs'
+import { useFileTree } from '~/providers/file-tree-provider'
 import {
     Sidebar,
     SidebarContent,
@@ -62,21 +62,14 @@ export function AppSidebar() {
     // Get current user from Clerk
     const { user: clerkUser, isLoaded: isUserLoaded } = useUser()
 
-    // Fetch file tree structure using the new files router with permission filtering
-    // Use aggressive caching to prevent unnecessary reloads
+    // Use the centralized file tree provider instead of direct query
     const {
-        data: fileTree = [],
+        fileTree,
         isLoading: isFileTreeLoading,
         refetch: refetchFileTree,
-    } = api.files.getFilteredFileTree.useQuery(undefined, {
-        staleTime: 10 * 60 * 1000, // 10 minutes - don't refetch unless absolutely necessary
-        gcTime: 15 * 60 * 1000, // 15 minutes - keep in memory (renamed from cacheTime in newer React Query)
-        refetchOnWindowFocus: false, // Don't refetch when window gets focus
-        refetchOnMount: false, // Don't refetch when component mounts if we have cached data
-        refetchOnReconnect: false, // Don't refetch when network reconnects
-        // Only refetch if data is older than 10 minutes
-        refetchInterval: false, // Disable automatic background refetch
-    })
+        invalidateFileTree,
+        getPermissions,
+    } = useFileTree()
 
     const [activeFileId, setActiveFileId] = useState<number | undefined>()
     const [selectedFileIds, setSelectedFileIds] = useState<number[]>([])
@@ -93,23 +86,23 @@ export function AppSidebar() {
     // Handle renaming files
     const renameFileMutation = api.files.update.useMutation({
         onSuccess: async () => {
-            // Invalidate cache instead of manual refetch
-            await utils.files.getFilteredFileTree.invalidate()
+            // Invalidate cache through our provider
+            await invalidateFileTree()
         },
     })
 
     // Handle deleting files
     const deleteFileMutation = api.files.delete.useMutation({
         onSuccess: async () => {
-            // Invalidate cache instead of manual refetch
-            await utils.files.getFilteredFileTree.invalidate()
+            // Invalidate cache through our provider
+            await invalidateFileTree()
         },
     })
 
     const updateFileMutation = api.files.update.useMutation({
         onSuccess: async () => {
-            // Invalidate cache instead of manual refetch
-            await utils.files.getFilteredFileTree.invalidate()
+            // Invalidate cache through our provider
+            await invalidateFileTree()
         },
     })
 

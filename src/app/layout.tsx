@@ -11,6 +11,7 @@ import { ChatSidebarProvider } from '~/components/ui/chat-sidebar-provider'
 import { ChatSidebar } from '~/components/chat-sidebar'
 import { MobileHeader } from '~/components/mobile-header'
 import { Toaster } from '~/components/ui/toaster'
+import { FileTreeProvider } from '~/providers/file-tree-provider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -35,20 +36,22 @@ export default function RootLayout({
                             enableSystem
                             disableTransitionOnChange
                         >
-                            <SidebarProvider>
-                                <ChatSidebarProvider>
-                                    <div className="flex min-h-screen w-full">
-                                        <AppSidebar />
-                                        <div className="flex-1 flex flex-col overflow-hidden">
-                                            <main className="flex-1 overflow-auto">
-                                                {children}
-                                            </main>
+                            <FileTreeProvider>
+                                <SidebarProvider>
+                                    <ChatSidebarProvider>
+                                        <div className="flex min-h-screen w-full">
+                                            <AppSidebar />
+                                            <div className="flex-1 flex flex-col overflow-hidden">
+                                                <main className="flex-1 overflow-auto">
+                                                    {children}
+                                                </main>
+                                            </div>
+                                            <ChatSidebar />
                                         </div>
-                                        <ChatSidebar />
-                                    </div>
-                                    <Toaster />
-                                </ChatSidebarProvider>
-                            </SidebarProvider>
+                                        <Toaster />
+                                    </ChatSidebarProvider>
+                                </SidebarProvider>
+                            </FileTreeProvider>
                         </ThemeProvider>
                     </TRPCReactProvider>
                 </ClerkProvider>

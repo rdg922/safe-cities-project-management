@@ -38,7 +38,7 @@ import { FILE_TYPES, type FileType } from '~/server/db/schema'
 import { FileTreeSelector } from '~/components/file-tree-selector'
 import { api } from '~/trpc/react'
 import { navigateToFile } from '~/lib/navigation-utils'
-import { ultraFastFileCreationInvalidation } from '~/lib/cache-invalidation-ultra-fast'
+import { ultraFastFileCreationInvalidation } from '~/lib/streamlined-cache-invalidation'
 
 export type NewFileType = 'page' | 'sheet' | 'form' | 'folder' | 'programme'
 
