@@ -115,14 +115,14 @@ const MainToolbarContent = ({
       <ToolbarGroup>
         <MarkButton type="bold" />
         <MarkButton type="italic" />
-        <MarkButton type="strike" />
+        {/* <MarkButton type="strike" /> */}
         {/* <MarkButton type="code" />  */}
         <MarkButton type="underline" />
-        {!isMobile ? (
+        {/* {!isMobile ? (
           <ColorHighlightPopover />
         ) : (
           <ColorHighlightPopoverButton onClick={onHighlighterClick} />
-        )}
+        )} */}
         {!isMobile ? <LinkPopover /> : <LinkButton onClick={onLinkClick} />}
       </ToolbarGroup>
 
