@@ -25,8 +25,6 @@ export function PageChat({ pageTitle }: PageChatProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const [isActive, setIsActive] = useState(true)
 
-    if (!fileId) return
-
     // Get messages for this page
     const { data: messages = [], refetch: refetchMessages } =
         api.chat.getFileMessages.useQuery(
