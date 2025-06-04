@@ -12,6 +12,7 @@ async function initHtml2Pdf() {
   return html2pdf
 }
 
+
 export async function downloadFile(htmlString: string, fileName: string) {
   try {
     // Initialize html2pdf
@@ -19,6 +20,8 @@ export async function downloadFile(htmlString: string, fileName: string) {
     
     // Fetch the CSS files
     const pdfExportCss = await fetch('/styles/pdf-export.css').then(res => res.text())
+    
+    // Clean the HTML before processing
     
     // Create the HTML structure with inlined styles
     const htmlWithStyles = `

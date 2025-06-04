@@ -51,64 +51,91 @@ html, body {
 
 /* Lists */
 .prose ul, .prose ol {
-  padding-left: 2em;
-  margin: 1em 0;
-}
-
-.prose ul {
-  list-style-type: disc;
-}
-
-.prose ul ul {
-  list-style-type: circle;
-}
-
-.prose ul ul ul {
-  list-style-type: square;
-}
-
-.prose ol {
-  list-style-type: decimal;
-}
-
-.prose ol ol {
-  list-style-type: lower-alpha;
-}
-
-.prose ol ol ol {
-  list-style-type: lower-roman;
-}
-
-.prose li {
-  margin: 0.5em 0;
+  list-style-type: none;
+  padding-left: 1em;
+  position: relative;
 }
 
 .prose li > p {
-  margin: 0.5em 0;
+  margin: 0;
 }
 
-/* Code blocks */
-.prose pre {
-  background-color: #f6f8fa;
-  padding: 1rem;
-  border-radius: 6px;
-  overflow-x: auto;
-  margin: 1em 0;
+.prose ul li, .prose ol li {
+  list-style-type: none;
+  position: relative;
 }
 
-.prose code {
-  background-color: #f6f8fa;
-  padding: 0.2em 0.4em;
-  border-radius: 3px;
-  font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
-  font-size: 0.9em;
+.prose ul > li::before {
+  content: '• ';
+  margin-left: -1em;
+  position: absolute;
+  left: 0;
 }
 
-/* Tables */
-.prose table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 1rem 0;
+.prose ul ul > li::before {
+  content: '◦ ';
+}
+.prose ul ul ul > li::before {
+  content: '▪ ';
+}
+
+/* Remove bullet marker from ol li and from ul inside ol */
+.prose ol li::before,
+.prose ol ul > li::before,
+.prose ol ul ul > li::before,
+.prose ol ul ul ul > li::before {
+  content: '';
+}
+
+/* Ordered lists: custom counters for each level */
+.prose ol {
+  counter-reset: ol-decimal;
+}
+
+.prose ol > li {
+  counter-increment: ol-decimal;
+}
+
+.prose ol > li::before {
+  content: counter(ol-decimal) '. ';
+  margin-left: -1.5em;
+  position: absolute;
+  left: 0;
+} 
+
+.prose ol ol {
+  counter-reset: ol-alpha;
+}
+
+.prose ol ol > li {
+  counter-increment: ol-alpha;
+}
+
+.prose ol ol > li::before {
+  content: counter(ol-alpha, lower-alpha) '. ';
+  margin-left: -1.5em;
+  position: absolute;
+  left: 0;
+}
+
+.prose ol ol ol {
+  counter-reset: ol-roman;
+}
+.prose ol ol ol > li {
+  counter-increment: ol-roman;
+}
+.prose ol ol ol > li::before {
+  content: counter(ol-roman, lower-roman) '. ';
+  margin-left: -1.5em;
+  position: absolute;
+  left: 0;
+}
+
+/* Task lists: no custom marker */
+.prose ul[data-type="taskList"] li::before {
+  content: '';
+  margin: 0;
+  position: static;
 }
 
 .prose th, .prose td {
@@ -129,14 +156,6 @@ html, body {
   image-rendering: auto;
   image-rendering: crisp-edges;
   image-rendering: high-quality;
-}
-
-/* Blockquotes */
-.prose blockquote {
-  margin: 1em 0;
-  padding: 0 1em;
-  color: #6a737d;
-  border-left: 0.25em solid #dfe2e5;
 }
 
 /* Horizontal rule */
