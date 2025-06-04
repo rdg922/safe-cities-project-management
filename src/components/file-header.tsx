@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { useChatToggle } from '~/hooks/use-chat-toggle'
 import { ShareModal } from '~/components/share-modal'
+import { SidebarTrigger, useSidebar } from './ui/sidebar'
+import { useMobile } from '~/hooks/use-mobile'
 import { downloadFile } from '~/utils/pdfExport.client'
 
 type Permission = 'view' | 'comment' | 'edit'
@@ -69,6 +71,9 @@ export function FileHeader({
         <>
             <div className="flex items-center justify-between p-4 border-b bg-background">
                 <div className="flex items-center gap-4">
+                    <div>
+                        <SidebarTrigger />
+                    </div>
                     <h1 className="text-xl font-semibold">{filename}</h1>
                     {savingStatus === 'saving' && (
                         <span className="text-xs text-muted-foreground flex items-center">
@@ -104,10 +109,6 @@ export function FileHeader({
                     >
                         <Share2 size={16} />
                         Share
-                    </Button>
-                    <Button variant="outline" size="sm" className="gap-2">
-                        <Users size={16} />
-                        Members
                     </Button>
                     <Button
                         variant="outline"

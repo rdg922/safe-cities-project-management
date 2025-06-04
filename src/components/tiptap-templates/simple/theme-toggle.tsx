@@ -1,48 +1,73 @@
-"use client"
+'use client'
 
-import * as React from "react"
+import * as React from 'react'
 
 // --- UI Primitives ---
-import { Button } from "@/components/tiptap-ui-primitive/button"
+import { Button } from '@/components/tiptap-ui-primitive/button'
 
 // --- Icons ---
-import { MoonStarIcon } from "@/components/tiptap-icons/moon-star-icon"
-import { SunIcon } from "@/components/tiptap-icons/sun-icon"
+import { MoonStarIcon } from '@/components/tiptap-icons/moon-star-icon'
+import { SunIcon } from '@/components/tiptap-icons/sun-icon'
 
 export function ThemeToggle() {
-  const [isDarkMode, setIsDarkMode] = React.useState<boolean>(false)
+    const [isDarkMode, setIsDarkMode] = React.useState<boolean>(false)
 
-  React.useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-    const handleChange = () => setIsDarkMode(mediaQuery.matches)
-    mediaQuery.addEventListener("change", handleChange)
-    return () => mediaQuery.removeEventListener("change", handleChange)
-  }, [])
+    // Initialize theme from localStorage or system preference
+    React.useEffect(() => {
+        const storedTheme = localStorage.getItem('theme')
 
-  React.useEffect(() => {
-    const initialDarkMode =
-      !!document.querySelector('meta[name="color-scheme"][content="dark"]') ||
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-    setIsDarkMode(initialDarkMode)
-  }, [])
+        if (storedTheme) {
+            // Use stored preference
+            const isDark = storedTheme === 'dark'
+            setIsDarkMode(isDark)
+        } else {
+            // Fall back to system preference or meta tag
+            const initialDarkMode =
+                !!document.querySelector(
+                    'meta[name="color-scheme"][content="dark"]'
+                ) || window.matchMedia('(prefers-color-scheme: dark)').matches
+            setIsDarkMode(initialDarkMode)
+            // Save initial preference to localStorage
+            localStorage.setItem('theme', initialDarkMode ? 'dark' : 'light')
+        }
+    }, [])
 
-  React.useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDarkMode)
-  }, [isDarkMode])
+    // Listen to system preference changes only if no stored preference exists
+    React.useEffect(() => {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+        const handleChange = () => {
+            // Only update if no stored preference exists
+            if (!localStorage.getItem('theme')) {
+                setIsDarkMode(mediaQuery.matches)
+            }
+        }
+        mediaQuery.addEventListener('change', handleChange)
+        return () => mediaQuery.removeEventListener('change', handleChange)
+    }, [])
 
-  const toggleDarkMode = () => setIsDarkMode((isDark) => !isDark)
+    // Apply theme to document
+    React.useEffect(() => {
+        document.documentElement.classList.toggle('dark', isDarkMode)
+    }, [isDarkMode])
 
-  return (
-    <Button
-      onClick={toggleDarkMode}
-      aria-label={`Switch to ${isDarkMode ? "light" : "dark"} mode`}
-      data-style="ghost"
-    >
-      {isDarkMode ? (
-        <MoonStarIcon className="tiptap-button-icon" />
-      ) : (
-        <SunIcon className="tiptap-button-icon" />
-      )}
-    </Button>
-  )
+    const toggleDarkMode = () => {
+        const newIsDarkMode = !isDarkMode
+        setIsDarkMode(newIsDarkMode)
+        // Save preference to localStorage
+        localStorage.setItem('theme', newIsDarkMode ? 'dark' : 'light')
+    }
+
+    return (
+        <Button
+            onClick={toggleDarkMode}
+            aria-label={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
+            data-style="ghost"
+        >
+            {isDarkMode ? (
+                <MoonStarIcon className="tiptap-button-icon" />
+            ) : (
+                <SunIcon className="tiptap-button-icon" />
+            )}
+        </Button>
+    )
 }

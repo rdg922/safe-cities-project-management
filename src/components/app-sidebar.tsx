@@ -1,17 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import {
-    Trash2,
-    Edit2,
-    MoreHorizontal,
-    FolderPlus,
-    FileText,
-    Sheet,
-    ClipboardList,
-} from 'lucide-react'
+import { Trash2, Edit2, MoreHorizontal, FolderPlus } from 'lucide-react'
 import Link from 'next/link'
-import { redirect, usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
     Bell,
     Home,
@@ -23,12 +15,21 @@ import {
     LogOut,
     Settings,
     Folder,
+    FileText,
 } from 'lucide-react'
 import { FileTree, type FileNode } from '~/components/file-tree'
 import { api } from '~/trpc/react'
-import { invalidatePermissionCaches } from '~/lib/cache-invalidation'
-import { ultraFastFileCreationInvalidation } from '~/lib/cache-invalidation-ultra-fast'
+import {
+    ultraFastInvalidatePermissionCaches,
+    ultraFastFileCreationInvalidation,
+    ultraFastInvalidateFileCaches,
+    smartInvalidateFileCaches,
+    rebuildFileCaches,
+} from '~/lib/streamlined-cache-invalidation'
+import { fileTreeCache } from '~/lib/file-tree-cache'
+import { useToast } from '~/hooks/use-toast'
 import { useUser } from '@clerk/nextjs'
+import { useFileTree } from '~/providers/file-tree-provider'
 import {
     Sidebar,
     SidebarContent,
@@ -42,64 +43,46 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarSeparator,
+    SidebarTrigger,
 } from '~/components/ui/sidebar'
 import { Button } from '~/components/ui/button'
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '~/components/ui/dialog'
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
-import { Input } from '~/components/ui/input'
-import { Label } from '~/components/ui/label'
 import { SignOutButton } from '@clerk/nextjs'
 import { ThemeToggle } from './tiptap-templates/simple/theme-toggle'
 import { FILE_TYPES } from '~/server/db/schema'
+import { useMobile } from '~/hooks/use-mobile'
+import { NewFileDialog, type NewFileType } from './new-file-dialog'
+import { navigateToFile } from '~/lib/navigation-utils'
 
 export function AppSidebar() {
     const pathname = usePathname()
     const router = useRouter()
+    const { toast } = useToast()
     const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false)
-    const [newFileName, setNewFileName] = useState('')
-    const [newFileType, setNewFileType] = useState<'page' | 'sheet' | 'form'>(
-        'page'
-    )
+    const [newFileDialogType, setNewFileDialogType] = useState<
+        NewFileType | undefined
+    >(undefined)
+    const [newFileParentId, setNewFileParentId] = useState<number | null>(null)
 
     // Get current user from Clerk
     const { user: clerkUser, isLoaded: isUserLoaded } = useUser()
 
-    // Fetch file tree structure using the new files router with permission filtering
-    // Use aggressive caching to prevent unnecessary reloads
+    // Use the centralized file tree provider instead of direct query
     const {
-        data: fileTree = [],
+        fileTree,
         isLoading: isFileTreeLoading,
         refetch: refetchFileTree,
-    } = api.files.getFilteredFileTree.useQuery(undefined, {
-        staleTime: 10 * 60 * 1000, // 10 minutes - don't refetch unless absolutely necessary
-        gcTime: 15 * 60 * 1000, // 15 minutes - keep in memory (renamed from cacheTime in newer React Query)
-        refetchOnWindowFocus: false, // Don't refetch when window gets focus
-        refetchOnMount: false, // Don't refetch when component mounts if we have cached data
-        refetchOnReconnect: false, // Don't refetch when network reconnects
-        // Only refetch if data is older than 10 minutes
-        refetchInterval: false, // Disable automatic background refetch
-    })
+        invalidateFileTree,
+        getPermissions,
+    } = useFileTree()
 
     const [activeFileId, setActiveFileId] = useState<number | undefined>()
     const [selectedFileIds, setSelectedFileIds] = useState<number[]>([])
-    const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false)
-    const [newFolderName, setNewFolderName] = useState('')
-    const [selectedParentId, setSelectedParentId] = useState<number | null>(
-        null
-    )
 
     // Fetch current user profile from our database
     const { data: userProfile, isLoading: isUserProfileLoading } =
@@ -110,67 +93,28 @@ export function AppSidebar() {
     // Get query client for cache invalidation
     const utils = api.useUtils()
 
-    // Handle new file creation (page or sheet)
-    const createFileMutation = api.files.create.useMutation({
-        onSuccess: async (data) => {
-            setNewFileName('')
-            setIsNewFileDialogOpen(false)
-            // Invalidate both file and permission caches for new file creation
-            await ultraFastFileCreationInvalidation(utils)
-
-            // Navigate to the new file using client-side navigation to preserve cache
-            if (data && data.type === FILE_TYPES.PAGE) {
-                router.push(`/pages/${data.id}`)
-            } else if (data && data.type === FILE_TYPES.SHEET) {
-                router.push(`/sheets/${data.id}`)
-            } else if (data && data.type === FILE_TYPES.FORM) {
-                router.push(`/forms/${data.id}`)
-            }
-        },
-    })
-
-    // Handle new folder creation
-    const createFolderMutation = api.files.create.useMutation({
-        onSuccess: async () => {
-            setNewFolderName('')
-            setIsNewFolderDialogOpen(false)
-            // Invalidate both file and permission caches for new folder creation
-            await ultraFastFileCreationInvalidation(utils)
-        },
-    })
-
     // Handle renaming files
     const renameFileMutation = api.files.update.useMutation({
         onSuccess: async () => {
-            // Invalidate cache instead of manual refetch
-            await utils.files.getFilteredFileTree.invalidate()
+            // Invalidate cache through our provider
+            await invalidateFileTree()
         },
     })
 
     // Handle deleting files
     const deleteFileMutation = api.files.delete.useMutation({
         onSuccess: async () => {
-            // Invalidate cache instead of manual refetch
-            await utils.files.getFilteredFileTree.invalidate()
+            // Invalidate cache through our provider
+            await invalidateFileTree()
         },
     })
 
     const updateFileMutation = api.files.update.useMutation({
         onSuccess: async () => {
-            // Invalidate cache instead of manual refetch
-            await utils.files.getFilteredFileTree.invalidate()
+            // Invalidate cache through our provider
+            await invalidateFileTree()
         },
     })
-
-    const handleAddFile = () => {
-        if (!newFileName.trim()) return
-
-        createFileMutation.mutate({
-            name: newFileName,
-            type: newFileType,
-            parentId: selectedParentId || undefined,
-        })
-    }
 
     // Helper function to find a node by ID in the file tree
     const findNodeById = (nodes: FileNode[], id: number): FileNode | null => {
@@ -202,6 +146,8 @@ export function AppSidebar() {
         })
     }
 
+    const isMobile = useMobile()
+
     return (
         <>
             <Sidebar>
@@ -221,165 +167,33 @@ export function AppSidebar() {
                         <div>
                             <ThemeToggle />
                         </div>
+                        <div>{isMobile && <SidebarTrigger />}</div>
                     </div>
-                    <Dialog
-                        open={isNewFileDialogOpen}
-                        onOpenChange={setIsNewFileDialogOpen}
+                    <Button
+                        size="sm"
+                        className="w-full justify-start gap-2"
+                        onClick={() => {
+                            setNewFileDialogType(undefined)
+                            setIsNewFileDialogOpen(true)
+                        }}
                     >
-                        <DialogTrigger asChild>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        size="sm"
-                                        className="w-full justify-start gap-2"
-                                    >
-                                        <Plus size={16} />
-                                        New File
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start">
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                            setNewFileType('page')
-                                            setIsNewFileDialogOpen(true)
-                                        }}
-                                    >
-                                        <FileText size={16} className="mr-2" />
-                                        New Page
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                            setNewFileType('sheet')
-                                            setIsNewFileDialogOpen(true)
-                                        }}
-                                    >
-                                        <Sheet size={16} className="mr-2" />
-                                        New Sheet
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                            setNewFileType('form')
-                                            setIsNewFileDialogOpen(true)
-                                        }}
-                                    >
-                                        <ClipboardList
-                                            size={16}
-                                            className="mr-2"
-                                        />
-                                        New Form
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>
-                                    Create New{' '}
-                                    {newFileType === 'page'
-                                        ? 'Page'
-                                        : newFileType === 'sheet'
-                                          ? 'Sheet'
-                                          : 'Form'}
-                                </DialogTitle>
-                                <DialogDescription>
-                                    Add a new {newFileType} to the system.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="file-name">
-                                        {newFileType === 'page'
-                                            ? 'Page'
-                                            : newFileType === 'sheet'
-                                              ? 'Sheet'
-                                              : 'Form'}{' '}
-                                        Name
-                                    </Label>
-                                    <Input
-                                        id="file-name"
-                                        value={newFileName}
-                                        onChange={(e) =>
-                                            setNewFileName(e.target.value)
-                                        }
-                                        placeholder={`Enter ${newFileType} name`}
-                                    />
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button
-                                    variant="outline"
-                                    onClick={() =>
-                                        setIsNewFileDialogOpen(false)
-                                    }
-                                >
-                                    Cancel
-                                </Button>
-                                <Button onClick={handleAddFile}>
-                                    Create{' '}
-                                    {newFileType === 'page'
-                                        ? 'Page'
-                                        : newFileType === 'sheet'
-                                          ? 'Sheet'
-                                          : 'Form'}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                        <Plus size={16} />
+                        New File
+                    </Button>
 
-                    {/* New Folder Dialog */}
-                    <Dialog
-                        open={isNewFolderDialogOpen}
-                        onOpenChange={setIsNewFolderDialogOpen}
-                    >
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Create New Folder</DialogTitle>
-                                <DialogDescription>
-                                    Add a new folder to organize your pages.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="folder-name">
-                                        Folder Name
-                                    </Label>
-                                    <Input
-                                        id="folder-name"
-                                        value={newFolderName}
-                                        onChange={(e) =>
-                                            setNewFolderName(e.target.value)
-                                        }
-                                        placeholder="Enter folder name"
-                                    />
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button
-                                    variant="outline"
-                                    onClick={() =>
-                                        setIsNewFolderDialogOpen(false)
-                                    }
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={() => {
-                                        if (newFolderName.trim()) {
-                                            createFolderMutation.mutate({
-                                                name: newFolderName,
-                                                type: FILE_TYPES.FOLDER,
-                                                parentId:
-                                                    selectedParentId ||
-                                                    undefined,
-                                            })
-                                        }
-                                    }}
-                                >
-                                    Create Folder
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                    {/* Unified New File Dialog */}
+                    <NewFileDialog
+                        open={isNewFileDialogOpen}
+                        onOpenChange={(open) => {
+                            setIsNewFileDialogOpen(open)
+                            if (!open) {
+                                // Reset parent ID when dialog closes
+                                setNewFileParentId(null)
+                            }
+                        }}
+                        fileType={newFileDialogType}
+                        parentId={newFileParentId}
+                    />
                 </SidebarHeader>
                 <SidebarSeparator />
                 <SidebarContent>
@@ -439,31 +253,26 @@ export function AppSidebar() {
                     <SidebarGroup>
                         <SidebarGroupLabel className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <span>Files</span>
+                                <span>Programmes</span>
                             </div>
                             <div className="flex gap-1">
                                 <SidebarGroupAction
-                                    onClick={() =>
-                                        setIsNewFolderDialogOpen(true)
-                                    }
+                                    onClick={() => {
+                                        setNewFileDialogType('programme')
+                                        setIsNewFileDialogOpen(true)
+                                    }}
                                 >
-                                    <FolderPlus size={16} />
-                                    <span className="sr-only">Add Folder</span>
+                                    <Plus size={16} />
+                                    <span className="sr-only">
+                                        Add Programme
+                                    </span>
                                 </SidebarGroupAction>
-                                {/* <SidebarGroupAction onClick={() => setIsNewPageDialogOpen(true)}>
-                  <Plus size={16} />
-                  <span className="sr-only">Add Page</span>
-                </SidebarGroupAction> */}
                             </div>
                         </SidebarGroupLabel>
                         <SidebarGroupContent>
                             {isFileTreeLoading ? (
                                 <div className="px-3 py-2 text-sm text-muted-foreground">
                                     Loading files...
-                                </div>
-                            ) : fileTree.length === 0 ? (
-                                <div className="px-3 py-2 text-sm text-muted-foreground">
-                                    No files found
                                 </div>
                             ) : (
                                 <div className="px-3">
@@ -477,17 +286,29 @@ export function AppSidebar() {
                                                 fileTree,
                                                 id
                                             )
-                                            if (node && !node.isFolder) {
-                                                if (node.type === 'page') {
-                                                    router.push(`/pages/${id}`)
-                                                } else if (
-                                                    node.type === 'sheet'
-                                                ) {
-                                                    router.push(`/sheets/${id}`)
-                                                } else if (
-                                                    node.type === 'form'
-                                                ) {
-                                                    router.push(`/forms/${id}`)
+                                            if (
+                                                node &&
+                                                !node.isFolder &&
+                                                node.type
+                                            ) {
+                                                // Map the node type to FILE_TYPES
+                                                const typeMapping = {
+                                                    page: FILE_TYPES.PAGE,
+                                                    sheet: FILE_TYPES.SHEET,
+                                                    form: FILE_TYPES.FORM,
+                                                    folder: FILE_TYPES.FOLDER,
+                                                    programme:
+                                                        FILE_TYPES.PROGRAMME,
+                                                } as const
+
+                                                const fileType =
+                                                    typeMapping[node.type]
+                                                if (fileType) {
+                                                    navigateToFile(
+                                                        router,
+                                                        id,
+                                                        fileType
+                                                    )
                                                 }
                                             }
                                         }}
@@ -571,65 +392,199 @@ export function AppSidebar() {
                                                     void Promise.all(
                                                         promises
                                                     ).then(() => {
-                                                        utils.files.getFilteredFileTree.invalidate()
+                                                        // Use the streamlined cache invalidation system
+                                                        ultraFastInvalidateFileCaches(
+                                                            utils
+                                                        )
                                                     })
                                                 } else {
                                                     // Single item move
-                                                    // Auto-expand the folder when something is dropped on it
-                                                    if (dropNode.isFolder) {
-                                                        // If dropped on a folder, make it a child of that folder
-                                                        updateFileMutation.mutate(
-                                                            {
-                                                                id: dragId,
-                                                                parentId:
-                                                                    dropId,
-                                                            },
-                                                            {
-                                                                onSuccess:
-                                                                    () => {
-                                                                        utils.files.getFilteredFileTree.invalidate() // Refresh to show the new structure
-                                                                    },
+                                                    // Get the most up-to-date information about the nodes
+                                                    // Always fetch fresh information from the server rather than relying on cache
+                                                    const freshDragNodePromise =
+                                                        utils.files.getById.fetch(
+                                                            { id: dragId }
+                                                        )
+                                                    const freshDropNodePromise =
+                                                        utils.files.getById.fetch(
+                                                            { id: dropId }
+                                                        )
+
+                                                    // Process the move once we have fresh node data
+                                                    Promise.all([
+                                                        freshDragNodePromise,
+                                                        freshDropNodePromise,
+                                                    ])
+                                                        .then(
+                                                            ([
+                                                                dragNodeData,
+                                                                dropNodeData,
+                                                            ]) => {
+                                                                const freshDragNode =
+                                                                    dragNodeData
+                                                                const freshDropNode =
+                                                                    dropNodeData
+
+                                                                if (
+                                                                    !freshDragNode ||
+                                                                    !freshDropNode
+                                                                ) {
+                                                                    console.error(
+                                                                        'Missing node data for drag and drop operation'
+                                                                    )
+                                                                    return
+                                                                }
+
+                                                                // Clear any cached data for these nodes and their hierarchies
+                                                                fileTreeCache.clearFileCache(
+                                                                    dragId
+                                                                )
+                                                                fileTreeCache.clearFileCache(
+                                                                    dropId
+                                                                )
+
+                                                                // Also clear cache for the current parent to ensure proper tree structure
+                                                                if (
+                                                                    freshDragNode.parentId !==
+                                                                    null
+                                                                ) {
+                                                                    fileTreeCache.clearFileCache(
+                                                                        freshDragNode.parentId
+                                                                    )
+                                                                }
+
+                                                                // Check if drop target is a folder or programme
+                                                                if (
+                                                                    freshDropNode.isFolder ||
+                                                                    freshDropNode.type ===
+                                                                        'programme'
+                                                                ) {
+                                                                    console.log(
+                                                                        `Moving node ${dragId} to folder/programme ${dropId} (previous parent: ${freshDragNode.parentId})`
+                                                                    )
+
+                                                                    // If dropped on a folder, make it a child of that folder
+                                                                    updateFileMutation.mutate(
+                                                                        {
+                                                                            id: dragId,
+                                                                            parentId:
+                                                                                dropId,
+                                                                        },
+                                                                        {
+                                                                            onSuccess:
+                                                                                () => {
+                                                                                    // Perform full cache rebuild to ensure consistency
+                                                                                    rebuildFileCaches(
+                                                                                        utils
+                                                                                    ).then(
+                                                                                        () => {
+                                                                                            // Refresh UI
+                                                                                            refetchFileTree()
+
+                                                                                            console.log(
+                                                                                                `Successfully moved node ${dragId} to parent ${dropId}`
+                                                                                            )
+                                                                                        }
+                                                                                    )
+                                                                                },
+                                                                        }
+                                                                    )
+                                                                } else {
+                                                                    // If dropped on a file, make it a sibling (share same parent)
+                                                                    // Handle null parentId case (root level files)
+                                                                    const newParentId =
+                                                                        freshDropNode.parentId ??
+                                                                        null
+                                                                    console.log(
+                                                                        `Moving node ${dragId} to be sibling with ${dropId} under parent ${newParentId ?? 'root'}`
+                                                                    )
+
+                                                                    // Clear cache for the new parent as well
+                                                                    if (
+                                                                        newParentId !==
+                                                                        null
+                                                                    ) {
+                                                                        fileTreeCache.clearFileCache(
+                                                                            newParentId
+                                                                        )
+                                                                    }
+
+                                                                    updateFileMutation.mutate(
+                                                                        {
+                                                                            id: dragId,
+                                                                            parentId:
+                                                                                newParentId,
+                                                                        },
+                                                                        {
+                                                                            onSuccess:
+                                                                                () => {
+                                                                                    // Perform full cache rebuild to ensure consistency
+                                                                                    rebuildFileCaches(
+                                                                                        utils
+                                                                                    ).then(
+                                                                                        () => {
+                                                                                            // Refresh UI
+                                                                                            refetchFileTree()
+
+                                                                                            console.log(
+                                                                                                `Successfully moved node ${dragId} to parent ${newParentId ?? 'root'}`
+                                                                                            )
+                                                                                        }
+                                                                                    )
+                                                                                },
+                                                                        }
+                                                                    )
+                                                                }
                                                             }
                                                         )
-                                                    } else {
-                                                        // If dropped on a file, make it a sibling (share same parent)
-                                                        updateFileMutation.mutate(
-                                                            {
-                                                                id: dragId,
-                                                                parentId:
-                                                                    dropNode.parentId,
-                                                            },
-                                                            {
-                                                                onSuccess:
-                                                                    () => {
-                                                                        utils.files.getFilteredFileTree.invalidate() // Refresh to show the new structure
-                                                                    },
-                                                            }
-                                                        )
-                                                    }
+                                                        .catch((error) => {
+                                                            console.error(
+                                                                'Error fetching fresh node data:',
+                                                                error
+                                                            )
+                                                            toast({
+                                                                title: 'Error moving item',
+                                                                description:
+                                                                    'Could not get the latest file information. Please try again.',
+                                                                variant:
+                                                                    'destructive',
+                                                            })
+                                                        })
                                                 }
                                             }
                                         }}
-                                        onCreateFile={(parentId) => {
-                                            setSelectedParentId(parentId)
-                                            setNewFileType('page')
+                                        onCreateFile={(
+                                            parentId: number | null
+                                        ) => {
+                                            setNewFileDialogType('page')
+                                            setNewFileParentId(parentId)
                                             setIsNewFileDialogOpen(true)
                                         }}
-                                        onCreateSheet={(parentId) => {
-                                            setSelectedParentId(parentId)
-                                            setNewFileType('sheet')
+                                        onCreateSheet={(
+                                            parentId: number | null
+                                        ) => {
+                                            setNewFileDialogType('sheet')
+                                            setNewFileParentId(parentId)
                                             setIsNewFileDialogOpen(true)
                                         }}
-                                        onCreateForm={(parentId) => {
-                                            setSelectedParentId(parentId)
-                                            setNewFileType('form')
+                                        onCreateForm={(
+                                            parentId: number | null
+                                        ) => {
+                                            setNewFileDialogType('form')
+                                            setNewFileParentId(parentId)
                                             setIsNewFileDialogOpen(true)
                                         }}
-                                        onCreateFolder={(parentId) => {
-                                            setSelectedParentId(parentId)
-                                            setIsNewFolderDialogOpen(true)
+                                        onCreateFolder={(
+                                            parentId: number | null
+                                        ) => {
+                                            setNewFileDialogType('folder')
+                                            setNewFileParentId(parentId)
+                                            setIsNewFileDialogOpen(true)
                                         }}
-                                        onRename={(id, filename) => {
+                                        onRename={(
+                                            id: number,
+                                            filename: string
+                                        ) => {
                                             renameFileMutation.mutate(
                                                 { id, name: filename },
                                                 {
@@ -638,7 +593,7 @@ export function AppSidebar() {
                                                 }
                                             )
                                         }}
-                                        onDelete={(id) => {
+                                        onDelete={(id: number) => {
                                             // If multiple items are selected, delete them all
                                             if (
                                                 selectedFileIds.includes(id) &&
@@ -664,7 +619,10 @@ export function AppSidebar() {
 
                                                 void Promise.all(promises).then(
                                                     () => {
-                                                        utils.files.getFilteredFileTree.invalidate()
+                                                        // Use the streamlined cache invalidation system
+                                                        ultraFastInvalidateFileCaches(
+                                                            utils
+                                                        )
                                                         setSelectedFileIds([])
                                                     }
                                                 )
@@ -674,7 +632,10 @@ export function AppSidebar() {
                                                     { id },
                                                     {
                                                         onSuccess: () => {
-                                                            utils.files.getFilteredFileTree.invalidate()
+                                                            // Use the streamlined cache invalidation system
+                                                            smartInvalidateFileCaches(
+                                                                utils
+                                                            )
                                                             if (
                                                                 selectedFileIds.includes(
                                                                     id
