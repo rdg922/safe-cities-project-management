@@ -156,6 +156,7 @@ export default function PageView() {
                 permission={localPermission}
                 onPermissionChange={handlePermissionChange}
                 savingStatus={savingStatus}
+                content={content}
             />
 
             <div className="flex-1 min-h-0">
