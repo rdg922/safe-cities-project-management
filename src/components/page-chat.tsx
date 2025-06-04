@@ -21,6 +21,8 @@ export function PageChat({ pageTitle }: PageChatProps) {
     const fileId =
         contextFileId || Number(params.pageId) || Number(params.formId)
 
+    if (!fileId) return
+
     const [newMessage, setNewMessage] = useState('')
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const [isActive, setIsActive] = useState(true)
