@@ -131,11 +131,72 @@ html, body {
   left: 0;
 }
 
-/* Task lists: no custom marker */
-.prose ul[data-type="taskList"] li::before {
-  content: '';
+/* Task lists */
+.prose input[type="checkbox"] {
+  margin-right: 0.5em;
+}
+
+/* Assignable Task Items */
+.prose ul[data-type="taskList"] {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.prose ul[data-type="taskList"] li[data-type="taskItem"] {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  margin: 0.25rem 0;
+  padding-right: 2rem;
+}
+
+.prose ul[data-type="taskList"] li[data-type="taskItem"] label {
+  display: flex;
+  align-items: flex-start;
+  margin-right: 0.5rem;
+}
+
+.prose ul[data-type="taskList"] li[data-type="taskItem"] label input[type="checkbox"] {
+  display: none;
+}
+
+.prose ul[data-type="taskList"] li[data-type="taskItem"] label span::before {
+  content: '☐';
+  font-size: 1.2em;
+  margin-right: 0.5em;
+  vertical-align: baseline;
+}
+
+.prose ul[data-type="taskList"] li[data-type="taskItem"][data-checked="true"] label span::before {
+  content: '☑';
+}
+
+.prose ul[data-type="taskList"] li[data-type="taskItem"] input[type="checkbox"] {
+  margin-top: 0.35rem;
+  margin-right: 0.5rem;
+}
+
+.prose ul[data-type="taskList"] li[data-type="taskItem"] div {
+  flex: 1;
+}
+
+.prose ul[data-type="taskList"] li[data-type="taskItem"] div p {
   margin: 0;
-  position: static;
+}
+
+.prose ul[data-type="taskList"] li[data-type="taskItem"] .task-item-assign-badge {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.85rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #333;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  font-weight: 500;
 }
 
 .prose th, .prose td {
@@ -167,11 +228,6 @@ html, body {
   border: 0;
 }
 
-/* Task lists */
-.prose input[type="checkbox"] {
-  margin-right: 0.5em;
-}
-
 /* Print-specific styles */
 @media print {
   .prose {
@@ -190,4 +246,11 @@ html, body {
   .prose h1, .prose h2, .prose h3 {
     page-break-after: avoid;
   }
+}
+
+/* Remove bullet for task list items */
+.prose ul[data-type="taskList"] > li::before,
+.prose ul[data-type="taskList"] li::before {
+  content: '';
+  display: none;
 }
