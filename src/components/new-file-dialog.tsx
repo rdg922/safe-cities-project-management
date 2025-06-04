@@ -52,6 +52,7 @@ interface NewFileDialogProps {
         parentId?: number
     }) => void // Made optional since we'll handle creation internally
     defaultName?: string
+    parentId?: number | null // Pre-selected parent location
 }
 
 export function NewFileDialog({
@@ -60,6 +61,7 @@ export function NewFileDialog({
     fileType,
     onCreateFile,
     defaultName = '',
+    parentId,
 }: NewFileDialogProps) {
     const router = useRouter()
     const [selectedType, setSelectedType] = useState<NewFileType>(
@@ -67,7 +69,7 @@ export function NewFileDialog({
     )
     const [fileName, setFileName] = useState(defaultName)
     const [selectedParentId, setSelectedParentId] = useState<number | null>(
-        null
+        parentId ?? null
     )
 
     // Get file tree for parent selection - use the same filtered query as sidebar
@@ -110,12 +112,12 @@ export function NewFileDialog({
     useEffect(() => {
         if (open) {
             setFileName(defaultName)
-            setSelectedParentId(null)
+            setSelectedParentId(parentId ?? null)
             if (fileType) {
                 setSelectedType(fileType)
             }
         }
-    }, [open, fileType, defaultName])
+    }, [open, fileType, defaultName, parentId])
 
     const handleCreate = () => {
         if (!fileName.trim()) return
@@ -266,8 +268,8 @@ export function NewFileDialog({
                             }}
                         />
                     </div>
-                    {/* Only show parent selection for non-programme files */}
-                    {selectedType !== 'programme' && (
+                    {/* Only show parent selection for non-programme files when no parentId is provided */}
+                    {selectedType !== 'programme' && parentId === null && (
                         <div className="grid gap-2">
                             <Label>Parent Location *</Label>
                             {isLoadingFileTree ? (
@@ -288,6 +290,17 @@ export function NewFileDialog({
                             </p>
                         </div>
                     )}
+                    {/* Show parent location info when parentId is provided */}
+                    {/* {selectedType !== 'programme' && parentId !== null && (
+                        <div className="grid gap-2">
+                            <Label>Parent Location</Label>
+                            <div className="border rounded-md p-3 bg-muted/50">
+                                <p className="text-sm text-muted-foreground">
+                                    Creating in selected folder
+                                </p>
+                            </div>
+                        </div>
+                    )} */}
                     {/* Show information for programmes */}
                     {selectedType === 'programme' && (
                         <div className="grid gap-2">

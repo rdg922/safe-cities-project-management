@@ -798,6 +798,7 @@ function FileTreeNode({
                                 onMove={onMove}
                                 onCreateFile={onCreateFile}
                                 onCreateSheet={onCreateSheet}
+                                onCreateForm={onCreateForm}
                                 onCreateFolder={onCreateFolder}
                                 onRename={onRename}
                                 onDelete={onDelete}

@@ -67,6 +67,7 @@ export function AppSidebar() {
     const [newFileDialogType, setNewFileDialogType] = useState<
         NewFileType | undefined
     >(undefined)
+    const [newFileParentId, setNewFileParentId] = useState<number | null>(null)
 
     // Get current user from Clerk
     const { user: clerkUser, isLoaded: isUserLoaded } = useUser()
@@ -183,8 +184,15 @@ export function AppSidebar() {
                     {/* Unified New File Dialog */}
                     <NewFileDialog
                         open={isNewFileDialogOpen}
-                        onOpenChange={setIsNewFileDialogOpen}
+                        onOpenChange={(open) => {
+                            setIsNewFileDialogOpen(open)
+                            if (!open) {
+                                // Reset parent ID when dialog closes
+                                setNewFileParentId(null)
+                            }
+                        }}
                         fileType={newFileDialogType}
+                        parentId={newFileParentId}
                     />
                 </SidebarHeader>
                 <SidebarSeparator />
@@ -549,24 +557,28 @@ export function AppSidebar() {
                                             parentId: number | null
                                         ) => {
                                             setNewFileDialogType('page')
+                                            setNewFileParentId(parentId)
                                             setIsNewFileDialogOpen(true)
                                         }}
                                         onCreateSheet={(
                                             parentId: number | null
                                         ) => {
                                             setNewFileDialogType('sheet')
+                                            setNewFileParentId(parentId)
                                             setIsNewFileDialogOpen(true)
                                         }}
                                         onCreateForm={(
                                             parentId: number | null
                                         ) => {
                                             setNewFileDialogType('form')
+                                            setNewFileParentId(parentId)
                                             setIsNewFileDialogOpen(true)
                                         }}
                                         onCreateFolder={(
                                             parentId: number | null
                                         ) => {
                                             setNewFileDialogType('folder')
+                                            setNewFileParentId(parentId)
                                             setIsNewFileDialogOpen(true)
                                         }}
                                         onRename={(
