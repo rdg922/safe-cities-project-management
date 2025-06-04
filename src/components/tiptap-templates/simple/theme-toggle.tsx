@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react'
+import { useEffect, useState } from 'react'
 
 // --- UI Primitives ---
 import { Button } from '@/components/tiptap-ui-primitive/button'
@@ -10,10 +10,10 @@ import { MoonStarIcon } from '@/components/tiptap-icons/moon-star-icon'
 import { SunIcon } from '@/components/tiptap-icons/sun-icon'
 
 export function ThemeToggle() {
-    const [isDarkMode, setIsDarkMode] = React.useState<boolean>(false)
+    const [isDarkMode, setIsDarkMode] = useState<boolean>(false)
 
     // Initialize theme from localStorage or system preference
-    React.useEffect(() => {
+    useEffect(() => {
         const storedTheme = localStorage.getItem('theme')
 
         if (storedTheme) {
@@ -33,7 +33,7 @@ export function ThemeToggle() {
     }, [])
 
     // Listen to system preference changes only if no stored preference exists
-    React.useEffect(() => {
+    useEffect(() => {
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
         const handleChange = () => {
             // Only update if no stored preference exists
@@ -46,7 +46,7 @@ export function ThemeToggle() {
     }, [])
 
     // Apply theme to document
-    React.useEffect(() => {
+    useEffect(() => {
         document.documentElement.classList.toggle('dark', isDarkMode)
     }, [isDarkMode])
 
