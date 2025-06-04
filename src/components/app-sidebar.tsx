@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Trash2, Edit2, MoreHorizontal, FolderPlus } from 'lucide-react'
 import Link from 'next/link'
-import { redirect, usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
     Bell,
     Home,
@@ -19,7 +19,15 @@ import {
 } from 'lucide-react'
 import { FileTree, type FileNode } from '~/components/file-tree'
 import { api } from '~/trpc/react'
-import { ultraFastInvalidatePermissionCaches, ultraFastFileCreationInvalidation } from '~/lib/streamlined-cache-invalidation'
+import {
+    ultraFastInvalidatePermissionCaches,
+    ultraFastFileCreationInvalidation,
+    ultraFastInvalidateFileCaches,
+    smartInvalidateFileCaches,
+    rebuildFileCaches,
+} from '~/lib/streamlined-cache-invalidation'
+import { fileTreeCache } from '~/lib/file-tree-cache'
+import { useToast } from '~/hooks/use-toast'
 import { useUser } from '@clerk/nextjs'
 import { useFileTree } from '~/providers/file-tree-provider'
 import {
@@ -54,6 +62,7 @@ import { navigateToFile } from '~/lib/navigation-utils'
 export function AppSidebar() {
     const pathname = usePathname()
     const router = useRouter()
+    const { toast } = useToast()
     const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false)
     const [newFileDialogType, setNewFileDialogType] = useState<
         NewFileType | undefined
@@ -250,20 +259,12 @@ export function AppSidebar() {
                                         Add Programme
                                     </span>
                                 </SidebarGroupAction>
-                                {/* <SidebarGroupAction onClick={() => setIsNewPageDialogOpen(true)}>
-                  <Plus size={16} />
-                  <span className="sr-only">Add Page</span>
-                </SidebarGroupAction> */}
                             </div>
                         </SidebarGroupLabel>
                         <SidebarGroupContent>
                             {isFileTreeLoading ? (
                                 <div className="px-3 py-2 text-sm text-muted-foreground">
                                     Loading files...
-                                </div>
-                            ) : fileTree.length === 0 ? (
-                                <div className="px-3 py-2 text-sm text-muted-foreground">
-                                    No files found
                                 </div>
                             ) : (
                                 <div className="px-3">
@@ -383,62 +384,195 @@ export function AppSidebar() {
                                                     void Promise.all(
                                                         promises
                                                     ).then(() => {
-                                                        utils.files.getFilteredFileTree.invalidate()
+                                                        // Use the streamlined cache invalidation system
+                                                        ultraFastInvalidateFileCaches(
+                                                            utils
+                                                        )
                                                     })
                                                 } else {
                                                     // Single item move
-                                                    // Auto-expand the folder when something is dropped on it
-                                                    if (dropNode.isFolder) {
-                                                        // If dropped on a folder, make it a child of that folder
-                                                        updateFileMutation.mutate(
-                                                            {
-                                                                id: dragId,
-                                                                parentId:
-                                                                    dropId,
-                                                            },
-                                                            {
-                                                                onSuccess:
-                                                                    () => {
-                                                                        utils.files.getFilteredFileTree.invalidate() // Refresh to show the new structure
-                                                                    },
+                                                    // Get the most up-to-date information about the nodes
+                                                    // Always fetch fresh information from the server rather than relying on cache
+                                                    const freshDragNodePromise =
+                                                        utils.files.getById.fetch(
+                                                            { id: dragId }
+                                                        )
+                                                    const freshDropNodePromise =
+                                                        utils.files.getById.fetch(
+                                                            { id: dropId }
+                                                        )
+
+                                                    // Process the move once we have fresh node data
+                                                    Promise.all([
+                                                        freshDragNodePromise,
+                                                        freshDropNodePromise,
+                                                    ])
+                                                        .then(
+                                                            ([
+                                                                dragNodeData,
+                                                                dropNodeData,
+                                                            ]) => {
+                                                                const freshDragNode =
+                                                                    dragNodeData
+                                                                const freshDropNode =
+                                                                    dropNodeData
+
+                                                                if (
+                                                                    !freshDragNode ||
+                                                                    !freshDropNode
+                                                                ) {
+                                                                    console.error(
+                                                                        'Missing node data for drag and drop operation'
+                                                                    )
+                                                                    return
+                                                                }
+
+                                                                // Clear any cached data for these nodes and their hierarchies
+                                                                fileTreeCache.clearFileCache(
+                                                                    dragId
+                                                                )
+                                                                fileTreeCache.clearFileCache(
+                                                                    dropId
+                                                                )
+
+                                                                // Also clear cache for the current parent to ensure proper tree structure
+                                                                if (
+                                                                    freshDragNode.parentId !==
+                                                                    null
+                                                                ) {
+                                                                    fileTreeCache.clearFileCache(
+                                                                        freshDragNode.parentId
+                                                                    )
+                                                                }
+
+                                                                // Check if drop target is a folder or programme
+                                                                if (
+                                                                    freshDropNode.isFolder ||
+                                                                    freshDropNode.type ===
+                                                                        'programme'
+                                                                ) {
+                                                                    console.log(
+                                                                        `Moving node ${dragId} to folder/programme ${dropId} (previous parent: ${freshDragNode.parentId})`
+                                                                    )
+
+                                                                    // If dropped on a folder, make it a child of that folder
+                                                                    updateFileMutation.mutate(
+                                                                        {
+                                                                            id: dragId,
+                                                                            parentId:
+                                                                                dropId,
+                                                                        },
+                                                                        {
+                                                                            onSuccess:
+                                                                                () => {
+                                                                                    // Perform full cache rebuild to ensure consistency
+                                                                                    rebuildFileCaches(
+                                                                                        utils
+                                                                                    ).then(
+                                                                                        () => {
+                                                                                            // Refresh UI
+                                                                                            refetchFileTree()
+
+                                                                                            console.log(
+                                                                                                `Successfully moved node ${dragId} to parent ${dropId}`
+                                                                                            )
+                                                                                        }
+                                                                                    )
+                                                                                },
+                                                                        }
+                                                                    )
+                                                                } else {
+                                                                    // If dropped on a file, make it a sibling (share same parent)
+                                                                    // Handle null parentId case (root level files)
+                                                                    const newParentId =
+                                                                        freshDropNode.parentId ??
+                                                                        null
+                                                                    console.log(
+                                                                        `Moving node ${dragId} to be sibling with ${dropId} under parent ${newParentId ?? 'root'}`
+                                                                    )
+
+                                                                    // Clear cache for the new parent as well
+                                                                    if (
+                                                                        newParentId !==
+                                                                        null
+                                                                    ) {
+                                                                        fileTreeCache.clearFileCache(
+                                                                            newParentId
+                                                                        )
+                                                                    }
+
+                                                                    updateFileMutation.mutate(
+                                                                        {
+                                                                            id: dragId,
+                                                                            parentId:
+                                                                                newParentId,
+                                                                        },
+                                                                        {
+                                                                            onSuccess:
+                                                                                () => {
+                                                                                    // Perform full cache rebuild to ensure consistency
+                                                                                    rebuildFileCaches(
+                                                                                        utils
+                                                                                    ).then(
+                                                                                        () => {
+                                                                                            // Refresh UI
+                                                                                            refetchFileTree()
+
+                                                                                            console.log(
+                                                                                                `Successfully moved node ${dragId} to parent ${newParentId ?? 'root'}`
+                                                                                            )
+                                                                                        }
+                                                                                    )
+                                                                                },
+                                                                        }
+                                                                    )
+                                                                }
                                                             }
                                                         )
-                                                    } else {
-                                                        // If dropped on a file, make it a sibling (share same parent)
-                                                        updateFileMutation.mutate(
-                                                            {
-                                                                id: dragId,
-                                                                parentId:
-                                                                    dropNode.parentId,
-                                                            },
-                                                            {
-                                                                onSuccess:
-                                                                    () => {
-                                                                        utils.files.getFilteredFileTree.invalidate() // Refresh to show the new structure
-                                                                    },
-                                                            }
-                                                        )
-                                                    }
+                                                        .catch((error) => {
+                                                            console.error(
+                                                                'Error fetching fresh node data:',
+                                                                error
+                                                            )
+                                                            toast({
+                                                                title: 'Error moving item',
+                                                                description:
+                                                                    'Could not get the latest file information. Please try again.',
+                                                                variant:
+                                                                    'destructive',
+                                                            })
+                                                        })
                                                 }
                                             }
                                         }}
-                                        onCreateFile={(parentId) => {
+                                        onCreateFile={(
+                                            parentId: number | null
+                                        ) => {
                                             setNewFileDialogType('page')
                                             setIsNewFileDialogOpen(true)
                                         }}
-                                        onCreateSheet={(parentId) => {
+                                        onCreateSheet={(
+                                            parentId: number | null
+                                        ) => {
                                             setNewFileDialogType('sheet')
                                             setIsNewFileDialogOpen(true)
                                         }}
-                                        onCreateForm={(parentId) => {
+                                        onCreateForm={(
+                                            parentId: number | null
+                                        ) => {
                                             setNewFileDialogType('form')
                                             setIsNewFileDialogOpen(true)
                                         }}
-                                        onCreateFolder={(parentId) => {
+                                        onCreateFolder={(
+                                            parentId: number | null
+                                        ) => {
                                             setNewFileDialogType('folder')
                                             setIsNewFileDialogOpen(true)
                                         }}
-                                        onRename={(id, filename) => {
+                                        onRename={(
+                                            id: number,
+                                            filename: string
+                                        ) => {
                                             renameFileMutation.mutate(
                                                 { id, name: filename },
                                                 {
@@ -447,7 +581,7 @@ export function AppSidebar() {
                                                 }
                                             )
                                         }}
-                                        onDelete={(id) => {
+                                        onDelete={(id: number) => {
                                             // If multiple items are selected, delete them all
                                             if (
                                                 selectedFileIds.includes(id) &&
@@ -473,7 +607,10 @@ export function AppSidebar() {
 
                                                 void Promise.all(promises).then(
                                                     () => {
-                                                        utils.files.getFilteredFileTree.invalidate()
+                                                        // Use the streamlined cache invalidation system
+                                                        ultraFastInvalidateFileCaches(
+                                                            utils
+                                                        )
                                                         setSelectedFileIds([])
                                                     }
                                                 )
@@ -483,7 +620,10 @@ export function AppSidebar() {
                                                     { id },
                                                     {
                                                         onSuccess: () => {
-                                                            utils.files.getFilteredFileTree.invalidate()
+                                                            // Use the streamlined cache invalidation system
+                                                            smartInvalidateFileCaches(
+                                                                utils
+                                                            )
                                                             if (
                                                                 selectedFileIds.includes(
                                                                     id

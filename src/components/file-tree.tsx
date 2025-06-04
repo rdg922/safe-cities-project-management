@@ -239,9 +239,16 @@ function FileTreeNode({
         canDrop: (item: any) => {
             // Prevent dropping on itself or dropping a parent into its child
             if (item.id === node.id || isParentOfChild(item.id, node)) {
+                console.log(
+                    `Cannot drop: item.id=${item.id}, node.id=${node.id}, isParentOfChild=${isParentOfChild(item.id, node)}`
+                )
                 return false
             }
 
+            // For debugging - log allowed drops
+            console.log(
+                `Can drop: item.id=${item.id}, onto node.id=${node.id}, node.isFolder=${!!node.isFolder}`
+            )
             return true
         },
         hover: (item: any, monitor) => {
@@ -273,6 +280,15 @@ function FileTreeNode({
                         setIsExpanded(true)
                     }
 
+                    // Log information before the move to help with debugging
+                    console.log(
+                        `Drag item ID: ${item.id}, Drop target ID: ${node.id}`
+                    )
+                    console.log(
+                        `Target node isFolder: ${!!node.isFolder}, Target parentId: ${node.parentId}`
+                    )
+
+                    // Call the onMove handler
                     onMove(item.id, node.id)
 
                     // Clear success animation after 1 second
@@ -282,6 +298,7 @@ function FileTreeNode({
                 } catch (error) {
                     // Show error feedback
                     setIsDropError(true)
+                    console.error('Error during drag and drop: ', error)
                     toast({
                         title: 'Error moving item',
                         description:
@@ -327,18 +344,50 @@ function FileTreeNode({
         }
     }, [isOver, isDraggedOver])
 
+    // TERRIBLE CODE TO FIX LATER IT WAS WRONG
     // Check if potential drop target is a child of the dragged item
     const isParentOfChild = (
         draggedId: number,
         targetNode: FileNode
     ): boolean => {
-        if (!targetNode.children) return false
+        // If no parentId, target is at root level
+        if (!targetNode.parentId) {
+            return false
+        }
+        // Direct parent match
+        if (targetNode.parentId === draggedId) {
+            return true
+        }
 
-        return targetNode.children.some(
-            (child) =>
-                child.id === draggedId ||
-                (child.children && isParentOfChild(draggedId, child))
-        )
+        // Retrieve the full tree from the root element props
+        const rootElement = document.querySelector(
+            '[data-file-tree-root="true"]'
+        ) as any
+        const items: FileNode[] = rootElement?.__fileTreeProps?.items || []
+
+        // Helper to find a node by id in the tree
+        const findNode = (nodes: FileNode[]): FileNode | undefined => {
+            for (const n of nodes) {
+                if (n.id === targetNode.parentId) {
+                    return n
+                }
+                if (n.children) {
+                    const found = findNode(n.children)
+                    if (found) {
+                        return found
+                    }
+                }
+            }
+            return undefined
+        }
+
+        const parentNode = findNode(items)
+        if (!parentNode) {
+            return false
+        }
+
+        // Recursively check up the tree
+        return isParentOfChild(draggedId, parentNode)
     }
 
     // Connect drag and drop to the ref

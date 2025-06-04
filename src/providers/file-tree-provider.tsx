@@ -22,8 +22,6 @@ import {
     logCacheStats,
 } from '~/lib/streamlined-cache-invalidation'
 import { useBatchPermissions } from '~/hooks/use-batch-permissions'
-import { superFastPermissionCheck } from '~/lib/permissions-ultra-fast'
-import * as FileTreeUtils from '~/lib/file-tree-utils'
 import { fileTreeCache } from '~/lib/file-tree-cache'
 import * as FileTreeOperations from '~/lib/file-tree-operations'
 

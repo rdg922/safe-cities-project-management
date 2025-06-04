@@ -145,11 +145,17 @@ export function moveNodeInTree(
     const nodeToMove = fileTreeCache.findNode(nodeId, tree)
     if (!nodeToMove) return tree
 
+    // Create a deep clone of the node to move
+    const nodeClone = JSON.parse(JSON.stringify(nodeToMove)) as FileNode
+
+    // Explicitly update the parentId property
+    nodeClone.parentId = newParentId
+
     // First remove the node from its current location
     const treeWithoutNode = deleteNodeFromTree(tree, nodeId)
 
-    // Then add it to the new location
-    return createNodeInTree(treeWithoutNode, nodeToMove, newParentId)
+    // Then add it to the new location with updated parentId
+    return createNodeInTree(treeWithoutNode, nodeClone, newParentId)
 }
 
 /**
