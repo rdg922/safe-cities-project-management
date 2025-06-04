@@ -228,24 +228,22 @@ html, body {
   border: 0;
 }
 
-/* Print-specific styles */
-@media print {
-  .prose {
-    max-width: none;
-    padding: 0;
-  }
-  
-  .prose pre {
-    white-space: pre-wrap;
-  }
-  
-  .prose img {
-    page-break-inside: avoid;
-  }
-  
-  .prose h1, .prose h2, .prose h3 {
-    page-break-after: avoid;
-  }
+.prose img {
+  page-break-inside: avoid;
+  break-inside: avoid;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  orphans: 0;
+  widows: 0;
+}
+
+.prose h1, .prose h2, .prose h3 {
+  page-break-after: avoid;
+}
+
+.prose pre {
+  white-space: pre-wrap;
 }
 
 /* Remove bullet for task list items */
