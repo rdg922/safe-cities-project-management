@@ -20,7 +20,7 @@ html, body {
   user-select: text;
 }
 
-/* Page break control */
+/* Page break control - prevent elements from being split across pages */
 .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6,
 .prose p, .prose ul, .prose ol, .prose li,
 .prose table, .prose tr, .prose td, .prose th,
@@ -34,18 +34,6 @@ html, body {
 .prose p {
   orphans: 3;
   widows: 3;
-}
-
-/* Force page breaks before major sections, but not for the first h1 */
-.prose h1:not(:first-child) {
-  page-break-before: always;
-  break-before: page;
-}
-
-/* Avoid page breaks after headings */
-.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
-  page-break-after: avoid;
-  break-after: avoid;
 }
 
 /* Typography */
