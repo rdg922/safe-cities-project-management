@@ -20,6 +20,22 @@ html, body {
   user-select: text;
 }
 
+/* Page break control - prevent elements from being split across pages */
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6,
+.prose p, .prose ul, .prose ol, .prose li,
+.prose table, .prose tr, .prose td, .prose th,
+.prose pre, .prose code, .prose blockquote,
+.prose img, .prose figure, .prose figcaption {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* Prevent orphans and widows */
+.prose p {
+  orphans: 3;
+  widows: 3;
+}
+
 /* Typography */
 .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
   margin-top: 1.5em;
@@ -251,4 +267,13 @@ html, body {
 .prose ul[data-type="taskList"] li::before {
   content: '';
   display: none;
+}
+
+.prose > h1:first-child,
+.prose > h2:first-child,
+.prose > h3:first-child,
+.prose > h4:first-child,
+.prose > h5:first-child,
+.prose > h6:first-child {
+  margin-top: 0 !important;
 }
