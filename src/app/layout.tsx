@@ -9,7 +9,6 @@ import { AppSidebar } from '~/components/app-sidebar'
 import { SidebarProvider } from '~/components/ui/sidebar'
 import { ChatSidebarProvider } from '~/components/ui/chat-sidebar-provider'
 import { ChatSidebar } from '~/components/chat-sidebar'
-import { MobileHeader } from '~/components/mobile-header'
 import { Toaster } from '~/components/ui/toaster'
 import { FileTreeProvider } from '~/providers/file-tree-provider'
 

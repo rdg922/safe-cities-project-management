@@ -11,7 +11,7 @@ export const createQueryClient = () =>
                 // Reduce refetches during navigation
                 refetchOnWindowFocus: false,
                 // Keep cached data even when component unmounts during navigation
-                cacheTime: 5 * 60 * 1000, // 5 minutes
+                gcTime: 5 * 60 * 1000, // 5 minutes
             },
             dehydrate: {
                 serializeData: SuperJSON.serialize,

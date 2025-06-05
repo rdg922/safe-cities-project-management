@@ -158,7 +158,7 @@ export function AppSidebar() {
                         </div>
                         <div className="flex flex-col">
                             <span className="text-sm font-semibold">
-                                NonProfit Workspace
+                                Safe Cities
                             </span>
                             <span className="text-xs text-muted-foreground">
                                 Project Management
