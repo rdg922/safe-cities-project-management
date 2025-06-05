@@ -1,32 +1,13 @@
 import { eq, sql, desc, asc, ne, and } from 'drizzle-orm'
 import { z } from 'zod'
 
-import {
-    createTRPCRouter,
-    publicProcedure,
-    protectedProcedure,
-} from '~/server/api/trpc'
-import {
-    files,
-    pageContent,
-    sheetContent,
-    forms,
-    FILE_TYPES,
-    type FileType,
-    users,
-    filePermissions,
-    effectivePermissions,
-    notifications,
-} from '~/server/db/schema'
-import {
-    getUserPermissionContext,
-    getAccessibleFiles,
-    getUsersWithFileAccess,
-} from '~/lib/permissions-simple'
+import { createTRPCRouter, publicProcedure, protectedProcedure } from '~/server/api/trpc'
+import { files, pageContent, sheetContent, forms, FILE_TYPES, type FileType, users, filePermissions, effectivePermissions, notifications } from '~/server/db/schema'
+import { getUserPermissionContext, getAccessibleFiles, getUsersWithFileAccess } from '~/lib/permissions-simple'
 import { rebuildEffectivePermissionsForUser } from '~/lib/permissions-optimized'
 
 export const filesRouter = createTRPCRouter({
-    // Create a new file (page, sheet, folder, or form)
+    // Create a new file (page, sheet, folder, form, or upload)
     create: protectedProcedure
         .input(
             z.object({
@@ -36,11 +17,15 @@ export const filesRouter = createTRPCRouter({
                     FILE_TYPES.SHEET,
                     FILE_TYPES.FOLDER,
                     FILE_TYPES.FORM,
+                    FILE_TYPES.UPLOAD,
                 ]),
                 parentId: z.number().optional(),
                 slug: z.string().optional(),
                 order: z.number().default(0),
                 isPublic: z.boolean().default(false),
+                // For uploads, accept path and mimetype (not required for others)
+                path: z.string().optional(),
+                mimetype: z.string().optional(),
             })
         )
         .mutation(async ({ ctx, input }) => {
@@ -58,6 +43,9 @@ export const filesRouter = createTRPCRouter({
                     isPublic: input.isPublic,
                     createdBy: userId,
                     updatedBy: userId,
+                    // Save path and mimetype for uploads
+                    path: input.type === FILE_TYPES.UPLOAD ? input.path || null : null,
+                    mimetype: input.type === FILE_TYPES.UPLOAD ? input.mimetype || null : null,
                 })
                 .returning()
 
@@ -172,6 +160,8 @@ export const filesRouter = createTRPCRouter({
                     type: true,
                     parentId: true,
                     order: true,
+                    path: true,
+                    mimetype: true,
                 },
             }),
             getUserPermissionContext(userId),
@@ -224,6 +214,7 @@ export const filesRouter = createTRPCRouter({
             let content = null
 
             // Get content based on file type
+            // For uploads, content is not needed; just metadata
             if (file.type === FILE_TYPES.PAGE) {
                 const pageData = await ctx.db.query.pageContent.findFirst({
                     where: eq(pageContent.fileId, file.id),
@@ -252,6 +243,9 @@ export const filesRouter = createTRPCRouter({
                 slug: z.string().optional(),
                 order: z.number().optional(),
                 isPublic: z.boolean().optional(),
+                // Allow updating upload metadata if needed
+                path: z.string().optional(),
+                mimetype: z.string().optional(),
             })
         )
         .mutation(async ({ ctx, input }) => {
@@ -420,6 +414,7 @@ export const filesRouter = createTRPCRouter({
                     FILE_TYPES.PAGE,
                     FILE_TYPES.SHEET,
                     FILE_TYPES.FOLDER,
+                    FILE_TYPES.UPLOAD,
                 ]),
             })
         )

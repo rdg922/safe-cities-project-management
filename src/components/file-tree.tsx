@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronRight, Folder, FileText, ChevronDown, MoreHorizontal, Edit2, Trash2, Plus, AlertCircle, ClipboardList, Sheet, Share2 } from 'lucide-react'
+import { ChevronRight, Folder, FileText, ChevronDown, MoreHorizontal, Edit2, Trash2, Plus, AlertCircle, ClipboardList, Sheet, Share2, UploadCloud } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
@@ -19,7 +19,7 @@ export type FileNode = {
     id: number
     filename: string
     name?: string // Some files might use 'name' instead of 'filename'
-    type?: 'folder' | 'page' | 'sheet' | 'form'
+    type?: 'folder' | 'page' | 'sheet' | 'form' | 'upload'
     isFolder?: boolean
     parentId?: number | null
     children?: FileNode[]
@@ -36,6 +36,7 @@ interface FileTreeProps {
     onCreateSheet?: (parentId: number | null) => void
     onCreateForm?: (parentId: number | null) => void
     onCreateFolder?: (parentId: number | null) => void
+    onCreateUpload?: (parentId: number | null) => void
     onRename?: (id: number, filename: string) => void
     onDelete?: (id: number) => void
 }
@@ -53,7 +54,7 @@ interface FileTreeNodeProps extends Omit<FileTreeProps, 'items'> {
 export function FileTree(props: FileTreeProps) {
     // Create a ref to store component data for range selection
     const rootRef = useRef<HTMLDivElement>(null)
-
+    
     // Use batch permissions for all files in the tree
     const { getPermissions } = useBatchPermissions(props.items)
 
@@ -132,6 +133,7 @@ export function FileTree(props: FileTreeProps) {
                         onCreateSheet={props.onCreateSheet}
                         onCreateForm={props.onCreateForm}
                         onCreateFolder={props.onCreateFolder}
+                        onCreateUpload={props.onCreateUpload}
                         onRename={props.onRename}
                         onDelete={props.onDelete}
                     />
@@ -159,6 +161,7 @@ function FileTreeNode({
     onCreateSheet,
     onCreateFolder,
     onCreateForm,
+    onCreateUpload,
     onRename,
     onDelete,
 }: FileTreeNodeProps) {
@@ -185,7 +188,7 @@ function FileTreeNode({
     // Get permissions for this file from the batch query
     const permissions = getPermissions(node.id)
     const { userPermission, canEdit, canShare } = permissions
-
+    
     // Permission checks based on hierarchical permission levels
     const canCreate = canEdit // Edit permission anywhere in hierarchy allows creating files
     const canRename = canEdit // Edit permission anywhere in hierarchy allows renaming
@@ -414,10 +417,18 @@ function FileTreeNode({
             setIsExpanded(true) // Expand folder when creating new subfolder
         }
     }
+
     const handleCreateForm = () => {
         if (onCreateForm) {
             onCreateForm(node.id)
             setIsExpanded(true) // Expand folder when creating new form
+        }
+    }
+
+    const handleCreateUpload = () => {
+        if (onCreateUpload) {
+            onCreateUpload(node.id)
+            setIsExpanded(true) // Expand folder when creating new upload
         }
     }
 
@@ -553,6 +564,16 @@ function FileTreeNode({
                                             onClick={(e) => {
                                                 e.preventDefault()
                                                 e.stopPropagation()
+                                                handleCreateUpload()
+                                            }}
+                                        >
+                                            <UploadCloud size={14} className="mr-2" />{' '}
+                                            Upload File
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                e.stopPropagation()
                                                 handleCreateFolder()
                                             }}
                                         >
@@ -615,6 +636,10 @@ function FileTreeNode({
                                     case 'form':
                                         return (
                                             <ClipboardList className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
+                                        )
+                                    case 'upload':
+                                        return (
+                                            <UploadCloud className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
                                         )
                                     default:
                                         return (
@@ -699,6 +724,8 @@ function FileTreeNode({
                                 onMove={onMove}
                                 onCreateFile={onCreateFile}
                                 onCreateSheet={onCreateSheet}
+                                onCreateForm={onCreateForm}
+                                onCreateUpload={onCreateUpload}
                                 onCreateFolder={onCreateFolder}
                                 onRename={onRename}
                                 onDelete={onDelete}

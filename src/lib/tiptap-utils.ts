@@ -1,6 +1,6 @@
 import type { Attrs, Node } from "@tiptap/pm/model"
 import type { Editor } from "@tiptap/react"
-import { uploadImageToSupabase } from "../../@/utils/supabase/uploadImage"
+import { uploadImageToSupabase } from "~/components/supabase-utils/uploadImage"
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 

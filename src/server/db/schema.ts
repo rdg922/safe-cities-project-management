@@ -57,6 +57,7 @@ export const FILE_TYPES = {
     PAGE: 'page',
     SHEET: 'sheet',
     FORM: 'form',
+    UPLOAD: 'upload',
 } as const
 
 export type FileType = (typeof FILE_TYPES)[keyof typeof FILE_TYPES]
@@ -84,7 +85,7 @@ export const files = createTable(
     (d) => ({
         id: d.serial().primaryKey(),
         name: d.varchar({ length: 256 }).notNull(),
-        type: d.varchar({ length: 50 }).notNull().$type<FileType>(), // 'page', 'sheet', 'folder'
+        type: d.varchar({ length: 50 }).notNull().$type<FileType>(), // 'page', 'sheet', 'folder', 'upload', etc.
         parentId: d
             .integer()
             .references((): AnyPgColumn => files.id, { onDelete: 'cascade' }),
@@ -99,6 +100,8 @@ export const files = createTable(
         updatedBy: d
             .text()
             .references(() => users.id, { onDelete: 'set null' }),
+        path: d.varchar({ length: 512 }),      // Storage path for uploaded file
+        mimetype: d.varchar({ length: 128 }),  // MIME type for uploaded file
     }),
     (t) => [
         index('file_parent_idx').on(t.parentId),
@@ -108,6 +111,8 @@ export const files = createTable(
         index('file_parent_type_idx').on(t.parentId, t.type),
         index('file_created_by_idx').on(t.createdBy),
         index('file_updated_by_idx').on(t.updatedBy),
+        // (Optional) index for faster lookup by path
+        index('file_path_idx').on(t.path),
     ]
 )
 
@@ -448,6 +453,8 @@ export type File = {
     updatedAt: Date | null
     createdBy: string | null
     updatedBy: string | null
+    path: string | null
+    mimetype: string | null
 }
 
 export type PageContent = {

@@ -8,6 +8,7 @@ const isSupabaseRoute = createRouteMatcher([
   '/pages/:id(\\d+)',
   '/sheets/:id(\\d+)',
   '/forms/:id(\\d+)',
+  '/uploads/:id(\\d+)',
 ])
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
@@ -29,7 +30,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     return NextResponse.redirect(onboardingUrl)
   }
 
-  // Only sync Supabase session for pages, sheets, and forms routes
+  // Only sync Supabase session for pages, sheets, forms, and upload routes
   if (isSupabaseRoute(req)) {
     return await updateSession(req)
   }

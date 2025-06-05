@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Trash2, Edit2, MoreHorizontal, FolderPlus, FileText, Sheet, ClipboardList } from 'lucide-react'
+import { useState } from 'react'
+import { Trash2, Edit2, MoreHorizontal, FolderPlus, FileText, Sheet, ClipboardList, File as FileIcon, UploadCloud } from 'lucide-react'
 import Link from 'next/link'
-import { redirect, usePathname, useRouter } from 'next/navigation'
-import { Bell, Home, MessageSquare, Plus, Users, File, UserCircle, LogOut, Settings, Folder } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Bell, Home, MessageSquare, Plus, Users, UserCircle, LogOut, Settings, Folder } from 'lucide-react'
 import { FileTree, type FileNode } from '~/components/file-tree'
 import { api } from '~/trpc/react'
-import { invalidatePermissionCaches } from '~/lib/cache-invalidation'
 import { ultraFastFileCreationInvalidation } from '~/lib/cache-invalidation-ultra-fast'
 import { useUser } from '@clerk/nextjs'
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupAction, SidebarGroupContent,
@@ -20,67 +19,62 @@ import { Label } from '~/components/ui/label'
 import { SignOutButton } from '@clerk/nextjs'
 import { ThemeToggle } from './tiptap-templates/simple/theme-toggle'
 import { FILE_TYPES } from '~/server/db/schema'
+import { supabase } from '~/lib/supabase-client'
+import { uploadFileToSupabase } from '~/components/supabase-utils/uploadFile'
 
 export function AppSidebar() {
     const pathname = usePathname()
     const router = useRouter()
     const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false)
     const [newFileName, setNewFileName] = useState('')
-    const [newFileType, setNewFileType] = useState<'page' | 'sheet' | 'form'>(
-        'page'
-    )
-
+    const [newFileType, setNewFileType] = useState<'page' | 'sheet' | 'form'| 'upload'>('page')
+    const [selectedFile, setSelectedFile] = useState<File | null>(null)
+    const [isUploading, setIsUploading] = useState(false)
+    
     // Get current user from Clerk
     const { user: clerkUser, isLoaded: isUserLoaded } = useUser()
 
-    // Fetch file tree structure using the new files router with permission filtering
-    // Use aggressive caching to prevent unnecessary reloads
     const {
         data: fileTree = [],
         isLoading: isFileTreeLoading,
         refetch: refetchFileTree,
     } = api.files.getFilteredFileTree.useQuery(undefined, {
-        staleTime: 10 * 60 * 1000, // 10 minutes - don't refetch unless absolutely necessary
-        gcTime: 15 * 60 * 1000, // 15 minutes - keep in memory (renamed from cacheTime in newer React Query)
-        refetchOnWindowFocus: false, // Don't refetch when window gets focus
-        refetchOnMount: false, // Don't refetch when component mounts if we have cached data
-        refetchOnReconnect: false, // Don't refetch when network reconnects
-        // Only refetch if data is older than 10 minutes
-        refetchInterval: false, // Disable automatic background refetch
+        staleTime: 10 * 60 * 1000,
+        gcTime: 15 * 60 * 1000,
+        refetchOnWindowFocus: false,
+        refetchOnMount: false,
+        refetchOnReconnect: false,
+        refetchInterval: false,
     })
 
     const [activeFileId, setActiveFileId] = useState<number | undefined>()
     const [selectedFileIds, setSelectedFileIds] = useState<number[]>([])
     const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false)
     const [newFolderName, setNewFolderName] = useState('')
-    const [selectedParentId, setSelectedParentId] = useState<number | null>(
-        null
-    )
+    const [selectedParentId, setSelectedParentId] = useState<number | null>(null)
 
     // Fetch current user profile from our database
-    const { data: userProfile, isLoading: isUserProfileLoading } =
-        api.user.getProfile.useQuery(undefined, {
-            enabled: isUserLoaded && !!clerkUser,
-        })
+    const { data: userProfile } = api.user.getProfile.useQuery(undefined, {
+        enabled: isUserLoaded && !!clerkUser,
+    })
 
     // Get query client for cache invalidation
     const utils = api.useUtils()
 
-    // Handle new file creation (page or sheet)
+    // Handle new file creation (page, sheet, form, upload)
     const createFileMutation = api.files.create.useMutation({
         onSuccess: async (data) => {
             setNewFileName('')
             setIsNewFileDialogOpen(false)
-            // Invalidate both file and permission caches for new file creation
             await ultraFastFileCreationInvalidation(utils)
-
-            // Navigate to the new file using client-side navigation to preserve cache
             if (data && data.type === FILE_TYPES.PAGE) {
                 router.push(`/pages/${data.id}`)
             } else if (data && data.type === FILE_TYPES.SHEET) {
                 router.push(`/sheets/${data.id}`)
             } else if (data && data.type === FILE_TYPES.FORM) {
                 router.push(`/forms/${data.id}`)
+            } else if (data && data.type === FILE_TYPES.UPLOAD) {
+                router.push(`/uploads/${data.id}`)
             }
         },
     })
@@ -90,7 +84,6 @@ export function AppSidebar() {
         onSuccess: async () => {
             setNewFolderName('')
             setIsNewFolderDialogOpen(false)
-            // Invalidate both file and permission caches for new folder creation
             await ultraFastFileCreationInvalidation(utils)
         },
     })
@@ -98,7 +91,6 @@ export function AppSidebar() {
     // Handle renaming files
     const renameFileMutation = api.files.update.useMutation({
         onSuccess: async () => {
-            // Invalidate cache instead of manual refetch
             await utils.files.getFilteredFileTree.invalidate()
         },
     })
@@ -106,19 +98,42 @@ export function AppSidebar() {
     // Handle deleting files
     const deleteFileMutation = api.files.delete.useMutation({
         onSuccess: async () => {
-            // Invalidate cache instead of manual refetch
             await utils.files.getFilteredFileTree.invalidate()
         },
     })
 
     const updateFileMutation = api.files.update.useMutation({
         onSuccess: async () => {
-            // Invalidate cache instead of manual refetch
             await utils.files.getFilteredFileTree.invalidate()
         },
     })
 
-    const handleAddFile = () => {
+    const handleAddFile = async () => {
+        if (newFileType === 'upload') {
+            if (!selectedFile) {
+                alert('Please select a file to upload.')
+                return
+            }
+            setIsUploading(true)
+            try {
+                const publicUrl = await uploadFileToSupabase(selectedFile)
+                createFileMutation.mutate({
+                    name: selectedFile.name,
+                    type: 'upload',
+                    parentId: selectedParentId || undefined,
+                    path: publicUrl,
+                    mimetype: selectedFile.type,
+                })
+                setSelectedFile(null)
+                setNewFileName('')
+                setIsUploading(false)
+            } catch (err: any) {
+                alert('Failed to upload file: ' + err.message)
+                setIsUploading(false)
+            }
+            return
+        }
+
         if (!newFileName.trim()) return
 
         createFileMutation.mutate({
@@ -131,9 +146,7 @@ export function AppSidebar() {
     // Helper function to find a node by ID in the file tree
     const findNodeById = (nodes: FileNode[], id: number): FileNode | null => {
         for (const node of nodes) {
-            if (node.id === id) {
-                return node
-            }
+            if (node.id === id) return node
             if (node.children && node.children.length > 0) {
                 const found = findNodeById(node.children, id)
                 if (found) return found
@@ -145,11 +158,7 @@ export function AppSidebar() {
     // Helper function to check if nodeA is a parent of nodeB (prevents moving a parent into its child)
     const isParentOf = (nodeA: FileNode, nodeB: FileNode): boolean => {
         if (!nodeA.isFolder || !nodeA.children) return false
-
-        // Direct child check
         if (nodeA.children.some((child) => child.id === nodeB.id)) return true
-
-        // Recursive check for any level of nesting
         return nodeA.children.some((child) => {
             if (child.isFolder && child.children) {
                 return isParentOf(child, nodeB)
@@ -218,11 +227,17 @@ export function AppSidebar() {
                                             setIsNewFileDialogOpen(true)
                                         }}
                                     >
-                                        <ClipboardList
-                                            size={16}
-                                            className="mr-2"
-                                        />
+                                        <ClipboardList size={16} className="mr-2" />
                                         New Form
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            setNewFileType('upload')
+                                            setIsNewFileDialogOpen(true)
+                                        }}
+                                    >
+                                        <UploadCloud size={16} className="mr-2" />
+                                        Upload File
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -234,8 +249,10 @@ export function AppSidebar() {
                                     {newFileType === 'page'
                                         ? 'Page'
                                         : newFileType === 'sheet'
-                                          ? 'Sheet'
-                                          : 'Form'}
+                                        ? 'Sheet'
+                                        : newFileType === 'form'
+                                        ? 'Form'
+                                        : 'Upload'}
                                 </DialogTitle>
                                 <DialogDescription>
                                     Add a new {newFileType} to the system.
@@ -243,40 +260,59 @@ export function AppSidebar() {
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
                                 <div className="grid gap-2">
-                                    <Label htmlFor="file-name">
-                                        {newFileType === 'page'
-                                            ? 'Page'
-                                            : newFileType === 'sheet'
-                                              ? 'Sheet'
-                                              : 'Form'}{' '}
-                                        Name
-                                    </Label>
-                                    <Input
-                                        id="file-name"
-                                        value={newFileName}
-                                        onChange={(e) =>
-                                            setNewFileName(e.target.value)
-                                        }
-                                        placeholder={`Enter ${newFileType} name`}
-                                    />
+                                    {/* Only show name input for non-upload types */}
+                                    {newFileType !== 'upload' && (
+                                        <>
+                                            <Label htmlFor="file-name">
+                                                {newFileType === 'page'
+                                                    ? 'Page'
+                                                    : newFileType === 'sheet'
+                                                    ? 'Sheet'
+                                                    : newFileType === 'form'
+                                                    ? 'Form'
+                                                    : 'File'}{' '}
+                                                Name
+                                            </Label>
+                                            <Input
+                                                id="file-name"
+                                                value={newFileName}
+                                                onChange={(e) => setNewFileName(e.target.value)}
+                                                placeholder={`Enter ${newFileType} name`}
+                                                disabled={isUploading}
+                                            />
+                                        </>
+                                    )}
+                                    {newFileType === 'upload' && (
+                                        <>
+                                            <Label htmlFor="file-upload">
+                                                Choose File
+                                            </Label>
+                                            <Input
+                                                id="file-upload"
+                                                type="file"
+                                                onChange={e => setSelectedFile(e.target.files?.[0] || null)}
+                                                disabled={isUploading}
+                                            />
+                                        </>
+                                    )}
                                 </div>
                             </div>
                             <DialogFooter>
                                 <Button
                                     variant="outline"
-                                    onClick={() =>
-                                        setIsNewFileDialogOpen(false)
-                                    }
+                                    onClick={() => {
+                                        setIsNewFileDialogOpen(false);
+                                        setSelectedFile(null);
+                                    }}
+                                    disabled={isUploading}
                                 >
                                     Cancel
                                 </Button>
-                                <Button onClick={handleAddFile}>
-                                    Create{' '}
-                                    {newFileType === 'page'
-                                        ? 'Page'
-                                        : newFileType === 'sheet'
-                                          ? 'Sheet'
-                                          : 'Form'}
+                                <Button
+                                    onClick={handleAddFile}
+                                    disabled={isUploading}
+                                >
+                                    {isUploading ? 'Uploading...' : `Create ${newFileType.charAt(0).toUpperCase() + newFileType.slice(1)}`}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -324,9 +360,7 @@ export function AppSidebar() {
                                             createFolderMutation.mutate({
                                                 name: newFolderName,
                                                 type: FILE_TYPES.FOLDER,
-                                                parentId:
-                                                    selectedParentId ||
-                                                    undefined,
+                                                parentId: selectedParentId || undefined,
                                             })
                                         }
                                     }}
@@ -406,10 +440,6 @@ export function AppSidebar() {
                                     <FolderPlus size={16} />
                                     <span className="sr-only">Add Folder</span>
                                 </SidebarGroupAction>
-                                {/* <SidebarGroupAction onClick={() => setIsNewPageDialogOpen(true)}>
-                  <Plus size={16} />
-                  <span className="sr-only">Add Page</span>
-                </SidebarGroupAction> */}
                             </div>
                         </SidebarGroupLabel>
                         <SidebarGroupContent>
@@ -427,23 +457,17 @@ export function AppSidebar() {
                                         items={fileTree}
                                         onSelectFile={(id) => {
                                             setActiveFileId(id)
-                                            setSelectedFileIds([id]) // Reset multi-selection on regular click
-                                            // Navigate to the appropriate route based on file type using client-side navigation
-                                            const node = findNodeById(
-                                                fileTree,
-                                                id
-                                            )
+                                            setSelectedFileIds([id])
+                                            const node = findNodeById(fileTree, id)
                                             if (node && !node.isFolder) {
                                                 if (node.type === 'page') {
                                                     router.push(`/pages/${id}`)
-                                                } else if (
-                                                    node.type === 'sheet'
-                                                ) {
+                                                } else if (node.type === 'sheet') {
                                                     router.push(`/sheets/${id}`)
-                                                } else if (
-                                                    node.type === 'form'
-                                                ) {
+                                                } else if (node.type === 'form') {
                                                     router.push(`/forms/${id}`)
+                                                } else if (node.type === 'upload') {
+                                                    router.push(`/uploads/${id}`)
                                                 }
                                             }
                                         }}
@@ -451,115 +475,63 @@ export function AppSidebar() {
                                         selectedFileIds={selectedFileIds}
                                         onMultiSelectFile={(fileIds) => {
                                             setSelectedFileIds(fileIds)
-
-                                            // If there's only one selected, make it the active file too
                                             if (fileIds.length === 1) {
                                                 setActiveFileId(fileIds[0])
                                             }
                                         }}
                                         onMove={(dragId, dropId) => {
-                                            // Handle moving files/folders
-                                            const dragNode = findNodeById(
-                                                fileTree,
-                                                dragId
-                                            )
-                                            const dropNode = findNodeById(
-                                                fileTree,
-                                                dropId
-                                            )
-
+                                            const dragNode = findNodeById(fileTree, dragId)
+                                            const dropNode = findNodeById(fileTree, dropId)
                                             if (dragNode && dropNode) {
-                                                // Check if we're dragging a multi-selected item
                                                 if (
-                                                    selectedFileIds.includes(
-                                                        dragId
-                                                    ) &&
+                                                    selectedFileIds.includes(dragId) &&
                                                     selectedFileIds.length > 1
                                                 ) {
-                                                    // Move all selected items to the destination
-                                                    const promises =
-                                                        selectedFileIds.map(
-                                                            (id) =>
-                                                                // Need to ensure we're not trying to move a parent into its child
-                                                                new Promise(
-                                                                    (
-                                                                        resolve,
-                                                                        reject
-                                                                    ) => {
-                                                                        const itemNode =
-                                                                            findNodeById(
-                                                                                fileTree,
-                                                                                id
-                                                                            )
-                                                                        if (
-                                                                            itemNode &&
-                                                                            !isParentOf(
-                                                                                itemNode,
-                                                                                dropNode
-                                                                            )
-                                                                        ) {
-                                                                            updateFileMutation.mutate(
-                                                                                {
-                                                                                    id,
-                                                                                    parentId:
-                                                                                        dropNode.isFolder
-                                                                                            ? dropId
-                                                                                            : dropNode.parentId,
-                                                                                },
-                                                                                {
-                                                                                    onSuccess:
-                                                                                        resolve,
-                                                                                    onError:
-                                                                                        reject,
-                                                                                }
-                                                                            )
-                                                                        } else {
-                                                                            // Skip invalid moves (like parent into child)
-                                                                            resolve(
-                                                                                null
-                                                                            )
-                                                                        }
+                                                    const promises = selectedFileIds.map((id) =>
+                                                        new Promise((resolve, reject) => {
+                                                            const itemNode = findNodeById(fileTree, id)
+                                                            if (itemNode && !isParentOf(itemNode, dropNode)) {
+                                                                updateFileMutation.mutate(
+                                                                    {
+                                                                        id,
+                                                                        parentId: dropNode.isFolder ? dropId : dropNode.parentId,
+                                                                    },
+                                                                    {
+                                                                        onSuccess: resolve,
+                                                                        onError: reject,
                                                                     }
                                                                 )
-                                                        )
-
-                                                    // After all mutations complete, refresh the tree
-                                                    void Promise.all(
-                                                        promises
-                                                    ).then(() => {
+                                                            } else {
+                                                                resolve(null)
+                                                            }
+                                                        })
+                                                    )
+                                                    void Promise.all(promises).then(() => {
                                                         utils.files.getFilteredFileTree.invalidate()
                                                     })
                                                 } else {
-                                                    // Single item move
-                                                    // Auto-expand the folder when something is dropped on it
                                                     if (dropNode.isFolder) {
-                                                        // If dropped on a folder, make it a child of that folder
                                                         updateFileMutation.mutate(
                                                             {
                                                                 id: dragId,
-                                                                parentId:
-                                                                    dropId,
+                                                                parentId: dropId,
                                                             },
                                                             {
-                                                                onSuccess:
-                                                                    () => {
-                                                                        utils.files.getFilteredFileTree.invalidate() // Refresh to show the new structure
-                                                                    },
+                                                                onSuccess: () => {
+                                                                    utils.files.getFilteredFileTree.invalidate()
+                                                                },
                                                             }
                                                         )
                                                     } else {
-                                                        // If dropped on a file, make it a sibling (share same parent)
                                                         updateFileMutation.mutate(
                                                             {
                                                                 id: dragId,
-                                                                parentId:
-                                                                    dropNode.parentId,
+                                                                parentId: dropNode.parentId,
                                                             },
                                                             {
-                                                                onSuccess:
-                                                                    () => {
-                                                                        utils.files.getFilteredFileTree.invalidate() // Refresh to show the new structure
-                                                                    },
+                                                                onSuccess: () => {
+                                                                    utils.files.getFilteredFileTree.invalidate()
+                                                                },
                                                             }
                                                         )
                                                     }
@@ -581,6 +553,11 @@ export function AppSidebar() {
                                             setNewFileType('form')
                                             setIsNewFileDialogOpen(true)
                                         }}
+                                        onCreateUpload={(parentId) => {
+                                            setSelectedParentId(parentId)
+                                            setNewFileType('upload')
+                                            setIsNewFileDialogOpen(true)
+                                        }}
                                         onCreateFolder={(parentId) => {
                                             setSelectedParentId(parentId)
                                             setIsNewFolderDialogOpen(true)
@@ -589,60 +566,42 @@ export function AppSidebar() {
                                             renameFileMutation.mutate(
                                                 { id, name: filename },
                                                 {
-                                                    onSuccess: () =>
-                                                        refetchFileTree(),
+                                                    onSuccess: () => refetchFileTree(),
                                                 }
                                             )
                                         }}
                                         onDelete={(id) => {
-                                            // If multiple items are selected, delete them all
                                             if (
                                                 selectedFileIds.includes(id) &&
                                                 selectedFileIds.length > 1
                                             ) {
-                                                const promises =
-                                                    selectedFileIds.map(
-                                                        (fileId) =>
-                                                            new Promise(
-                                                                (resolve) => {
-                                                                    deleteFileMutation.mutate(
-                                                                        {
-                                                                            id: fileId,
-                                                                        },
-                                                                        {
-                                                                            onSuccess:
-                                                                                resolve,
-                                                                        }
-                                                                    )
+                                                const promises = selectedFileIds.map(
+                                                    (fileId) =>
+                                                        new Promise((resolve) => {
+                                                            deleteFileMutation.mutate(
+                                                                {
+                                                                    id: fileId,
+                                                                },
+                                                                {
+                                                                    onSuccess: resolve,
                                                                 }
                                                             )
-                                                    )
-
-                                                void Promise.all(promises).then(
-                                                    () => {
-                                                        utils.files.getFilteredFileTree.invalidate()
-                                                        setSelectedFileIds([])
-                                                    }
+                                                        })
                                                 )
+                                                void Promise.all(promises).then(() => {
+                                                    utils.files.getFilteredFileTree.invalidate()
+                                                    setSelectedFileIds([])
+                                                })
                                             } else {
-                                                // Single item delete
                                                 deleteFileMutation.mutate(
                                                     { id },
                                                     {
                                                         onSuccess: () => {
                                                             utils.files.getFilteredFileTree.invalidate()
-                                                            if (
-                                                                selectedFileIds.includes(
-                                                                    id
-                                                                )
-                                                            ) {
+                                                            if (selectedFileIds.includes(id)) {
                                                                 setSelectedFileIds(
                                                                     selectedFileIds.filter(
-                                                                        (
-                                                                            fileId
-                                                                        ) =>
-                                                                            fileId !==
-                                                                            id
+                                                                        (fileId) => fileId !== id
                                                                     )
                                                                 )
                                                             }
