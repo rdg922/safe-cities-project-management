@@ -87,6 +87,8 @@ export function PageChat({ pageTitle }: PageChatProps) {
         }
     }
 
+    if (!fileId) return
+
     return (
         <div className="flex flex-col h-full">
             <div className="mb-4">
