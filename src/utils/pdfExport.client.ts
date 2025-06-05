@@ -39,7 +39,7 @@ export async function downloadFile(htmlString: string, fileName: string) {
     console.log('Final HTML Structure:', htmlWithStyles)
 
     const opt = {
-      margin: [0, 10, 10, 10],
+      margin: [10, 10, 10, 10],
       filename: fileName,
       image: { type: 'jpeg', quality: 0.95 },
       html2canvas: { 
