@@ -18,6 +18,7 @@ export const filesRouter = createTRPCRouter({
                     FILE_TYPES.FOLDER,
                     FILE_TYPES.FORM,
                     FILE_TYPES.UPLOAD,
+                    FILE_TYPES.PROGRAMME,
                 ]),
                 parentId: z.number().optional(),
                 slug: z.string().optional(),
@@ -131,7 +132,9 @@ export const filesRouter = createTRPCRouter({
                 .filter((file) => file.parentId === parentId)
                 .map((file) => ({
                     ...file,
-                    isFolder: file.type === FILE_TYPES.FOLDER,
+                    isFolder:
+                        file.type === FILE_TYPES.FOLDER ||
+                        file.type === FILE_TYPES.PROGRAMME,
                     filename: file.name, // For compatibility with existing FileTree component
                     children: buildFileTree(file.id),
                 }))
@@ -184,7 +187,9 @@ export const filesRouter = createTRPCRouter({
                 .filter((file) => file.parentId === parentId)
                 .map((file) => ({
                     ...file,
-                    isFolder: file.type === FILE_TYPES.FOLDER,
+                    isFolder:
+                        file.type === FILE_TYPES.FOLDER ||
+                        file.type === FILE_TYPES.PROGRAMME,
                     filename: file.name, // For compatibility with existing FileTree component
                     children: buildFileTree(file.id),
                 }))
@@ -415,6 +420,7 @@ export const filesRouter = createTRPCRouter({
                     FILE_TYPES.SHEET,
                     FILE_TYPES.FOLDER,
                     FILE_TYPES.UPLOAD,
+                    FILE_TYPES.PROGRAMME,
                 ]),
             })
         )

@@ -8,7 +8,11 @@ import { Button } from '~/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '~/components/ui/avatar'
 import { api } from '~/trpc/react'
-import { smartInvalidatePermissionCaches, instantPermissionCacheInvalidation, invalidateFileTreePermissions } from '~/lib/cache-invalidation-ultra-fast'
+import {
+    smartInvalidatePermissionCaches,
+    comprehensivePermissionInvalidation,
+    invalidateFileTreePermissions,
+} from '~/lib/streamlined-cache-invalidation'
 
 type SharePermission = 'view' | 'edit' | 'comment'
 
@@ -119,7 +123,7 @@ export function ShareModal({
             )
 
             // Instant UI feedback with minimal cache invalidation
-            await instantPermissionCacheInvalidation(utils, fileId)
+            await comprehensivePermissionInvalidation(utils, fileId)
             console.log(
                 `✅ Instant cache invalidation completed for file ${fileId}`
             )
@@ -152,7 +156,7 @@ export function ShareModal({
                 )
 
                 // Instant UI feedback with minimal cache invalidation
-                await instantPermissionCacheInvalidation(utils, fileId)
+                await comprehensivePermissionInvalidation(utils, fileId)
                 console.log(
                     `✅ Instant cache invalidation completed for file ${fileId}`
                 )
@@ -402,8 +406,9 @@ export function ShareModal({
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="p-3 text-sm text-muted-foreground">
-                                        No users found
+                                    <div className="p-3 text-sm text-muted-foreground text-center">
+                                        No users found. They may not have been
+                                        added to Safe Cities yet.
                                     </div>
                                 )}
                             </div>

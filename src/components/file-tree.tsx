@@ -19,7 +19,7 @@ export type FileNode = {
     id: number
     filename: string
     name?: string // Some files might use 'name' instead of 'filename'
-    type?: 'folder' | 'page' | 'sheet' | 'form' | 'upload'
+    type?: 'folder' | 'page' | 'sheet' | 'form' | 'upload' | 'programme'
     isFolder?: boolean
     parentId?: number | null
     children?: FileNode[]
@@ -197,7 +197,15 @@ function FileTreeNode({
     // Configure drag source
     const [{ isDragging }, drag] = useDrag(() => ({
         type: node.isFolder ? ItemTypes.FOLDER : ItemTypes.FILE,
-        item: { id: node.id, type: node.isFolder ? 'folder' : 'file' },
+        item: {
+            id: node.id,
+            type: node.isFolder ? 'folder' : 'file',
+            nodeType: node.type, // Include the actual node type (programme, folder, etc.)
+        },
+        canDrag: () => {
+            // Prevent programmes from being dragged
+            return node.type !== 'programme'
+        },
         collect: (monitor) => ({
             isDragging: monitor.isDragging(),
         }),
@@ -208,7 +216,18 @@ function FileTreeNode({
         accept: [ItemTypes.FILE, ItemTypes.FOLDER],
         canDrop: (item: any) => {
             // Prevent dropping on itself or dropping a parent into its child
-            return item.id !== node.id && !isParentOfChild(item.id, node)
+            if (item.id === node.id || isParentOfChild(item.id, node)) {
+                console.log(
+                    `Cannot drop: item.id=${item.id}, node.id=${node.id}, isParentOfChild=${isParentOfChild(item.id, node)}`
+                )
+                return false
+            }
+
+            // For debugging - log allowed drops
+            console.log(
+                `Can drop: item.id=${item.id}, onto node.id=${node.id}, node.isFolder=${!!node.isFolder}`
+            )
+            return true
         },
         hover: (item: any, monitor) => {
             // Auto-expand folders after hovering for a second
@@ -239,6 +258,15 @@ function FileTreeNode({
                         setIsExpanded(true)
                     }
 
+                    // Log information before the move to help with debugging
+                    console.log(
+                        `Drag item ID: ${item.id}, Drop target ID: ${node.id}`
+                    )
+                    console.log(
+                        `Target node isFolder: ${!!node.isFolder}, Target parentId: ${node.parentId}`
+                    )
+
+                    // Call the onMove handler
                     onMove(item.id, node.id)
 
                     // Clear success animation after 1 second
@@ -248,6 +276,7 @@ function FileTreeNode({
                 } catch (error) {
                     // Show error feedback
                     setIsDropError(true)
+                    console.error('Error during drag and drop: ', error)
                     toast({
                         title: 'Error moving item',
                         description:
@@ -293,18 +322,50 @@ function FileTreeNode({
         }
     }, [isOver, isDraggedOver])
 
+    // TERRIBLE CODE TO FIX LATER IT WAS WRONG
     // Check if potential drop target is a child of the dragged item
     const isParentOfChild = (
         draggedId: number,
         targetNode: FileNode
     ): boolean => {
-        if (!targetNode.children) return false
+        // If no parentId, target is at root level
+        if (!targetNode.parentId) {
+            return false
+        }
+        // Direct parent match
+        if (targetNode.parentId === draggedId) {
+            return true
+        }
 
-        return targetNode.children.some(
-            (child) =>
-                child.id === draggedId ||
-                (child.children && isParentOfChild(draggedId, child))
-        )
+        // Retrieve the full tree from the root element props
+        const rootElement = document.querySelector(
+            '[data-file-tree-root="true"]'
+        ) as any
+        const items: FileNode[] = rootElement?.__fileTreeProps?.items || []
+
+        // Helper to find a node by id in the tree
+        const findNode = (nodes: FileNode[]): FileNode | undefined => {
+            for (const n of nodes) {
+                if (n.id === targetNode.parentId) {
+                    return n
+                }
+                if (n.children) {
+                    const found = findNode(n.children)
+                    if (found) {
+                        return found
+                    }
+                }
+            }
+            return undefined
+        }
+
+        const parentNode = findNode(items)
+        if (!parentNode) {
+            return false
+        }
+
+        // Recursively check up the tree
+        return isParentOfChild(draggedId, parentNode)
     }
 
     // Connect drag and drop to the ref
@@ -468,13 +529,20 @@ function FileTreeNode({
             <div
                 ref={nodeRef}
                 className={cn(
-                    'flex items-center py-1 rounded-md cursor-pointer hover:bg-sidebar-accent/10 transition-all duration-200',
+                    'flex items-center py-1 rounded-md cursor-pointer transition-all duration-200',
+                    node.type !== 'programme' && 'hover:bg-sidebar-accent/10',
+                    node.type === 'programme' &&
+                        'hover:bg-secondary/60 dark:hover:bg-secondary/30',
                     isActive &&
+                        node.type !== 'programme' &&
                         !node.isFolder &&
                         'bg-sidebar-accent/20 text-sidebar-accent-foreground',
                     isSelected &&
+                        node.type !== 'programme' &&
                         !isActive &&
                         'bg-sidebar-accent/10 text-sidebar-accent-foreground border border-sidebar-accent/30',
+                    node.type === 'programme' &&
+                        'bg-secondary/50 dark:bg-secondary/20',
                     isOver &&
                         canDrop &&
                         node.isFolder &&
@@ -506,9 +574,22 @@ function FileTreeNode({
                             ) : (
                                 <ChevronRight className="h-4 w-4 mr-1 text-muted-foreground shrink-0" />
                             )}
-                            <Folder className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
+                            <Folder
+                                className={cn(
+                                    'h-4 w-4 mr-2 shrink-0',
+                                    node.type === 'programme'
+                                        ? 'text-primary dark:text-primary'
+                                        : 'text-muted-foreground'
+                                )}
+                            />
                         </div>
-                        <span className="text-sm truncate flex-1">
+                        <span
+                            className={cn(
+                                'text-sm truncate flex-1',
+                                node.type === 'programme' &&
+                                    'font-semibold text-primary dark:text-primary'
+                            )}
+                        >
                             {node.filename || node.name}
                         </span>
                         <DropdownMenu>
@@ -724,6 +805,7 @@ function FileTreeNode({
                                 onMove={onMove}
                                 onCreateFile={onCreateFile}
                                 onCreateSheet={onCreateSheet}
+                                onCreateForm={onCreateForm}
                                 onCreateForm={onCreateForm}
                                 onCreateUpload={onCreateUpload}
                                 onCreateFolder={onCreateFolder}

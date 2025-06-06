@@ -18,7 +18,13 @@ import {
     CardTitle,
 } from '~/components/ui/card'
 import { Badge } from '~/components/ui/badge'
-import { Eye, Edit, Settings, BarChart3, Download } from 'lucide-react'
+import { Eye, Edit, Settings, BarChart3, Download, ChevronDown } from 'lucide-react'
+import { SubmissionDetails } from "~/components/submission-details"
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "~/components/ui/collapsible"
 
 type Permission = 'view' | 'comment' | 'edit'
 
@@ -253,8 +259,7 @@ export default function FormView() {
                                             </CardHeader>
                                             <CardContent>
                                                 <div className="text-2xl font-bold">
-                                                    {stats?.totalSubmissions ||
-                                                        0}
+                                                    {stats?.totalSubmissions || 0}
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -286,52 +291,41 @@ export default function FormView() {
                                         </Card>
                                     </div>
 
+                                    {/* Submissions */}
                                     {submissions && submissions.length > 0 && (
                                         <Card>
                                             <CardHeader>
-                                                <CardTitle>
-                                                    Recent Submissions
-                                                </CardTitle>
-                                                <CardDescription>
-                                                    Latest responses to your
-                                                    form
-                                                </CardDescription>
+                                                <CardTitle>Recent Submissions</CardTitle>
                                             </CardHeader>
                                             <CardContent>
                                                 <div className="space-y-4">
-                                                    {submissions
-                                                        .slice(0, 5)
-                                                        .map((submission) => (
-                                                            <div
-                                                                key={
-                                                                    submission.id
-                                                                }
-                                                                className="flex items-center justify-between border-b pb-2"
-                                                            >
-                                                                <div>
-                                                                    <p className="font-medium">
-                                                                        {submission
-                                                                            .user
-                                                                            ?.name ||
-                                                                            submission.submitterName ||
-                                                                            'Anonymous'}
-                                                                    </p>
-                                                                    <p className="text-sm text-muted-foreground">
-                                                                        {new Date(
-                                                                            submission.createdAt
-                                                                        ).toLocaleString()}
-                                                                    </p>
+                                                    {submissions.slice(0, 5).map((submission) => (
+                                                        <Collapsible key={submission.id}>
+                                                            <CollapsibleTrigger className="w-full">
+                                                                <div className="flex items-center justify-between border-b pb-2">
+                                                                    <div>
+                                                                        <p className="font-medium">
+                                                                            {submission.submitterName || 'Anonymous'}
+                                                                        </p>
+                                                                        <p className="text-sm text-muted-foreground">
+                                                                            {new Date(submission.createdAt).toLocaleString()}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Badge variant="outline">
+                                                                            {submission.responses.length} responses
+                                                                        </Badge>
+                                                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                                    </div>
                                                                 </div>
-                                                                <Badge variant="outline">
-                                                                    {
-                                                                        submission
-                                                                            .responses
-                                                                            .length
-                                                                    }{' '}
-                                                                    responses
-                                                                </Badge>
-                                                            </div>
-                                                        ))}
+                                                            </CollapsibleTrigger>
+                                                            <CollapsibleContent>
+                                                                <div className="pt-4">
+                                                                    <SubmissionDetails submission={submission} />
+                                                                </div>
+                                                            </CollapsibleContent>
+                                                        </Collapsible>
+                                                    ))}
                                                 </div>
                                             </CardContent>
                                         </Card>
