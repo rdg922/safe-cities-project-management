@@ -6,17 +6,27 @@ import { RecentActivityList } from "~/components/recent-activity-list"
 import { Plus } from "lucide-react"
 import { api } from "~/trpc/react"
 import { FILE_TYPES } from "~/server/db/schema"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { NewFileDialog } from "~/components/new-file-dialog"
+import { formatDistanceToNow } from "date-fns"
 
 
 export default function DashboardPage() {
   const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
-
   const { data: users } = api.user.getAllUsers.useQuery();
-  const { data: programs } = api.files.getByType.useQuery({ type: FILE_TYPES.PROGRAMME });
+  const { data: programs, isLoading: isLoadingPrograms } = api.files.getByType.useQuery({ 
+    type: FILE_TYPES.PROGRAMME 
+  });
   const { data: pagesInLast30Days } = api.files.getPagesCreatedInLast30Days.useQuery();
-  
+
+  const { data: childCounts } = api.files.getChildCountsForParents.useQuery(
+    { 
+      parentIds: programs?.map(p => p.id) ?? [] 
+    },
+    { 
+      enabled: !isLoadingPrograms && !!programs?.length 
+    }
+  );
 
   return (
     <div className="container mx-auto p-6">
@@ -71,29 +81,22 @@ export default function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-7 mb-8">
         <div className="md:col-span-4">
           <h2 className="text-xl font-semibold mb-4">Programs</h2>
-          <div className="grid gap-4">
-            <ProgramCard
-              title="Community Outreach"
-              description="Engaging with local communities through events and initiatives"
-              pages={3}
-              members={5}
-              lastUpdated="2 hours ago"
-            />
-            <ProgramCard
-              title="Education Initiative"
-              description="Providing educational resources and support to underserved communities"
-              pages={2}
-              members={4}
-              lastUpdated="1 day ago"
-            />
-            <ProgramCard
-              title="Fundraising"
-              description="Coordinating fundraising events and donor relationships"
-              pages={3}
-              members={3}
-              lastUpdated="3 days ago"
-            />
-          </div>
+          {isLoadingPrograms ? (
+            <div>Loading programs...</div>
+          ) : (
+            <div className="grid gap-4">
+              {programs?.map((program) => (
+                <ProgramCard
+                  key={program.id}
+                  title={program.name}
+                  description="No description available"
+                  pages={childCounts?.[program.id] || 0}
+                  members={0}
+                  lastUpdated={formatDistanceToNow(new Date(program.updatedAt), { addSuffix: true })}
+                />
+              ))}
+            </div>
+          )}
         </div>
         <div className="md:col-span-3">
           <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
