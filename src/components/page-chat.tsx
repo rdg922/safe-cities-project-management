@@ -21,6 +21,10 @@ export function PageChat({ pageTitle }: PageChatProps) {
     const fileId =
         contextFileId || Number(params.pageId) || Number(params.formId)
 
+    if (!fileId || isNaN(fileId)) {
+        return null
+    }
+
     const [newMessage, setNewMessage] = useState('')
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const [isActive, setIsActive] = useState(true)

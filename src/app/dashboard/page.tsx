@@ -4,20 +4,39 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import { ProgramCard } from "~/components/program-card"
 import { RecentActivityList } from "~/components/recent-activity-list"
 import { Plus } from "lucide-react"
+import { api } from "~/trpc/react"
+import { FILE_TYPES } from "~/server/db/schema"
+import { useState } from "react"
+import { NewFileDialog } from "~/components/new-file-dialog"
+
 
 export default function DashboardPage() {
+  const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
+
+  const { data: users } = api.user.getAllUsers.useQuery();
+  const { data: programs } = api.files.getByType.useQuery({ type: FILE_TYPES.PROGRAMME });
+  const { data: pagesInLast30Days } = api.files.getPagesCreatedInLast30Days.useQuery();
+  
+
   return (
     <div className="container mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Welcome back to your nonprofit workspace</p>
+          <p className="text-muted-foreground mt-1">Welcome back to your workspace</p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2"
+        onClick={() => setIsNewFileDialogOpen(true)}>
           <Plus size={16} />
           New Program
         </Button>
       </div>
+
+      <NewFileDialog
+        open={isNewFileDialogOpen}
+        onOpenChange={setIsNewFileDialogOpen}
+        fileType={FILE_TYPES.PROGRAMME}
+      />
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
         <Card>
@@ -25,16 +44,16 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">Total Programs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">3</div>
+            <div className="text-3xl font-bold">{programs?.length}</div>
             <p className="text-xs text-muted-foreground mt-1">+1 from last month</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+            <CardTitle className="text-sm font-medium">Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">12</div>
+            <div className="text-3xl font-bold">{users?.length}</div>
             <p className="text-xs text-muted-foreground mt-1">+3 from last month</p>
           </CardContent>
         </Card>
@@ -43,7 +62,7 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">Pages Created</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">24</div>
+            <div className="text-3xl font-bold">{pagesInLast30Days}</div>
             <p className="text-xs text-muted-foreground mt-1">+8 from last month</p>
           </CardContent>
         </Card>

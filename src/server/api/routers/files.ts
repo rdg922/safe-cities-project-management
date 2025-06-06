@@ -436,6 +436,22 @@ export const filesRouter = createTRPCRouter({
             })
         }),
 
+    // Get all files created in the last 30 days
+    getPagesCreatedInLast30Days: publicProcedure
+        .query(async ({ ctx }) => {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            const count = await ctx.db
+                .select({ count: sql<number>`COUNT(*)` })
+                .from(files)
+                .where(and(
+                    eq(files.type, FILE_TYPES.PAGE),
+                    sql`${files.createdAt} >= ${thirtyDaysAgo}`
+                ));
+            return count[0]?.count;
+        }),
+
     // Move files (for drag and drop reordering)
     move: protectedProcedure
         .input(
