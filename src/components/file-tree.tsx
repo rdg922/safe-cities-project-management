@@ -806,7 +806,6 @@ function FileTreeNode({
                                 onCreateFile={onCreateFile}
                                 onCreateSheet={onCreateSheet}
                                 onCreateForm={onCreateForm}
-                                onCreateForm={onCreateForm}
                                 onCreateUpload={onCreateUpload}
                                 onCreateFolder={onCreateFolder}
                                 onRename={onRename}

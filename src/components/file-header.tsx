@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button } from '~/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
-import { Eye, MessageSquare, MoreHorizontal, PenSquare, Share2, Users } from 'lucide-react'
+import { Eye, MessageSquare, MoreHorizontal, PenSquare, Share2, Users, Download } from 'lucide-react'
 import { useChatToggle } from '~/hooks/use-chat-toggle'
 import { ShareModal } from '~/components/share-modal'
 import { SidebarTrigger, useSidebar } from './ui/sidebar'

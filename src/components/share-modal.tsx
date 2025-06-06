@@ -8,11 +8,7 @@ import { Button } from '~/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '~/components/ui/avatar'
 import { api } from '~/trpc/react'
-import {
-    smartInvalidatePermissionCaches,
-    comprehensivePermissionInvalidation,
-    invalidateFileTreePermissions,
-} from '~/lib/streamlined-cache-invalidation'
+import { smartInvalidatePermissionCaches, comprehensivePermissionInvalidation, invalidateFileTreePermissions } from '~/lib/streamlined-cache-invalidation'
 
 type SharePermission = 'view' | 'edit' | 'comment'
 
