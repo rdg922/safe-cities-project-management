@@ -5,6 +5,11 @@
 @tailwind components;
 @tailwind utilities;
 
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
 
 @layer base {
   :root {

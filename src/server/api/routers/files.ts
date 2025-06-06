@@ -1,4 +1,4 @@
-import { eq, sql, desc, asc, ne, and } from 'drizzle-orm'
+import { eq, sql, desc, asc, ne, and, isNotNull, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { createTRPCRouter, publicProcedure, protectedProcedure } from '~/server/api/trpc'
@@ -431,6 +431,22 @@ export const filesRouter = createTRPCRouter({
             })
         }),
 
+    // Get all files created in the last 30 days
+    getPagesCreatedInLast30Days: publicProcedure
+        .query(async ({ ctx }) => {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            const count = await ctx.db
+                .select({ count: sql<number>`COUNT(*)` })
+                .from(files)
+                .where(and(
+                    eq(files.type, FILE_TYPES.PAGE),
+                    sql`${files.createdAt} >= ${thirtyDaysAgo}`
+                ));
+            return count[0]?.count;
+        }),
+
     // Move files (for drag and drop reordering)
     move: protectedProcedure
         .input(
@@ -457,4 +473,35 @@ export const filesRouter = createTRPCRouter({
 
             return { success: true }
         }),
-})
+
+    // Get child counts for multiple parent IDs
+    getChildCountsForParents: protectedProcedure
+        .input(z.object({ parentIds: z.array(z.number()) }))
+        .query(async ({ ctx, input }) => {
+            // Get child counts for all parent IDs in a single query
+            const childCounts = await ctx.db
+                .select({
+                    parentId: files.parentId,
+                    count: sql<number>`COUNT(*)`,
+                })
+                .from(files)
+                .where(
+                    and(
+                        isNotNull(files.parentId),
+                        inArray(files.parentId, input.parentIds)
+                    )
+                )
+                .groupBy(files.parentId);
+
+            // Convert the results to a map for easy lookup
+            const countMap = new Map(
+                childCounts.map(({ parentId, count }) => [parentId, count])
+            );
+
+            // Return an object with counts for each parent ID
+            return input.parentIds.reduce((acc, parentId) => {
+                acc[parentId] = countMap.get(parentId) || 0;
+                return acc;
+            }, {} as Record<number, number>);
+        }),
+});
