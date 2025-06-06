@@ -11,20 +11,24 @@ import { useChatSidebar } from '~/components/ui/chat-sidebar-provider'
 
 interface PageChatProps {
     pageTitle: string
+    fileId: number
 }
 
-export function PageChat({ pageTitle }: PageChatProps) {
-    const params = useParams()
+// wrapper component to ensure fileId is valid without restructuring logic 
+function PageChatWrapper({ pageTitle }: PageChatProps) {
+    const params = useParams();
     const { fileId: contextFileId } = useChatSidebar()
+    const resolvedFileId = contextFileId || Number(params.pageId) || Number(params.formId)
 
-    // Try to get fileId from context first, fallback to URL params for backward compatibility
-    const fileId =
-        contextFileId || Number(params.pageId) || Number(params.formId)
-
-    if (!fileId || isNaN(fileId)) {
+    if (!resolvedFileId || isNaN(resolvedFileId)) {
         return null
     }
 
+    return <PageChatContent pageTitle={pageTitle} fileId={resolvedFileId} />
+}
+
+// main component
+function PageChatContent({ pageTitle, fileId: validatedFileId }: PageChatProps) {
     const [newMessage, setNewMessage] = useState('')
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const [isActive, setIsActive] = useState(true)
@@ -32,9 +36,17 @@ export function PageChat({ pageTitle }: PageChatProps) {
     // Get messages for this page
     const { data: messages = [], refetch: refetchMessages } =
         api.chat.getFileMessages.useQuery(
-            { fileId },
-            { enabled: !!fileId && !isNaN(fileId) }
+            { fileId: validatedFileId },
+            { enabled: true}
         )
+    
+    // Send message mutation
+    const { mutate: sendMessage } = api.chat.sendMessage.useMutation({
+        onSuccess: () => {
+            setNewMessage('')
+            void refetchMessages()
+        },
+    })
 
     // Set up polling interval with visibility check
     useEffect(() => {
@@ -62,24 +74,16 @@ export function PageChat({ pageTitle }: PageChatProps) {
         }
     }, [refetchMessages])
 
-    // Send message mutation
-    const { mutate: sendMessage } = api.chat.sendMessage.useMutation({
-        onSuccess: () => {
-            setNewMessage('')
-            void refetchMessages()
-        },
-    })
-
     // Scroll to bottom when messages change
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages])
 
     const handleSendMessage = () => {
-        if (!newMessage.trim() || !fileId || isNaN(fileId)) return
+        if (!newMessage.trim() || !validatedFileId || isNaN(validatedFileId)) return
 
         sendMessage({
-            fileId,
+            fileId: validatedFileId,
             content: newMessage.trim(),
         })
     }
@@ -90,8 +94,6 @@ export function PageChat({ pageTitle }: PageChatProps) {
             handleSendMessage()
         }
     }
-
-    if (!fileId) return
 
     return (
         <div className="flex flex-col h-full">
@@ -159,3 +161,5 @@ export function PageChat({ pageTitle }: PageChatProps) {
         </div>
     )
 }
+
+export const PageChat = PageChatWrapper

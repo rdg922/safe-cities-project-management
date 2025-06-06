@@ -55,7 +55,6 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{programs?.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">+1 from last month</p>
           </CardContent>
         </Card>
         <Card>
@@ -64,7 +63,6 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{users?.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">+3 from last month</p>
           </CardContent>
         </Card>
         <Card>
@@ -73,7 +71,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{pagesInLast30Days}</div>
-            <p className="text-xs text-muted-foreground mt-1">+8 from last month</p>
+            <p className="text-xs text-muted-foreground mt-1">In the last 30 days</p>
           </CardContent>
         </Card>
       </div>
@@ -90,7 +88,7 @@ export default function DashboardPage() {
                   key={program.id}
                   title={program.name}
                   description="No description available"
-                  pages={childCounts?.[program.id] || 0}
+                  items={childCounts?.[program.id] || 0}
                   members={0}
                   lastUpdated={formatDistanceToNow(new Date(program.updatedAt), { addSuffix: true })}
                 />
