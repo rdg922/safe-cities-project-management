@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import {
     ReactGrid,
     type CellChange,
@@ -15,7 +15,7 @@ import { toast } from '~/hooks/use-toast'
 import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
 import { Card, CardContent } from '~/components/ui/card'
-import { Plus, Activity, Shield, Info } from 'lucide-react'
+import { Plus, Activity, Shield, Info, Undo, Redo } from 'lucide-react'
 
 interface SheetEditorProps {
     initialData: SheetData
@@ -38,7 +38,16 @@ export function SheetEditor({
     syncMetadata,
 }: SheetEditorProps) {
     const [sheet, setSheet] = useState<SheetData>(initialData)
+
+    // Undo/Redo state
+    const [cellChangesHistory, setCellChangesHistory] = useState<
+        CellChange[][]
+    >([])
+    const [historyIndex, setHistoryIndex] = useState(-1)
+
+    // Debounced saving
     const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     const isLiveSyncSheet = syncMetadata?.isLiveSync
     const formDataColumnCount = syncMetadata?.formDataColumnCount || 0
@@ -57,6 +66,187 @@ export function SheetEditor({
             })
         },
     })
+
+    // Debounced save function
+    const debouncedSave = useCallback(
+        (sheetData: SheetData) => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current)
+            }
+
+            saveTimeoutRef.current = setTimeout(() => {
+                updateMutation.mutate({
+                    fileId: sheetId,
+                    content: JSON.stringify(sheetData),
+                })
+            }, 1000) // Debounce for 1 second
+        },
+        [sheetId, updateMutation]
+    )
+
+    // Helper function to apply changes to sheet data
+    const applyNewValue = useCallback(
+        (
+            changes: CellChange[],
+            prevSheet: SheetData,
+            usePrevValue: boolean = false
+        ): SheetData => {
+            const newSheet = { ...prevSheet }
+
+            changes.forEach((change) => {
+                // Skip changes to form data columns if this is a synced sheet
+                if (
+                    syncMetadata?.formDataColumnCount &&
+                    isFormDataColumn(
+                        change.columnId as number,
+                        syncMetadata.formDataColumnCount
+                    )
+                ) {
+                    return
+                }
+
+                // Find row by rowId
+                const rowIndex = newSheet.rows.findIndex(
+                    (row) => row.rowId === change.rowId
+                )
+                if (rowIndex === -1) return
+
+                // Create a copy of the row
+                const row = { ...newSheet.rows[rowIndex]! }
+                const newCells = [...(row.cells || [])] as DefaultCellTypes[]
+
+                // Use either the new cell value or previous cell value
+                const cellToApply = usePrevValue
+                    ? change.previousCell
+                    : change.newCell
+                newCells[change.columnId as number] =
+                    cellToApply as DefaultCellTypes
+
+                // Update the row with new cells
+                row.cells = newCells
+                newSheet.rows[rowIndex] = row
+                newSheet.cells[rowIndex] = newCells
+            })
+
+            return newSheet
+        },
+        [syncMetadata?.formDataColumnCount]
+    )
+
+    // Function to apply changes and update history
+    const applyChangesToHistory = useCallback(
+        (changes: CellChange[], prevSheet: SheetData): SheetData => {
+            const updated = applyNewValue(changes, prevSheet)
+
+            // Add to history (remove any future history if we're not at the end)
+            const newHistory = [
+                ...cellChangesHistory.slice(0, historyIndex + 1),
+                changes,
+            ]
+            setCellChangesHistory(newHistory)
+            setHistoryIndex(newHistory.length - 1)
+
+            return updated
+        },
+        [cellChangesHistory, historyIndex, applyNewValue]
+    )
+
+    // Undo function
+    const undoChanges = useCallback(() => {
+        if (historyIndex >= 0 && cellChangesHistory[historyIndex]) {
+            const changes = cellChangesHistory[historyIndex]!
+            const newSheet = applyNewValue(changes, sheet, true) // Use previous values
+            setSheet(newSheet)
+            setHistoryIndex(historyIndex - 1)
+            debouncedSave(newSheet)
+
+            toast({
+                title: '↩️ Undo',
+                description: 'Changes have been undone.',
+            })
+        }
+    }, [historyIndex, cellChangesHistory, sheet, applyNewValue, debouncedSave])
+
+    // Redo function
+    const redoChanges = useCallback(() => {
+        if (
+            historyIndex + 1 < cellChangesHistory.length &&
+            cellChangesHistory[historyIndex + 1]
+        ) {
+            const changes = cellChangesHistory[historyIndex + 1]!
+            const newSheet = applyNewValue(changes, sheet, false) // Use new values
+            setSheet(newSheet)
+            setHistoryIndex(historyIndex + 1)
+            debouncedSave(newSheet)
+
+            toast({
+                title: '↪️ Redo',
+                description: 'Changes have been redone.',
+            })
+        }
+    }, [historyIndex, cellChangesHistory, sheet, applyNewValue, debouncedSave])
+
+    // Check if Mac OS for keyboard shortcuts
+    const isMacOs = useCallback(() => {
+        return (
+            typeof navigator !== 'undefined' &&
+            navigator.platform.toUpperCase().indexOf('MAC') >= 0
+        )
+    }, [])
+
+    // Keyboard event handler for undo/redo
+    const handleKeyDown = useCallback(
+        (e: KeyboardEvent) => {
+            if (readOnly) return
+
+            const isCtrlOrCmd =
+                (!isMacOs() && e.ctrlKey) || (isMacOs() && e.metaKey)
+
+            if (isCtrlOrCmd) {
+                switch (e.key.toLowerCase()) {
+                    case 'z':
+                        if (e.shiftKey) {
+                            // Ctrl+Shift+Z or Cmd+Shift+Z for redo
+                            e.preventDefault()
+                            redoChanges()
+                        } else {
+                            // Ctrl+Z or Cmd+Z for undo
+                            e.preventDefault()
+                            undoChanges()
+                        }
+                        break
+                    case 'y':
+                        // Ctrl+Y for redo (Windows style)
+                        if (!isMacOs()) {
+                            e.preventDefault()
+                            redoChanges()
+                        }
+                        break
+                }
+            }
+        },
+        [readOnly, isMacOs, undoChanges, redoChanges]
+    )
+
+    // Add keyboard event listener
+    useEffect(() => {
+        document.addEventListener('keydown', handleKeyDown)
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown)
+        }
+    }, [handleKeyDown])
+
+    // Cleanup timeouts on unmount
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current)
+            }
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current)
+            }
+        }
+    }, [])
 
     // Function to add a new column to the sheet
     const addColumn = () => {
@@ -97,11 +287,8 @@ export function SheetEditor({
 
         setSheet(newSheet)
 
-        // Save the updated sheet
-        updateMutation.mutate({
-            fileId: sheetId,
-            content: JSON.stringify(newSheet),
-        })
+        // Save the updated sheet with debouncing
+        debouncedSave(newSheet)
 
         toast({
             title: '📊 Column added',
@@ -143,11 +330,8 @@ export function SheetEditor({
 
         setSheet(newSheet)
 
-        // Save the updated sheet
-        updateMutation.mutate({
-            fileId: sheetId,
-            content: JSON.stringify(newSheet),
-        })
+        // Save the updated sheet with debouncing
+        debouncedSave(newSheet)
 
         toast({
             title: '📝 Row added',
@@ -188,21 +372,12 @@ export function SheetEditor({
             })
         }
 
-        const newSheet = applyChangesToSheet(
-            sheet,
-            allowedChanges,
-            formDataColumnCount
-        )
+        // Use the history system to apply changes
+        const newSheet = applyChangesToHistory(allowedChanges, sheet)
         setSheet(newSheet)
 
-        // debounce save
-        if (timeoutRef.current) clearTimeout(timeoutRef.current)
-        timeoutRef.current = setTimeout(() => {
-            updateMutation.mutate({
-                fileId: sheetId,
-                content: JSON.stringify(newSheet),
-            })
-        }, 1000)
+        // Debounced save
+        debouncedSave(newSheet)
     }
 
     // Derive column definitions from the first row's cells
@@ -259,6 +434,31 @@ export function SheetEditor({
 
                 {!readOnly && (
                     <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={undoChanges}
+                            disabled={historyIndex < 0}
+                            className="flex items-center gap-2"
+                            title={`Undo (${isMacOs() ? 'Cmd' : 'Ctrl'}+Z)`}
+                        >
+                            <Undo className="h-4 w-4" />
+                            Undo
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={redoChanges}
+                            disabled={
+                                historyIndex + 1 >= cellChangesHistory.length
+                            }
+                            className="flex items-center gap-2"
+                            title={`Redo (${isMacOs() ? 'Cmd+Shift' : 'Ctrl+Shift'}+Z)`}
+                        >
+                            <Redo className="h-4 w-4" />
+                            Redo
+                        </Button>
+                        <div className="h-4 border-l border-gray-300" />
                         <Button
                             variant="outline"
                             size="sm"
