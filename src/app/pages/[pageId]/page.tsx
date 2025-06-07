@@ -73,8 +73,8 @@ export default function PageView() {
     const handleContentChange = (newContent: string) => {
         setContent(newContent)
 
-        // Only auto-save if collaboration is ready and not in read-only mode
-        if (!isCollaborationReady || isReadOnly) return
+        // Only auto-save if user has edit permissions
+        if (isReadOnly) return
 
         setSavingStatus('saving')
 
@@ -89,7 +89,7 @@ export default function PageView() {
                 fileId: pageId,
                 content: newContent,
             })
-        }, 3000) // 3 seconds debounce to allow for collaboration
+        }, 2000) // 2 seconds debounce for better responsiveness
     }
 
     // Handle collaboration initialization
@@ -176,4 +176,3 @@ export default function PageView() {
         </div>
     )
 }
-

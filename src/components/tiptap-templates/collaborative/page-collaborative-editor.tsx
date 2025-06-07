@@ -119,6 +119,17 @@ export function PageCollaborativeEditor({
 
             // Notify parent when collaboration is ready
             if (connected && onCollaborationReady) {
+                // Small delay to ensure Y.js document is fully synced
+                setTimeout(() => {
+                    onCollaborationReady()
+                }, 100)
+            }
+        })
+
+        // Also handle when the provider is synced
+        webrtcProvider.on('synced', () => {
+            console.log('WebRTC Provider synced')
+            if (onCollaborationReady) {
                 onCollaborationReady()
             }
         })
@@ -220,13 +231,30 @@ export function PageCollaborativeEditor({
             TrailingNode,
             Link.configure({ openOnClick: false }),
         ],
-        content: initialContent || '<p>Start typing to create content...</p>',
+        // Don't set initial content here for collaborative mode
         onUpdate: ({ editor }) => {
             if (onContentChange) {
                 onContentChange(editor.getHTML())
             }
         },
     })
+
+    // Load initial content after editor and collaboration are ready
+    React.useEffect(() => {
+        if (!editor || !initialContent) return
+
+        // Check if Y.js document is empty (new document)
+        const yDocIsEmpty = ydoc.getXmlFragment('default').length === 0
+
+        if (yDocIsEmpty && initialContent && initialContent.trim() !== '') {
+            console.log(
+                'Loading initial content into empty Y.js document:',
+                initialContent
+            )
+            // Set the content in the editor, which will sync to Y.js
+            editor.commands.setContent(initialContent, false)
+        }
+    }, [editor, initialContent, ydoc])
 
     // const getStatusColor = () => {
     //     switch (connectionStatus) {
