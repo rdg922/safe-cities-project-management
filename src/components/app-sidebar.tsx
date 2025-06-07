@@ -24,8 +24,8 @@ import { SignOutButton } from '@clerk/nextjs'
 import { ThemeToggle } from './tiptap-templates/simple/theme-toggle'
 import { FILE_TYPES } from '~/server/db/schema'
 import { supabase } from '~/lib/supabase-client'
-import { uploadFileToSupabase } from '~/components/supabase-utils/uploadFile'
-import { deleteFileFromSupabase } from '~/components/supabase-utils/deleteFile'
+import { uploadFileToSupabase } from '~/components/supabase-utils/uploadFile' // used in new-file-dialog.tsx now
+import { deleteUploadFromSupabase } from '~/components/supabase-utils/deleteUpload'
 
 import { useMobile } from '~/hooks/use-mobile'
 import { NewFileDialog, type NewFileType } from './new-file-dialog'
@@ -98,6 +98,15 @@ export function AppSidebar() {
         return null
     }
 
+    // Utility function to fetch file info by ID
+    const fetchFileById = async (id: number) => {
+        try {
+            return await utils.files.getById.fetch({ id })
+        } catch {
+            return null
+        }
+    }
+    
     // Helper function to check if nodeA is a parent of nodeB (prevents moving a parent into its child)
     const isParentOf = (nodeA: FileNode, nodeB: FileNode): boolean => {
         if (!nodeA.isFolder || !nodeA.children) return false
@@ -421,40 +430,49 @@ export function AppSidebar() {
                                                 { onSuccess: () => refetchFileTree() }
                                             )
                                         }}
-                                        onDelete={(id: number) => {
+                                        onDelete={async (id: number) => {
+                                            // Helper to delete from Supabase if upload
+                                            const deleteSupabaseFileIfNeeded = async (fileId: number) => {
+                                                const file = await fetchFileById(fileId);
+                                                if (file && file.type === 'upload' && file.path) {
+                                                    try {
+                                                        await deleteUploadFromSupabase(file.path);
+                                                    } catch (error) {
+                                                        toast({
+                                                            title: 'File Storage Delete Error',
+                                                            description: `Could not delete file blob: ${(error as Error).message}`,
+                                                            variant: 'destructive',
+                                                        });
+                                                    }
+                                                }
+                                            };
+                                        
                                             // If multiple items are selected, delete them all
                                             if (selectedFileIds.includes(id) && selectedFileIds.length > 1) {
-                                                const promises =
-                                                    selectedFileIds.map(
-                                                        (fileId) =>
-                                                            new Promise(
-                                                                (resolve) => {
-                                                                    deleteFileMutation.mutate(
-                                                                        { id: fileId},
-                                                                        { onSuccess: resolve }
-                                                                    )
-                                                                }
-                                                            )
-                                                    )
-
+                                                const promises = selectedFileIds.map(async (fileId) => {
+                                                    await deleteSupabaseFileIfNeeded(fileId);
+                                                    return new Promise((resolve) => {
+                                                        deleteFileMutation.mutate({ id: fileId }, { onSuccess: resolve });
+                                                    });
+                                                });
+                                            
                                                 void Promise.all(promises).then(() => {
-                                                        // Use the streamlined cache invalidation system
-                                                        ultraFastInvalidateFileCaches(utils)
-                                                        setSelectedFileIds([])
-                                                    }
-                                                )
+                                                    ultraFastInvalidateFileCaches(utils);
+                                                    setSelectedFileIds([]);
+                                                });
                                             } else {
-                                                deleteFileMutation.mutate({ id },
+                                                await deleteSupabaseFileIfNeeded(id);
+                                                deleteFileMutation.mutate(
+                                                    { id },
                                                     {
                                                         onSuccess: () => {
-                                                            // Use the streamlined cache invalidation system
-                                                            smartInvalidateFileCaches(utils)
+                                                            smartInvalidateFileCaches(utils);
                                                             if (selectedFileIds.includes(id)) {
-                                                                setSelectedFileIds(selectedFileIds.filter((fileId) => fileId !== id))
+                                                                setSelectedFileIds(selectedFileIds.filter((fileId) => fileId !== id));
                                                             }
                                                         },
                                                     }
-                                                )
+                                                );
                                             }
                                         }}
                                     />

@@ -8,7 +8,7 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
  * @throws Error if the deletion fails
  */
 
-export async function deleteFileFromSupabase(path: string): Promise<void> {
+export async function deleteUploadFromSupabase(path: string): Promise<void> {
   // Create the Supabase client (client-side)
   const supabase = createClientComponentClient();
 
