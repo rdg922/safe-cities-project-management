@@ -25,6 +25,8 @@ import { ThemeToggle } from './tiptap-templates/simple/theme-toggle'
 import { FILE_TYPES } from '~/server/db/schema'
 import { supabase } from '~/lib/supabase-client'
 import { uploadFileToSupabase } from '~/components/supabase-utils/uploadFile'
+import { deleteFileFromSupabase } from '~/components/supabase-utils/deleteFile'
+
 import { useMobile } from '~/hooks/use-mobile'
 import { NewFileDialog, type NewFileType } from './new-file-dialog'
 import { navigateToFile } from '~/lib/navigation-utils'
