@@ -150,43 +150,51 @@ export function createSyncedSheetData(
     }>,
     formFields: Array<{ id: number; label: string; type: string }>
 ): SheetData {
-    // Create header row
-    const headers = [
-        'Submission ID',
-        'Submitted At',
-        'Submitter Name',
-        'Submitter Email',
-        ...formFields.map((field) => field.label),
-    ]
+    // Helper function to convert column index to alphabetical letter
+    const getColumnLetter = (index: number): string => {
+        let result = ''
+        while (index > 0) {
+            index-- // Convert to 0-based
+            result = String.fromCharCode(65 + (index % 26)) + result
+            index = Math.floor(index / 26)
+        }
+        return result
+    }
 
-    const headerRow: Row = {
-        rowId: 'header',
+    // Create alphabetical header row (A, B, C, etc.)
+    const alphabeticalHeaders = formFields.map((_, index) =>
+        getColumnLetter(index + 1)
+    )
+
+    const alphabeticalHeaderRow: Row = {
+        rowId: 'alphabetical-header',
         height: 35,
-        cells: headers.map((header) => ({
-            type: 'header' as const,
-            text: header,
-        })),
+        cells: [
+            { type: 'header' as const, text: '' }, // Row header cell
+            ...alphabeticalHeaders.map((letter) => ({
+                type: 'header' as const,
+                text: letter,
+            })),
+        ],
+    }
+
+    // Create form field headers row
+    const formFieldHeaderRow: Row = {
+        rowId: 'form-field-header',
+        height: 35,
+        cells: [
+            { type: 'header' as const, text: '1' }, // Row number
+            ...formFields.map((field) => ({
+                type: 'header' as const,
+                text: field.label,
+            })),
+        ],
     }
 
     // Create data rows from submissions
     const dataRows: Row[] = formSubmissions.map((submission, rowIndex) => {
         const rowCells = [
-            {
-                type: 'text' as const,
-                text: submission.id.toString(),
-            },
-            {
-                type: 'text' as const,
-                text: submission.createdAt.toISOString(),
-            },
-            {
-                type: 'text' as const,
-                text: submission.user?.name || submission.submitterName || '',
-            },
-            {
-                type: 'text' as const,
-                text: submission.user?.email || submission.submitterEmail || '',
-            },
+            { type: 'header' as const, text: `${rowIndex + 2}` }, // Row number (starting from 2 since row 1 has form headers)
         ]
 
         // Add response values for each form field
@@ -220,7 +228,7 @@ export function createSyncedSheetData(
         }
     })
 
-    const rows = [headerRow, ...dataRows]
+    const rows = [alphabeticalHeaderRow, formFieldHeaderRow, ...dataRows]
     const cells = rows.map((row) => row.cells as DefaultCellTypes[])
 
     return { rows, cells }

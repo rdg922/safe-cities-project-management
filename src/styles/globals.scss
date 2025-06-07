@@ -11,6 +11,10 @@
   mix-blend-mode: normal;
 }
 
+.rg-container {
+  overflow:scroll;
+}
+
 @layer base {
   :root {
   --background: 0 0% 97.6471%;

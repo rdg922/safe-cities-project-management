@@ -18,13 +18,21 @@ import {
     CardTitle,
 } from '~/components/ui/card'
 import { Badge } from '~/components/ui/badge'
-import { Eye, Edit, Settings, BarChart3, Download, ChevronDown } from 'lucide-react'
-import { SubmissionDetails } from "~/components/submission-details"
+import {
+    Eye,
+    Edit,
+    Settings,
+    BarChart3,
+    Download,
+    ChevronDown,
+    ExternalLink,
+} from 'lucide-react'
+import { SubmissionDetails } from '~/components/submission-details'
 import {
     Collapsible,
     CollapsibleContent,
     CollapsibleTrigger,
-} from "~/components/ui/collapsible"
+} from '~/components/ui/collapsible'
 
 type Permission = 'view' | 'comment' | 'edit'
 
@@ -49,13 +57,13 @@ export default function FormView() {
     )
 
     const { data: stats } = api.forms.getStatistics.useQuery(
-        { formId: formData?.id || 0 },
-        { enabled: !!formData?.id && activeTab === 'analytics' }
+        { formId: formData?.fileId || 0 },
+        { enabled: !!formData?.fileId && activeTab === 'analytics' }
     )
 
     const { data: submissions } = api.forms.getSubmissions.useQuery(
-        { formId: formData?.id || 0 },
-        { enabled: !!formData?.id && activeTab === 'analytics' }
+        { formId: formData?.fileId || 0 },
+        { enabled: !!formData?.fileId && activeTab === 'analytics' }
     )
 
     if (isLoading) {
@@ -87,6 +95,14 @@ export default function FormView() {
     }
 
     const canEdit = userPermission === 'edit'
+
+    const getFormUrl = () => {
+        return `${window.location.origin}/forms/${formData.fileId}/submit`
+    }
+
+    const openFormInNewTab = () => {
+        window.open(getFormUrl(), '_blank')
+    }
 
     return (
         <div className="flex h-screen flex-col">
@@ -140,6 +156,16 @@ export default function FormView() {
                                 )}
                             </div>
                         </div>
+                        <div>
+                            <Button
+                                variant="outline"
+                                onClick={openFormInNewTab}
+                                className="flex items-center gap-2"
+                            >
+                                <ExternalLink className="h-4 w-4" />
+                                Go to Form
+                            </Button>
+                        </div>
                     </div>
 
                     <Tabs
@@ -189,6 +215,7 @@ export default function FormView() {
                                         <FormBuilder
                                             form={{
                                                 ...formData,
+                                                id: formData.fileId, // Use fileId as id for compatibility
                                                 fields: formData.fields.map(
                                                     (field) => ({
                                                         ...field,
@@ -217,7 +244,7 @@ export default function FormView() {
                                 >
                                     <FormPreview
                                         form={{
-                                            id: formData.id,
+                                            id: formData.fileId,
                                             title: formData.title,
                                             description: formData.description,
                                             showProgressBar:
@@ -259,7 +286,8 @@ export default function FormView() {
                                             </CardHeader>
                                             <CardContent>
                                                 <div className="text-2xl font-bold">
-                                                    {stats?.totalSubmissions || 0}
+                                                    {stats?.totalSubmissions ||
+                                                        0}
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -295,37 +323,57 @@ export default function FormView() {
                                     {submissions && submissions.length > 0 && (
                                         <Card>
                                             <CardHeader>
-                                                <CardTitle>Recent Submissions</CardTitle>
+                                                <CardTitle>
+                                                    Recent Submissions
+                                                </CardTitle>
                                             </CardHeader>
                                             <CardContent>
                                                 <div className="space-y-4">
-                                                    {submissions.slice(0, 5).map((submission) => (
-                                                        <Collapsible key={submission.id}>
-                                                            <CollapsibleTrigger className="w-full">
-                                                                <div className="flex items-center justify-between border-b pb-2">
-                                                                    <div>
-                                                                        <p className="font-medium">
-                                                                            {submission.submitterName || 'Anonymous'}
-                                                                        </p>
-                                                                        <p className="text-sm text-muted-foreground">
-                                                                            {new Date(submission.createdAt).toLocaleString()}
-                                                                        </p>
+                                                    {submissions
+                                                        .slice(0, 5)
+                                                        .map((submission) => (
+                                                            <Collapsible
+                                                                key={
+                                                                    submission.id
+                                                                }
+                                                            >
+                                                                <CollapsibleTrigger className="w-full">
+                                                                    <div className="flex items-center justify-between border-b pb-2">
+                                                                        <div>
+                                                                            <p className="font-medium">
+                                                                                {submission.submitterName ||
+                                                                                    'Anonymous'}
+                                                                            </p>
+                                                                            <p className="text-sm text-muted-foreground">
+                                                                                {new Date(
+                                                                                    submission.createdAt
+                                                                                ).toLocaleString()}
+                                                                            </p>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Badge variant="outline">
+                                                                                {
+                                                                                    submission
+                                                                                        .responses
+                                                                                        .length
+                                                                                }{' '}
+                                                                                responses
+                                                                            </Badge>
+                                                                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                                        </div>
                                                                     </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Badge variant="outline">
-                                                                            {submission.responses.length} responses
-                                                                        </Badge>
-                                                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                                </CollapsibleTrigger>
+                                                                <CollapsibleContent>
+                                                                    <div className="pt-4">
+                                                                        <SubmissionDetails
+                                                                            submission={
+                                                                                submission
+                                                                            }
+                                                                        />
                                                                     </div>
-                                                                </div>
-                                                            </CollapsibleTrigger>
-                                                            <CollapsibleContent>
-                                                                <div className="pt-4">
-                                                                    <SubmissionDetails submission={submission} />
-                                                                </div>
-                                                            </CollapsibleContent>
-                                                        </Collapsible>
-                                                    ))}
+                                                                </CollapsibleContent>
+                                                            </Collapsible>
+                                                        ))}
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -340,6 +388,7 @@ export default function FormView() {
                                         <FormSettings
                                             form={{
                                                 ...formData,
+                                                id: formData.fileId, // Use fileId as id for compatibility
                                                 isPublished:
                                                     formData.isPublished ??
                                                     false,
