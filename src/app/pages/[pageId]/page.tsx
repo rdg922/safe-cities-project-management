@@ -159,6 +159,7 @@ export default function PageView() {
                 fileId={pageId}
                 permission={localPermission}
                 savingStatus={savingStatus}
+                content={content}
             />
 
             <div className="flex-1 min-h-0">

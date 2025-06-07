@@ -58,6 +58,7 @@ import { FILE_TYPES } from '~/server/db/schema'
 import { useMobile } from '~/hooks/use-mobile'
 import { NewFileDialog, type NewFileType } from './new-file-dialog'
 import { navigateToFile } from '~/lib/navigation-utils'
+import { SafeCities } from './SafeCities'
 
 export function AppSidebar() {
     const pathname = usePathname()
@@ -153,12 +154,12 @@ export function AppSidebar() {
             <Sidebar>
                 <SidebarHeader className="flex flex-col gap-4 p-4">
                     <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                            <FileText size={18} />
+                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-800">
+                            <SafeCities size={18} />
                         </div>
                         <div className="flex flex-col">
                             <span className="text-sm font-semibold">
-                                NonProfit Workspace
+                                Safe Cities
                             </span>
                             <span className="text-xs text-muted-foreground">
                                 Project Management

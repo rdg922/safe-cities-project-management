@@ -543,13 +543,20 @@ function FileTreeNode({
             <div
                 ref={nodeRef}
                 className={cn(
-                    'flex items-center py-1 rounded-md cursor-pointer hover:bg-sidebar-accent/10 transition-all duration-200',
+                    'flex items-center py-1 rounded-md cursor-pointer transition-all duration-200',
+                    node.type !== 'programme' && 'hover:bg-sidebar-accent/10',
+                    node.type === 'programme' &&
+                        'hover:bg-secondary/60 dark:hover:bg-secondary/30',
                     isActive &&
+                        node.type !== 'programme' &&
                         !node.isFolder &&
                         'bg-sidebar-accent/20 text-sidebar-accent-foreground',
                     isSelected &&
+                        node.type !== 'programme' &&
                         !isActive &&
                         'bg-sidebar-accent/10 text-sidebar-accent-foreground border border-sidebar-accent/30',
+                    node.type === 'programme' &&
+                        'bg-secondary/50 dark:bg-secondary/20',
                     isOver &&
                         canDrop &&
                         node.isFolder &&
@@ -585,7 +592,7 @@ function FileTreeNode({
                                 className={cn(
                                     'h-4 w-4 mr-2 shrink-0',
                                     node.type === 'programme'
-                                        ? 'text-blue-600 dark:text-blue-400'
+                                        ? 'text-primary dark:text-primary'
                                         : 'text-muted-foreground'
                                 )}
                             />
@@ -594,7 +601,7 @@ function FileTreeNode({
                             className={cn(
                                 'text-sm truncate flex-1',
                                 node.type === 'programme' &&
-                                    'font-semibold text-blue-700 dark:text-blue-300'
+                                    'font-semibold text-primary dark:text-primary'
                             )}
                         >
                             {node.filename || node.name}

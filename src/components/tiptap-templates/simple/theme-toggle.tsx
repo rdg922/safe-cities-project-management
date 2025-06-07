@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { flushSync } from 'react-dom'
 
 // --- UI Primitives ---
 import { Button } from '@/components/tiptap-ui-primitive/button'
@@ -11,6 +12,7 @@ import { SunIcon } from '@/components/tiptap-icons/sun-icon'
 
 export function ThemeToggle() {
     const [isDarkMode, setIsDarkMode] = useState<boolean>(false)
+    const buttonRef = useRef<HTMLButtonElement>(null)
 
     // Initialize theme from localStorage or system preference
     useEffect(() => {
@@ -50,15 +52,61 @@ export function ThemeToggle() {
         document.documentElement.classList.toggle('dark', isDarkMode)
     }, [isDarkMode])
 
-    const toggleDarkMode = () => {
+    const toggleDarkMode = async () => {
         const newIsDarkMode = !isDarkMode
-        setIsDarkMode(newIsDarkMode)
-        // Save preference to localStorage
-        localStorage.setItem('theme', newIsDarkMode ? 'dark' : 'light')
+
+        /**
+         * Return early if View Transition API is not supported
+         * or user prefers reduced motion
+         */
+        if (
+            !buttonRef.current ||
+            !document.startViewTransition ||
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ) {
+            setIsDarkMode(newIsDarkMode)
+            // Save preference to localStorage
+            localStorage.setItem('theme', newIsDarkMode ? 'dark' : 'light')
+            return
+        }
+
+        await document.startViewTransition(() => {
+            flushSync(() => {
+                setIsDarkMode(newIsDarkMode)
+                // Save preference to localStorage
+                localStorage.setItem('theme', newIsDarkMode ? 'dark' : 'light')
+            })
+        }).ready
+
+        const { top, left, width, height } =
+            buttonRef.current.getBoundingClientRect()
+        const x = left + width / 2
+        const y = top + height / 2
+        const right = window.innerWidth - left
+        const bottom = window.innerHeight - top
+        const maxRadius = Math.hypot(
+            Math.max(left, right),
+            Math.max(top, bottom)
+        )
+
+        document.documentElement.animate(
+            {
+                clipPath: [
+                    `circle(0px at ${x}px ${y}px)`,
+                    `circle(${maxRadius}px at ${x}px ${y}px)`,
+                ],
+            },
+            {
+                duration: 500,
+                easing: 'ease-in-out',
+                pseudoElement: '::view-transition-new(root)',
+            }
+        )
     }
 
     return (
         <Button
+            ref={buttonRef}
             onClick={toggleDarkMode}
             aria-label={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
             data-style="ghost"

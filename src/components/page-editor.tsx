@@ -389,6 +389,8 @@ export function PageEditor({ initialContent, readOnly = false }: PageEditorProps
                 </TooltipTrigger>
                 <TooltipContent>Upload File or Image</TooltipContent>
               </Tooltip>
+
+            
             </TooltipProvider>
           </div>
         </div>
