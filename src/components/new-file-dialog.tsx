@@ -2,57 +2,33 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-    FileText,
-    Sheet,
-    ClipboardList,
-    Folder,
-    Plus,
-    ChevronDown,
-} from 'lucide-react'
+import { FileText, Sheet, ClipboardList, Folder, Folders, Plus, ChevronDown, UploadCloud} from 'lucide-react'
 import { Button } from '~/components/ui/button'
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '~/components/ui/dialog'
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '~/components/ui/dropdown-menu'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { FILE_TYPES, type FileType } from '~/server/db/schema'
 import { FileTreeSelector } from '~/components/file-tree-selector'
 import { api } from '~/trpc/react'
 import { navigateToFile } from '~/lib/navigation-utils'
 import { ultraFastFileCreationInvalidation } from '~/lib/streamlined-cache-invalidation'
+import { uploadFileToSupabase } from '~/components/supabase-utils/uploadFile'
 
-export type NewFileType = 'page' | 'sheet' | 'form' | 'folder' | 'programme'
+export type NewFileType = 'page' | 'sheet' | 'form' | 'folder' | 'programme' | 'upload'
 
 interface NewFileDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    fileType?: NewFileType // If passed, shows specific dialog for this type
+    fileType?: NewFileType
     onCreateFile?: (data: {
         name: string
         type: FileType
         parentId?: number
-    }) => void // Made optional since we'll handle creation internally
+    }) => void
     defaultName?: string
-    parentId?: number | null // Pre-selected parent location
+    parentId?: number | null
 }
 
 export function NewFileDialog({
@@ -64,31 +40,18 @@ export function NewFileDialog({
     parentId,
 }: NewFileDialogProps) {
     const router = useRouter()
-    const [selectedType, setSelectedType] = useState<NewFileType>(
-        fileType || 'page'
-    )
+    const [selectedType, setSelectedType] = useState<NewFileType>(fileType || 'page')
     const [fileName, setFileName] = useState(defaultName)
-    const [selectedParentId, setSelectedParentId] = useState<number | null>(
-        parentId ?? null
-    )
-
-    // Get file tree for parent selection - use the same filtered query as sidebar
-    const { data: fileTree = [], isLoading: isLoadingFileTree } =
-        api.files.getFilteredFileTree.useQuery()
-
-    // Get query client for cache invalidation
+    const [selectedParentId, setSelectedParentId] = useState<number | null>(parentId ?? null)
+    const [selectedFile, setSelectedFile] = useState<File | null>(null)
+    const [isUploading, setIsUploading] = useState(false)
+    const { data: fileTree = [], isLoading: isLoadingFileTree } = api.files.getFilteredFileTree.useQuery()
     const utils = api.useUtils()
 
-    // Handle file creation mutation
     const createFileMutation = api.files.create.useMutation({
         onSuccess: async (data) => {
-            // Close dialog first
             onOpenChange(false)
-
-            // Invalidate both file and permission caches for new file creation
             await ultraFastFileCreationInvalidation(utils)
-
-            // Call the external callback if provided (for backwards compatibility)
             if (onCreateFile && data) {
                 onCreateFile({
                     name: fileName,
@@ -96,19 +59,16 @@ export function NewFileDialog({
                     parentId: data.parentId ?? undefined,
                 })
             }
-
-            // Navigate to the new file if it's a navigable type
             if (data && data.id) {
                 navigateToFile(router, data.id, data.type)
             }
-
-            // Reset form
             setFileName('')
             setSelectedParentId(null)
+            setSelectedFile(null)
+            setIsUploading(false)
         },
     })
 
-    // Reset state when dialog opens/closes or fileType changes
     useEffect(() => {
         if (open) {
             setFileName(defaultName)
@@ -116,32 +76,50 @@ export function NewFileDialog({
             if (fileType) {
                 setSelectedType(fileType)
             }
+            setSelectedFile(null)
+            setIsUploading(false)
         }
     }, [open, fileType, defaultName, parentId])
 
-    const handleCreate = () => {
-        if (!fileName.trim()) return
+    const handleCreate = async () => {
+        if (selectedType === 'upload') {
+            if (!selectedFile)
+                return
+            setIsUploading(true)
+            try {
+                const { path, publicUrl } = await uploadFileToSupabase(selectedFile)
+                createFileMutation.mutate({
+                    name: selectedFile.name,
+                    type: FILE_TYPES.UPLOAD,
+                    parentId: selectedParentId ?? undefined,
+                    path, // This is the Supabase storage path
+                    mimetype: selectedFile.type,
+                })
+            } catch (err: any) {
+                alert('Failed to upload file: ' + (err?.message || err))
+                setIsUploading(false)
+            }
+            return
+        }
 
-        // Only require parent selection for non-programme files
-        if (selectedType !== 'programme' && selectedParentId === null) return
+        if (!fileName.trim())
+            return
+        if (selectedType !== 'programme' && selectedParentId === null)
+            return
 
-        // Map our display types to schema types
         const typeMapping: Record<NewFileType, FileType> = {
             page: FILE_TYPES.PAGE,
             sheet: FILE_TYPES.SHEET,
             form: FILE_TYPES.FORM,
+            upload: FILE_TYPES.UPLOAD,
             folder: FILE_TYPES.FOLDER,
             programme: FILE_TYPES.PROGRAMME,
         }
 
-        // Create the file using mutation
         createFileMutation.mutate({
             name: fileName,
             type: typeMapping[selectedType],
-            parentId:
-                selectedType === 'programme'
-                    ? undefined
-                    : (selectedParentId ?? undefined),
+            parentId: selectedType === 'programme' ? undefined : (selectedParentId ?? undefined),
         })
     }
 
@@ -164,6 +142,12 @@ export function NewFileDialog({
                 description: 'Create a new form for data collection',
                 icon: ClipboardList,
                 placeholder: 'Enter form name',
+            },
+            upload: {
+                title: 'Upload',
+                description: 'Upload a file from your computer',
+                icon: UploadCloud,
+                placeholder: 'Select file to upload',
             },
             folder: {
                 title: 'Folder',
@@ -231,6 +215,12 @@ export function NewFileDialog({
                                             Form
                                         </div>
                                     </SelectItem>
+                                    <SelectItem value="upload">
+                                        <div className="flex items-center gap-2">
+                                            <UploadCloud className="h-4 w-4" />
+                                            Upload
+                                        </div>
+                                    </SelectItem>
                                     <SelectItem value="folder">
                                         <div className="flex items-center gap-2">
                                             <Folder className="h-4 w-4" />
@@ -239,7 +229,7 @@ export function NewFileDialog({
                                     </SelectItem>
                                     <SelectItem value="programme">
                                         <div className="flex items-center gap-2">
-                                            <Folder className="h-4 w-4 text-blue-600" />
+                                            <Folders className="h-4 w-4 text-blue-600" />
                                             Programme
                                         </div>
                                     </SelectItem>
@@ -247,27 +237,47 @@ export function NewFileDialog({
                             </Select>
                         </div>
                     )}
-                    <div className="grid gap-2">
-                        <Label htmlFor="file-name">{config.title} Name</Label>
-                        <Input
-                            id="file-name"
-                            value={fileName}
-                            onChange={(e) => setFileName(e.target.value)}
-                            placeholder={config.placeholder}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    // For programmes, no parent is required
-                                    // For other files, parent selection is required
-                                    if (
-                                        selectedType === 'programme' ||
-                                        selectedParentId !== null
-                                    ) {
-                                        handleCreate()
+
+                    {/* Name input for all except upload, file input for upload */}
+                    {selectedType !== 'upload' ? (
+                        <div className="grid gap-2">
+                            <Label htmlFor="file-name">{config.title} Name</Label>
+                            <Input
+                                id="file-name"
+                                value={fileName}
+                                onChange={(e) => setFileName(e.target.value)}
+                                placeholder={config.placeholder}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        if (selectedType === 'programme' || selectedParentId !== null) {
+                                            handleCreate()
+                                        }
                                     }
-                                }
-                            }}
-                        />
-                    </div>
+                                }}
+                                disabled={createFileMutation.isPending}
+                            />
+                        </div>
+                    ) : (
+                        <div className="grid gap-2">
+                            <Label htmlFor="file-upload">File</Label>
+                            <Input
+                                id="file-upload"
+                                type="file"
+                                onChange={e => {
+                                    const file = e.target.files?.[0] || null
+                                    setSelectedFile(file)
+                                    setFileName(file?.name ?? '')
+                                }}
+                                disabled={isUploading || createFileMutation.isPending}
+                            />
+                            {selectedFile && (
+                                <div className="text-sm text-muted-foreground">
+                                    Selected: {selectedFile.name}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Only show parent selection for non-programme files when no parentId is provided */}
                     {selectedType !== 'programme' && parentId === null && (
                         <div className="grid gap-2">
@@ -290,18 +300,6 @@ export function NewFileDialog({
                             </p>
                         </div>
                     )}
-                    {/* Show parent location info when parentId is provided */}
-                    {/* {selectedType !== 'programme' && parentId !== null && (
-                        <div className="grid gap-2">
-                            <Label>Parent Location</Label>
-                            <div className="border rounded-md p-3 bg-muted/50">
-                                <p className="text-sm text-muted-foreground">
-                                    Creating in selected folder
-                                </p>
-                            </div>
-                        </div>
-                    )} */}
-                    {/* Show information for programmes */}
                     {selectedType === 'programme' && (
                         <div className="grid gap-2">
                             <p className="text-sm text-muted-foreground">
@@ -315,20 +313,22 @@ export function NewFileDialog({
                     <Button
                         variant="outline"
                         onClick={() => onOpenChange(false)}
+                        disabled={isUploading || createFileMutation.isPending}
                     >
                         Cancel
                     </Button>
                     <Button
                         onClick={handleCreate}
                         disabled={
-                            !fileName.trim() ||
-                            (selectedType !== 'programme' &&
-                                selectedParentId === null) ||
+                            (selectedType === 'upload'
+                              ? !selectedFile || !selectedParentId || isUploading
+                              : !fileName.trim() ||
+                                (selectedType !== 'programme' && selectedParentId === null)) ||
                             createFileMutation.isPending
                         }
                     >
-                        {createFileMutation.isPending
-                            ? 'Creating...'
+                        {isUploading || createFileMutation.isPending
+                            ? 'Uploading...'
                             : `Create ${config.title}`}
                     </Button>
                 </DialogFooter>

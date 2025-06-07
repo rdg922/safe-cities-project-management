@@ -19,6 +19,9 @@ export function navigateToFile(
         case FILE_TYPES.FORM:
             router.push(`/forms/${fileId}`)
             break
+        case FILE_TYPES.UPLOAD:
+            router.push(`/uploads/${fileId}`)
+            break
         // Folders and programmes don't have dedicated pages, so no navigation
         case FILE_TYPES.FOLDER:
         case FILE_TYPES.PROGRAMME:

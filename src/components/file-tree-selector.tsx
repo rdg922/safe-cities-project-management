@@ -1,14 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import {
-    ChevronRight,
-    ChevronDown,
-    Folder,
-    FileText,
-    Sheet,
-    ClipboardList,
-} from 'lucide-react'
+import { ChevronRight, ChevronDown, Folder, Folders, FileText, Sheet, ClipboardList, UploadCloud } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { Button } from '~/components/ui/button'
 import { useBatchPermissions } from '~/hooks/use-batch-permissions'
@@ -17,7 +10,7 @@ interface FileTreeNode {
     id: number
     name: string
     filename?: string // For compatibility with useBatchPermissions
-    type?: 'folder' | 'page' | 'sheet' | 'form' | 'programme'
+    type?: 'folder' | 'page' | 'sheet' | 'form' | 'programme' | 'upload'
     isFolder?: boolean
     parentId?: number | null
     children?: FileTreeNode[]
@@ -73,19 +66,17 @@ function FileTreeNodeComponent({
     const getIcon = () => {
         switch (node.type) {
             case 'programme':
-                return (
-                    <Folder className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                )
+                return <Folders className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             case 'folder':
                 return <Folder className="h-4 w-4 text-muted-foreground" />
             case 'page':
                 return <FileText className="h-4 w-4 text-muted-foreground" />
             case 'sheet':
                 return <Sheet className="h-4 w-4 text-muted-foreground" />
+            case 'upload':
+                return <UploadCloud className="h-4 w-4 text-muted-foreground" />
             case 'form':
-                return (
-                    <ClipboardList className="h-4 w-4 text-muted-foreground" />
-                )
+                return<ClipboardList className="h-4 w-4 text-muted-foreground" />
             default:
                 return <FileText className="h-4 w-4 text-muted-foreground" />
         }
@@ -111,9 +102,7 @@ function FileTreeNodeComponent({
                     'flex items-center py-1 px-2 rounded-md transition-colors',
                     isSelectable && 'cursor-pointer hover:bg-muted/50',
                     !isSelectable && 'cursor-not-allowed opacity-50',
-                    isSelected &&
-                        isSelectable &&
-                        'bg-primary/10 border border-primary/30',
+                    isSelected && isSelectable && 'bg-primary/10 border border-primary/30',
                     level > 0 ? 'ml-4' : ''
                 )}
                 onClick={handleSelect}
@@ -140,8 +129,7 @@ function FileTreeNodeComponent({
                     <span
                         className={cn(
                             'text-sm truncate flex-1',
-                            node.type === 'programme' &&
-                                'font-semibold text-blue-700 dark:text-blue-300',
+                            node.type === 'programme' && 'font-semibold text-blue-700 dark:text-blue-300',
                             !isSelectable && 'text-muted-foreground'
                         )}
                     >

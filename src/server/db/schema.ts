@@ -1,14 +1,7 @@
 // Example model schema from the Drizzle docs
 // https://orm.drizzle.team/docs/sql-schema-declaration
 
-import {
-    index,
-    pgTableCreator,
-    customType,
-    type AnyPgColumn,
-    pgEnum,
-    unique,
-} from 'drizzle-orm/pg-core'
+import { index, pgTableCreator, customType, type AnyPgColumn, pgEnum, unique } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { z } from 'zod'
 
@@ -83,20 +76,14 @@ export const files = createTable(
         id: d.serial().primaryKey(),
         name: d.varchar({ length: 256 }).notNull(),
         type: d.varchar({ length: 50 }).notNull().$type<FileType>(), // 'page', 'sheet', 'folder', 'upload', etc.
-        parentId: d
-            .integer()
-            .references((): AnyPgColumn => files.id, { onDelete: 'cascade' }),
+        parentId: d.integer().references((): AnyPgColumn => files.id, { onDelete: 'cascade' }),
         slug: d.varchar({ length: 256 }), // URL-friendly version of name for pages
         order: d.integer().default(0), // For ordering items within the same parent
         isPublic: d.boolean().default(false), // For public access control
         createdAt: d.timestamp().notNull().defaultNow(),
         updatedAt: d.timestamp().defaultNow(),
-        createdBy: d
-            .text()
-            .references(() => users.id, { onDelete: 'set null' }),
-        updatedBy: d
-            .text()
-            .references(() => users.id, { onDelete: 'set null' }),
+        createdBy: d.text().references(() => users.id, { onDelete: 'set null' }),
+        updatedBy: d.text().references(() => users.id, { onDelete: 'set null' }),
         path: d.varchar({ length: 512 }),      // Storage path for uploaded file
         mimetype: d.varchar({ length: 128 }),  // MIME type for uploaded file
     }),

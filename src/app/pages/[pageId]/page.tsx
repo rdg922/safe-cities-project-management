@@ -159,13 +159,16 @@ export default function PageView() {
                 content={content}
             />
 
-            <div className="flex-1 min-h-0">
-                <SimpleEditor
-                    initialContent={content}
-                    readOnly={isReadOnly}
-                    onUpdate={handleContentChange}
-                />
+            <div className="flex-1 min-h-0 flex justify-center items-start bg-background">
+                <div className="w-full max-w-4xl my-8 border border-border rounded-lg shadow bg-card p-6">
+                    <SimpleEditor
+                        initialContent={content}
+                        readOnly={isReadOnly}
+                        onUpdate={handleContentChange}
+                    />
+                </div>
             </div>
         </div>
     )
 }
+

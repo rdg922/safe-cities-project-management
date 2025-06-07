@@ -1,38 +1,47 @@
-import { supabase } from "./client"
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
-export async function uploadFileToSupabase(
-  file: File,
-  onProgress?: (event: { progress: number }) => void,
-  abortSignal?: AbortSignal
-): Promise<string> {
-  try {
-    const filePath = `${Date.now()}_${file.name}`;
-    const { data, error } = await supabase.storage
-      .from("files")
-      .upload(filePath, file, { upsert: false });
+/**
+ * Uploads a file to the Supabase "files" storage bucket and returns the storage path and public URL.
+ * 
+ * @param file - The File object to upload
+ * @returns An object with { path, publicUrl }
+ * @throws Error if the upload fails
+ */
+export async function uploadFileToSupabase(file: File): Promise<{ path: string, publicUrl: string }> {
+  // Use timestamp prefix to ensure uniqueness
+  const storagePath = `${Date.now()}_${file.name}`;
 
-    // Log the full result for debugging
-    console.log("Supabase upload file response:", { data, error, file, filePath });
+  // Create the Supabase client (client-side)
+  const supabase = createClientComponentClient();
 
-    if (error) {
-      // Log error details from Supabase
-      console.error("[Supabase Upload File] error:", error);
-      throw error;
-    }
+  // Upload the file to the 'files' bucket
+  const { data, error } = await supabase
+    .storage
+    .from('files')
+    .upload(storagePath, file, {
+      cacheControl: '3600',
+      upsert: false, // Prevent overwrite; set to true to allow overwrites
+    });
 
-    // getPublicUrl does NOT return an error property
-    const { data: publicUrlData } = supabase.storage
-      .from("files")
-      .getPublicUrl(filePath);
-
-    if (!publicUrlData?.publicUrl) {
-      console.error("[Supabase Upload File] No public URL returned");
-      throw new Error("No public file URL returned");
-    }
-
-    return publicUrlData.publicUrl;
-  } catch (err) {
-    console.error("[Supabase Upload File] Exception:", err);
-    throw err; // This will propagate up to your UI
+  if (error) {
+    throw new Error(`File upload failed: ${error.message}`);
   }
+
+  // Get the public URL for the uploaded file
+  const { data: urlData } = supabase
+    .storage
+    .from('files')
+    .getPublicUrl(storagePath);
+
+  const publicUrl = urlData?.publicUrl;
+
+  if (!publicUrl) {
+    throw new Error('Could not get public URL for the uploaded file.');
+  }
+
+  // Return storage path and public URL
+  return {
+    path: storagePath,
+    publicUrl,
+  };
 }
