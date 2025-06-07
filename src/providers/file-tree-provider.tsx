@@ -157,10 +157,10 @@ export function FileTreeProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         refetch,
     } = api.files.getFilteredFileTree.useQuery(undefined, {
-        staleTime: 10 * 60 * 1000, // 10 minutes - don't refetch unless absolutely necessary
+        staleTime: 30 * 1000, // 30 seconds - shorter stale time to be more responsive to changes
         gcTime: 15 * 60 * 1000, // 15 minutes - keep in memory (renamed from cacheTime in newer React Query)
         refetchOnWindowFocus: false, // Don't refetch when window gets focus
-        refetchOnMount: false, // Don't refetch when component mounts if we have cached data
+        refetchOnMount: true, // Allow refetch when component mounts if data is stale
         refetchOnReconnect: false, // Don't refetch when network reconnects
         refetchInterval: false, // Disable automatic background refetch
         onSuccess: (data) => {

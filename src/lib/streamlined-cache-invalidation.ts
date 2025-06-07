@@ -229,6 +229,8 @@ export function ultraFastFileCreationInvalidation(
     return Promise.all([
         utils.files.getFilteredFileTree.invalidate(),
         utils.files.getFileTree.invalidate(),
+        // Force immediate refetch to update UI
+        utils.files.getFilteredFileTree.refetch(),
     ])
 }
 

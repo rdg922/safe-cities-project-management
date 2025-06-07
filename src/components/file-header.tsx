@@ -25,7 +25,6 @@ import { downloadFile } from '~/utils/pdfExport.client'
 import { api } from '~/trpc/react'
 import { toast } from '~/hooks/use-toast'
 
-
 type Permission = 'view' | 'comment' | 'edit'
 
 interface FileHeaderProps {
@@ -33,7 +32,7 @@ interface FileHeaderProps {
     fileId: number
     permission: Permission
     savingStatus?: 'saving' | 'saved' | 'idle'
-    content: string
+    content?: string
 }
 
 const permissionIcons = {
@@ -120,8 +119,6 @@ export function FileHeader({
             // You might want to show a toast notification here
         }
     }
-        
-
 
     return (
         <>
@@ -241,15 +238,17 @@ export function FileHeader({
                         <MessageSquare size={16} />
                         Chat
                     </Button>
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="gap-2"
-                        onClick={handleDownload}
-                    >
-                        <Download size={16} />
-                    Download
-                    </Button>
+                    {content && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={handleDownload}
+                        >
+                            <Download size={16} />
+                            Download
+                        </Button>
+                    )}
                 </div>
             </div>
 

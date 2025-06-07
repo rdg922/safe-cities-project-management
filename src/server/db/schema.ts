@@ -109,52 +109,38 @@ export const files = createTable(
 )
 
 // Page content: stores the actual page content separately from hierarchy
-export const pageContent = createTable(
-    'page_content',
-    (d) => ({
-        id: d.serial().primaryKey(),
-        fileId: d
-            .integer()
-            .references(() => files.id, { onDelete: 'cascade' })
-            .notNull()
-            .unique(),
-        content: d.text().default(''),
-        version: d.integer().default(1), // For versioning support
-        createdAt: d.timestamp().notNull().defaultNow(),
-        updatedAt: d.timestamp().defaultNow(),
-    }),
-    (t) => [index('page_content_file_idx').on(t.fileId)]
-)
+export const pageContent = createTable('page_content', (d) => ({
+    fileId: d
+        .integer()
+        .references(() => files.id, { onDelete: 'cascade' })
+        .primaryKey(),
+    content: d.text().default(''),
+    version: d.integer().default(1), // For versioning support
+    createdAt: d.timestamp().notNull().defaultNow(),
+    updatedAt: d.timestamp().defaultNow(),
+}))
 
 // Sheet content: stores the actual sheet data separately from hierarchy
-export const sheetContent = createTable(
-    'sheet_content',
-    (d) => ({
-        id: d.serial().primaryKey(),
-        fileId: d
-            .integer()
-            .references(() => files.id, { onDelete: 'cascade' })
-            .notNull()
-            .unique(),
-        content: d.text().default('[]'), // JSON string of sheet data
-        schema: d.text(), // JSON string of column definitions
-        version: d.integer().default(1), // For versioning support
-        createdAt: d.timestamp().notNull().defaultNow(),
-        updatedAt: d.timestamp().defaultNow(),
-    }),
-    (t) => [index('sheet_content_file_idx').on(t.fileId)]
-)
+export const sheetContent = createTable('sheet_content', (d) => ({
+    fileId: d
+        .integer()
+        .references(() => files.id, { onDelete: 'cascade' })
+        .primaryKey(),
+    content: d.text().default('[]'), // JSON string of sheet data
+    schema: d.text(), // JSON string of column definitions
+    version: d.integer().default(1), // For versioning support
+    createdAt: d.timestamp().notNull().defaultNow(),
+    updatedAt: d.timestamp().defaultNow(),
+}))
 
 // Form definitions: stores form configuration and metadata
 export const forms = createTable(
     'form',
     (d) => ({
-        id: d.serial().primaryKey(),
         fileId: d
             .integer()
             .references(() => files.id, { onDelete: 'cascade' })
-            .notNull()
-            .unique(),
+            .primaryKey(),
         title: d.varchar({ length: 256 }).notNull(),
         description: d.text(),
         isPublished: d.boolean().default(false),
@@ -168,10 +154,7 @@ export const forms = createTable(
         createdAt: d.timestamp().notNull().defaultNow(),
         updatedAt: d.timestamp().defaultNow(),
     }),
-    (t) => [
-        index('form_file_idx').on(t.fileId),
-        index('form_published_idx').on(t.isPublished),
-    ]
+    (t) => [index('form_published_idx').on(t.isPublished)]
 )
 
 // Form fields: defines the questions and their configuration
@@ -179,9 +162,9 @@ export const formFields = createTable(
     'form_field',
     (d) => ({
         id: d.serial().primaryKey(),
-        formId: d
+        formFileId: d
             .integer()
-            .references(() => forms.id, { onDelete: 'cascade' })
+            .references(() => forms.fileId, { onDelete: 'cascade' })
             .notNull(),
         label: d.varchar({ length: 512 }).notNull(),
         description: d.text(),
@@ -196,8 +179,8 @@ export const formFields = createTable(
         updatedAt: d.timestamp().defaultNow(),
     }),
     (t) => [
-        index('form_field_form_idx').on(t.formId),
-        index('form_field_order_idx').on(t.formId, t.order),
+        index('form_field_form_idx').on(t.formFileId),
+        index('form_field_order_idx').on(t.formFileId, t.order),
     ]
 )
 
@@ -206,9 +189,9 @@ export const formSubmissions = createTable(
     'form_submission',
     (d) => ({
         id: d.serial().primaryKey(),
-        formId: d
+        formFileId: d
             .integer()
-            .references(() => forms.id, { onDelete: 'cascade' })
+            .references(() => forms.fileId, { onDelete: 'cascade' })
             .notNull(),
         userId: d.text().references(() => users.id, { onDelete: 'set null' }), // nullable for anonymous submissions
         submitterEmail: d.varchar({ length: 256 }), // for anonymous submissions
@@ -219,7 +202,7 @@ export const formSubmissions = createTable(
         updatedAt: d.timestamp().defaultNow(),
     }),
     (t) => [
-        index('form_submission_form_idx').on(t.formId),
+        index('form_submission_form_idx').on(t.formFileId),
         index('form_submission_user_idx').on(t.userId),
         index('form_submission_created_idx').on(t.createdAt),
     ]
@@ -412,9 +395,9 @@ export const formSheetSyncs = createTable(
     'form_sheet_sync',
     (d) => ({
         id: d.serial().primaryKey(),
-        formId: d
+        formFileId: d
             .integer()
-            .references(() => forms.id, { onDelete: 'cascade' })
+            .references(() => forms.fileId, { onDelete: 'cascade' })
             .notNull(),
         sheetId: d
             .integer()
@@ -426,9 +409,9 @@ export const formSheetSyncs = createTable(
         updatedAt: d.timestamp().defaultNow(),
     }),
     (t) => [
-        index('form_sheet_sync_form_idx').on(t.formId),
+        index('form_sheet_sync_form_idx').on(t.formFileId),
         index('form_sheet_sync_sheet_idx').on(t.sheetId),
-        unique('form_sheet_sync_unique').on(t.formId, t.sheetId),
+        unique('form_sheet_sync_unique').on(t.formFileId, t.sheetId),
     ]
 )
 
@@ -448,7 +431,6 @@ export type File = {
 }
 
 export type PageContent = {
-    id: number
     fileId: number
     content: string
     version: number
@@ -457,7 +439,6 @@ export type PageContent = {
 }
 
 export type SheetContent = {
-    id: number
     fileId: number
     content: string // JSON string of sheet data
     schema: string | null // JSON string of column definitions
@@ -467,7 +448,6 @@ export type SheetContent = {
 }
 
 export type Form = {
-    id: number
     fileId: number
     title: string
     description: string | null
@@ -485,7 +465,7 @@ export type Form = {
 
 export type FormField = {
     id: number
-    formId: number
+    formFileId: number
     label: string
     description: string | null
     type: (typeof FORM_FIELD_TYPES)[number]
@@ -501,7 +481,7 @@ export type FormField = {
 
 export type FormSubmission = {
     id: number
-    formId: number
+    formFileId: number
     userId: string | null
     submitterEmail: string | null
     submitterName: string | null
@@ -594,10 +574,7 @@ export const filesRelations = relations(files, ({ one, many }) => ({
     filePermissions: many(filePermissions),
     messages: many(messages),
     comments: many(comments),
-    syncedFromForms: many(formSheetSyncs, {
-        fields: [files.id],
-        references: [formSheetSyncs.sheetId],
-    }),
+    syncedFromForms: many(formSheetSyncs),
     createdBy: one(users, {
         fields: [files.createdBy],
         references: [users.id],
@@ -709,8 +686,8 @@ export const formsRelations = relations(forms, ({ one, many }) => ({
 
 export const formFieldsRelations = relations(formFields, ({ one, many }) => ({
     form: one(forms, {
-        fields: [formFields.formId],
-        references: [forms.id],
+        fields: [formFields.formFileId],
+        references: [forms.fileId],
     }),
     responses: many(formResponses),
 }))
@@ -719,8 +696,8 @@ export const formSubmissionsRelations = relations(
     formSubmissions,
     ({ one, many }) => ({
         form: one(forms, {
-            fields: [formSubmissions.formId],
-            references: [forms.id],
+            fields: [formSubmissions.formFileId],
+            references: [forms.fileId],
         }),
         user: one(users, {
             fields: [formSubmissions.userId],
@@ -743,8 +720,8 @@ export const formResponsesRelations = relations(formResponses, ({ one }) => ({
 
 export const formSheetSyncsRelations = relations(formSheetSyncs, ({ one }) => ({
     form: one(forms, {
-        fields: [formSheetSyncs.formId],
-        references: [forms.id],
+        fields: [formSheetSyncs.formFileId],
+        references: [forms.fileId],
     }),
     sheet: one(files, {
         fields: [formSheetSyncs.sheetId],

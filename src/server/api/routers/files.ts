@@ -11,6 +11,7 @@ import {
     pageContent,
     sheetContent,
     forms,
+    formFields,
     FILE_TYPES,
     type FileType,
     users,
@@ -96,6 +97,30 @@ export const filesRouter = createTRPCRouter({
                     oneResponsePerUser: false,
                     version: 1,
                 })
+
+                // Add default name and email fields when creating a new form
+                const defaultFields = [
+                    {
+                        formFileId: file.id,
+                        label: 'Name',
+                        description: 'Your full name',
+                        type: 'text' as const,
+                        required: true,
+                        order: 0,
+                        placeholder: 'Enter your full name',
+                    },
+                    {
+                        formFileId: file.id,
+                        label: 'Email',
+                        description: 'Your email address',
+                        type: 'email' as const,
+                        required: true,
+                        order: 1,
+                        placeholder: 'Enter your email address',
+                    },
+                ]
+
+                await ctx.db.insert(formFields).values(defaultFields)
             }
 
             // Rebuild effective permissions for users who have access to the parent folder
@@ -437,20 +462,21 @@ export const filesRouter = createTRPCRouter({
         }),
 
     // Get all files created in the last 30 days
-    getPagesCreatedInLast30Days: publicProcedure
-        .query(async ({ ctx }) => {
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    getPagesCreatedInLast30Days: publicProcedure.query(async ({ ctx }) => {
+        const thirtyDaysAgo = new Date()
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-            const count = await ctx.db
-                .select({ count: sql<number>`COUNT(*)` })
-                .from(files)
-                .where(and(
+        const count = await ctx.db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(files)
+            .where(
+                and(
                     eq(files.type, FILE_TYPES.PAGE),
                     sql`${files.createdAt} >= ${thirtyDaysAgo}`
-                ));
-            return count[0]?.count;
-        }),
+                )
+            )
+        return count[0]?.count
+    }),
 
     // Move files (for drag and drop reordering)
     move: protectedProcedure
@@ -496,17 +522,20 @@ export const filesRouter = createTRPCRouter({
                         inArray(files.parentId, input.parentIds)
                     )
                 )
-                .groupBy(files.parentId);
+                .groupBy(files.parentId)
 
             // Convert the results to a map for easy lookup
             const countMap = new Map(
                 childCounts.map(({ parentId, count }) => [parentId, count])
-            );
+            )
 
             // Return an object with counts for each parent ID
-            return input.parentIds.reduce((acc, parentId) => {
-                acc[parentId] = countMap.get(parentId) || 0;
-                return acc;
-            }, {} as Record<number, number>);
+            return input.parentIds.reduce(
+                (acc, parentId) => {
+                    acc[parentId] = countMap.get(parentId) || 0
+                    return acc
+                },
+                {} as Record<number, number>
+            )
         }),
-});
+})

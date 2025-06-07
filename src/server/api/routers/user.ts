@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
-import { clerkClient } from '@clerk/nextjs/server'
+import { clerkClient, currentUser } from '@clerk/nextjs/server'
 
 import {
     createTRPCRouter,
@@ -164,4 +164,42 @@ export const userRouter = createTRPCRouter({
                 })
             }
         }),
+
+    // Ensure current user exists in database
+    ensureCurrentUser: protectedProcedure.mutation(async ({ ctx }) => {
+        const { userId } = ctx.auth
+
+        // Check if user already exists
+        const existingUser = await ctx.db.query.users.findFirst({
+            where: eq(users.id, userId),
+        })
+
+        if (existingUser) {
+            return existingUser
+        }
+
+        // Get user details from Clerk
+        const clerkUser = await currentUser()
+
+        if (!clerkUser) {
+            throw new TRPCError({
+                code: 'NOT_FOUND',
+                message: 'User not found in Clerk',
+            })
+        }
+
+        // Create user in our database
+        const [newUser] = await ctx.db
+            .insert(users)
+            .values({
+                id: userId,
+                name:
+                    clerkUser.fullName || clerkUser.firstName || 'Unknown User',
+                email: clerkUser.emailAddresses[0]?.emailAddress || '',
+                role: 'unverified',
+            })
+            .returning()
+
+        return newUser
+    }),
 })

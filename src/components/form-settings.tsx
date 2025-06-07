@@ -1,8 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from '~/hooks/use-toast'
 import { api } from '~/trpc/react'
+import { navigateToFile } from '~/lib/navigation-utils'
+import { FILE_TYPES } from '~/server/db/schema'
+import { ultraFastInvalidateFileCaches } from '~/lib/streamlined-cache-invalidation'
 import { Button } from '~/components/ui/button'
 import {
     Card,
@@ -30,6 +34,8 @@ import {
     Eye,
     EyeOff,
     CheckCircle,
+    AlertTriangle,
+    Ban,
 } from 'lucide-react'
 import {
     Dialog,
@@ -60,8 +66,6 @@ interface FormSettingsProps {
         isPublished: boolean
         acceptingResponses: boolean
         showProgressBar: boolean
-        allowAnonymous: boolean
-        requireLogin: boolean
         oneResponsePerUser: boolean
         fields: Array<any>
         file: {
@@ -73,16 +77,19 @@ interface FormSettingsProps {
 }
 
 export function FormSettings({ form, onUpdate }: FormSettingsProps) {
+    const router = useRouter()
+    const utils = api.useUtils()
     const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+    const [disableSyncDialogId, setDisableSyncDialogId] = useState<
+        number | null
+    >(null)
     const [formSettings, setFormSettings] = useState({
         title: form.title,
         description: form.description || '',
         isPublished: form.isPublished,
         acceptingResponses: form.acceptingResponses,
         showProgressBar: form.showProgressBar,
-        allowAnonymous: form.allowAnonymous,
-        requireLogin: form.requireLogin,
         oneResponsePerUser: form.oneResponsePerUser,
     })
 
@@ -109,6 +116,8 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
             setIsExportDialogOpen(false)
             // Refetch sync status
             syncStatus.refetch()
+            // Invalidate file tree cache to update sidebar
+            ultraFastInvalidateFileCaches(utils)
         },
         onError: (error) => {
             toast({
@@ -126,6 +135,7 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
                 description: 'Form is no longer syncing to sheet.',
             })
             syncStatus.refetch()
+            setDisableSyncDialogId(null)
         },
         onError: (error) => {
             toast({
@@ -133,10 +143,14 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
                 description: error.message,
                 variant: 'destructive',
             })
+            setDisableSyncDialogId(null)
         },
     })
 
     const syncStatus = api.forms.getSyncStatus.useQuery({ formId: form.id })
+
+    // Query the file information to get parentId
+    const fileInfo = api.files.getById.useQuery({ id: form.file.id })
 
     const handleUpdateSettings = () => {
         updateSettingsMutation.mutate({
@@ -149,11 +163,22 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
         syncMutation.mutate({
             formId: form.id,
             sheetName: `${form.title} - Live Sync`,
+            parentId: fileInfo.data?.parentId ?? undefined,
         })
     }
 
     const handleDisableSync = (syncId: number) => {
-        disableSyncMutation.mutate({ syncId })
+        setDisableSyncDialogId(syncId)
+    }
+
+    const confirmDisableSync = () => {
+        if (disableSyncDialogId) {
+            disableSyncMutation.mutate({ syncId: disableSyncDialogId })
+        }
+    }
+
+    const handleGoToSheet = (sheetId: number) => {
+        navigateToFile(router, sheetId, FILE_TYPES.SHEET)
     }
 
     const getFormUrl = () => {
@@ -292,27 +317,6 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
                     </div>
 
                     <Separator />
-
-                    <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                            <Label htmlFor="allow-anonymous">
-                                Allow Anonymous Submissions
-                            </Label>
-                            <p className="text-sm text-muted-foreground">
-                                Users can submit without logging in
-                            </p>
-                        </div>
-                        <Switch
-                            id="allow-anonymous"
-                            checked={formSettings.allowAnonymous}
-                            onCheckedChange={(checked: boolean) =>
-                                setFormSettings((prev) => ({
-                                    ...prev,
-                                    allowAnonymous: checked,
-                                }))
-                            }
-                        />
-                    </div>
 
                     <div className="flex items-center justify-between">
                         <div className="space-y-1">
@@ -480,22 +484,34 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {syncStatus.data?.isSync ? (
-                        <div className="space-y-3">
-                            <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-                                <div className="flex items-center gap-2 text-green-800 font-medium mb-2">
-                                    <CheckCircle className="h-4 w-4" />
+                        <div className="space-y-4">
+                            <div className="rounded-lg border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 p-4 dark:border-emerald-800 dark:from-emerald-950 dark:to-green-950">
+                                <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-200 font-medium mb-2">
+                                    <CheckCircle className="h-5 w-5" />
                                     Live Sync Active
+                                    <Badge
+                                        variant="secondary"
+                                        className="ml-2 bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200"
+                                    >
+                                        {syncStatus.data.syncedSheets.length}{' '}
+                                        sheet
+                                        {syncStatus.data.syncedSheets.length !==
+                                        1
+                                            ? 's'
+                                            : ''}
+                                    </Badge>
                                 </div>
-                                <p className="text-sm text-green-700">
+                                <p className="text-sm text-emerald-700 dark:text-emerald-300">
                                     This form is automatically syncing
-                                    submissions to the following sheets:
+                                    submissions to the following sheets. New
+                                    responses will appear in real-time.
                                 </p>
                             </div>
 
                             {syncStatus.data.syncedSheets.map((sync) => (
                                 <div
                                     key={sync.id}
-                                    className="flex items-center justify-between p-3 border rounded-lg"
+                                    className="flex items-center justify-between p-4 border rounded-lg bg-card"
                                 >
                                     <div className="space-y-1">
                                         <p className="font-medium">
@@ -510,20 +526,37 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
                                                 : 'Never'}
                                         </p>
                                     </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                            handleDisableSync(sync.id)
-                                        }
-                                        disabled={disableSyncMutation.isPending}
-                                    >
-                                        {disableSyncMutation.isPending ? (
-                                            <RefreshCw className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            'Disable Sync'
-                                        )}
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                                handleGoToSheet(sync.sheetId)
+                                            }
+                                            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950 dark:border-blue-800"
+                                        >
+                                            <ExternalLink className="h-4 w-4" />
+                                            Go To Sheet
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                                handleDisableSync(sync.id)
+                                            }
+                                            disabled={
+                                                disableSyncMutation.isPending
+                                            }
+                                            className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950 dark:border-red-800"
+                                        >
+                                            {disableSyncMutation.isPending ? (
+                                                <RefreshCw className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Ban className="h-4 w-4" />
+                                            )}
+                                            Disable Sync
+                                        </Button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -568,10 +601,6 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
                                             <li>
                                                 • Protected form data columns
                                                 (non-editable)
-                                            </li>
-                                            <li>
-                                                • Submission timestamps and
-                                                submitter info
                                             </li>
                                             <li>
                                                 • Additional editable columns
@@ -663,6 +692,56 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
                     </AlertDialog>
                 </CardContent>
             </Card>
+
+            {/* Disable Sync Confirmation Modal */}
+            <AlertDialog
+                open={disableSyncDialogId !== null}
+                onOpenChange={(open) => !open && setDisableSyncDialogId(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-amber-500" />
+                            Disable Live Sync
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-3">
+                            <p>
+                                Are you sure you want to disable live sync for
+                                this sheet? This action will stop automatic
+                                updates when new form submissions are received.
+                            </p>
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-950 dark:border-amber-800">
+                                <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                                    ⚠️ Important: Once disabled, this sheet
+                                    cannot be resynced automatically. You would
+                                    need to create a new sheet to restore live
+                                    sync functionality.
+                                </p>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={confirmDisableSync}
+                            disabled={disableSyncMutation.isPending}
+                        >
+                            {disableSyncMutation.isPending ? (
+                                <>
+                                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                                    Disabling...
+                                </>
+                            ) : (
+                                <>
+                                    <Ban className="h-4 w-4 mr-2" />
+                                    Disable Sync
+                                </>
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

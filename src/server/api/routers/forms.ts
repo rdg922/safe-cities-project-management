@@ -89,6 +89,34 @@ export const formsRouter = createTRPCRouter({
                 })
                 .returning()
 
+            if (!form) {
+                throw new Error('Failed to create form')
+            }
+
+            // Automatically add default name and email fields when creating a new form
+            const defaultFields = [
+                {
+                    formFileId: file.id,
+                    label: 'Name',
+                    description: 'Your full name',
+                    type: 'text' as const,
+                    required: true,
+                    order: 0,
+                    placeholder: 'Enter your full name',
+                },
+                {
+                    formFileId: file.id,
+                    label: 'Email',
+                    description: 'Your email address',
+                    type: 'email' as const,
+                    required: true,
+                    order: 1,
+                    placeholder: 'Enter your email address',
+                },
+            ]
+
+            await ctx.db.insert(formFields).values(defaultFields)
+
             return { file, form }
         }),
 
@@ -129,7 +157,7 @@ export const formsRouter = createTRPCRouter({
     updateSettings: protectedProcedure
         .input(
             z.object({
-                formId: z.number(),
+                formId: z.number(), // This is actually the fileId
                 title: z.string().min(1).optional(),
                 description: z.string().optional(),
                 isPublished: z.boolean().optional(),
@@ -150,7 +178,7 @@ export const formsRouter = createTRPCRouter({
                     ...updateData,
                     updatedAt: new Date(),
                 })
-                .where(eq(forms.id, formId))
+                .where(eq(forms.fileId, formId))
                 .returning()
 
             return updatedForm
@@ -178,14 +206,14 @@ export const formsRouter = createTRPCRouter({
                     maxOrder: sql<number>`COALESCE(MAX(${formFields.order}), -1)`,
                 })
                 .from(formFields)
-                .where(eq(formFields.formId, input.formId))
+                .where(eq(formFields.formFileId, input.formId))
 
             const nextOrder = (maxOrderResult[0]?.maxOrder ?? -1) + 1
 
             const [field] = await ctx.db
                 .insert(formFields)
                 .values({
-                    formId: input.formId,
+                    formFileId: input.formId,
                     label: input.label,
                     description: input.description || null,
                     type: input.type,
@@ -296,7 +324,7 @@ export const formsRouter = createTRPCRouter({
 
             // Check if form exists and is accepting responses
             const form = await ctx.db.query.forms.findFirst({
-                where: eq(forms.id, input.formId),
+                where: eq(forms.fileId, input.formId),
                 with: { fields: true },
             })
 
@@ -313,7 +341,7 @@ export const formsRouter = createTRPCRouter({
                 const existingSubmission =
                     await ctx.db.query.formSubmissions.findFirst({
                         where: and(
-                            eq(formSubmissions.formId, input.formId),
+                            eq(formSubmissions.formFileId, input.formId),
                             eq(formSubmissions.userId, userId)
                         ),
                     })
@@ -329,7 +357,7 @@ export const formsRouter = createTRPCRouter({
             const [submission] = await ctx.db
                 .insert(formSubmissions)
                 .values({
-                    formId: input.formId,
+                    formFileId: input.formId,
                     userId: userId || null,
                     submitterEmail: input.submitterEmail || null,
                     submitterName: input.submitterName || null,
@@ -392,7 +420,7 @@ export const formsRouter = createTRPCRouter({
                     const syncedSheets = await tx.query.formSheetSyncs.findMany(
                         {
                             where: and(
-                                eq(formSheetSyncs.formId, input.formId),
+                                eq(formSheetSyncs.formFileId, input.formId),
                                 eq(formSheetSyncs.isActive, true)
                             ),
                             with: {
@@ -409,7 +437,7 @@ export const formsRouter = createTRPCRouter({
                         // Get form with latest submissions (including the one we just created)
                         const formWithSubmissions =
                             await tx.query.forms.findFirst({
-                                where: eq(forms.id, input.formId),
+                                where: eq(forms.fileId, input.formId),
                                 with: {
                                     fields: {
                                         orderBy: asc(formFields.order),
@@ -500,7 +528,7 @@ export const formsRouter = createTRPCRouter({
         )
         .query(async ({ ctx, input }) => {
             const submissions = await ctx.db.query.formSubmissions.findMany({
-                where: eq(formSubmissions.formId, input.formId),
+                where: eq(formSubmissions.formFileId, input.formId),
                 with: {
                     responses: {
                         with: {
@@ -551,7 +579,7 @@ export const formsRouter = createTRPCRouter({
             // Check if form already has an active sync
             const existingSync = await ctx.db.query.formSheetSyncs.findFirst({
                 where: and(
-                    eq(formSheetSyncs.formId, input.formId),
+                    eq(formSheetSyncs.formFileId, input.formId),
                     eq(formSheetSyncs.isActive, true)
                 ),
                 with: {
@@ -567,7 +595,7 @@ export const formsRouter = createTRPCRouter({
 
             // Get form with fields and submissions
             const form = await ctx.db.query.forms.findFirst({
-                where: eq(forms.id, input.formId),
+                where: eq(forms.fileId, input.formId),
                 with: {
                     fields: {
                         orderBy: asc(formFields.order),
@@ -624,7 +652,7 @@ export const formsRouter = createTRPCRouter({
             )
 
             // Generate schema with form data column metadata
-            const formDataColumnCount = 4 + form.fields.length // System columns + form fields
+            const formDataColumnCount = form.fields.length // Only form fields, no system columns
             const schema = {
                 formDataColumnCount,
                 syncMetadata: {
@@ -644,7 +672,7 @@ export const formsRouter = createTRPCRouter({
 
             // Create sync relationship
             await ctx.db.insert(formSheetSyncs).values({
-                formId: input.formId,
+                formFileId: input.formId,
                 sheetId: sheetFile.id,
                 isActive: true,
                 lastSyncAt: new Date(),
@@ -664,7 +692,7 @@ export const formsRouter = createTRPCRouter({
             // Find all active synced sheets for this form
             const syncedSheets = await ctx.db.query.formSheetSyncs.findMany({
                 where: and(
-                    eq(formSheetSyncs.formId, input.formId),
+                    eq(formSheetSyncs.formFileId, input.formId),
                     eq(formSheetSyncs.isActive, true)
                 ),
                 with: {
@@ -682,7 +710,7 @@ export const formsRouter = createTRPCRouter({
 
             // Get form with latest submissions
             const form = await ctx.db.query.forms.findFirst({
-                where: eq(forms.id, input.formId),
+                where: eq(forms.fileId, input.formId),
                 with: {
                     fields: {
                         orderBy: asc(formFields.order),
@@ -760,7 +788,7 @@ export const formsRouter = createTRPCRouter({
             const totalSubmissions = await ctx.db
                 .select({ count: sql<number>`COUNT(*)` })
                 .from(formSubmissions)
-                .where(eq(formSubmissions.formId, input.formId))
+                .where(eq(formSubmissions.formFileId, input.formId))
 
             // Get submissions by date (last 30 days)
             const submissionsByDate = await ctx.db
@@ -771,7 +799,7 @@ export const formsRouter = createTRPCRouter({
                 .from(formSubmissions)
                 .where(
                     and(
-                        eq(formSubmissions.formId, input.formId),
+                        eq(formSubmissions.formFileId, input.formId),
                         sql`${formSubmissions.createdAt} >= NOW() - INTERVAL '30 days'`
                     )
                 )
@@ -790,7 +818,7 @@ export const formsRouter = createTRPCRouter({
         .query(async ({ ctx, input }) => {
             const syncedSheets = await ctx.db.query.formSheetSyncs.findMany({
                 where: and(
-                    eq(formSheetSyncs.formId, input.formId),
+                    eq(formSheetSyncs.formFileId, input.formId),
                     eq(formSheetSyncs.isActive, true)
                 ),
                 with: {
@@ -854,11 +882,11 @@ export const formsRouter = createTRPCRouter({
                 return null
             }
 
-            // Calculate form data column count (submission metadata + form field columns)
-            const formDataColumnCount = 4 + syncRelation.form.fields.length // ID, Date, Name, Email + form fields
+            // Calculate form data column count (only form field columns)
+            const formDataColumnCount = syncRelation.form.fields.length // Only form fields
 
             return {
-                formId: syncRelation.formId,
+                formId: syncRelation.formFileId,
                 isLiveSync: syncRelation.isActive,
                 formDataColumnCount,
                 lastSyncAt:
