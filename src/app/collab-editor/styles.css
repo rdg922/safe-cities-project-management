@@ -1,0 +1,149 @@
+/* WebRTC Collaborative Editor Styles */
+
+.collaborative-editor-page {
+  @apply min-h-screen bg-background;
+}
+
+.collaborative-editor-container {
+  @apply w-full;
+}
+
+/* Editor content area */
+.collaborative-editor .tiptap {
+  @apply outline-none;
+  min-height: 500px;
+  padding: 1.5rem;
+}
+
+.collaborative-editor .tiptap:focus {
+  @apply outline-none;
+}
+
+/* Collaboration cursor styles */
+.tiptap .collaboration-cursor__caret {
+  border-right: 1px solid;
+  border-left: 1px solid;
+  margin-left: -1px;
+  margin-right: -1px;
+  pointer-events: none;
+  position: relative;
+  word-break: normal;
+}
+
+.tiptap .collaboration-cursor__label {
+  border-radius: 0.25rem;
+  border-bottom-left-radius: 0;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.125rem 0.25rem;
+  position: absolute;
+  top: -1.25rem;
+  left: -1px;
+  white-space: nowrap;
+  color: white;
+  font-weight: 600;
+}
+
+/* Selection highlights */
+.tiptap .ProseMirror-yjs-selection {
+  background-color: rgba(66, 153, 225, 0.2);
+  border-left: 2px solid #4299e1;
+  border-right: 2px solid #4299e1;
+}
+
+/* User avatars */
+.user-avatar {
+  @apply w-6 h-6 rounded-full border-2 border-background flex items-center justify-center text-xs font-semibold text-white;
+}
+
+/* Connection status indicator */
+.connection-status {
+  @apply flex items-center space-x-2;
+}
+
+.connection-dot {
+  @apply w-2 h-2 rounded-full;
+}
+
+.connection-dot.connected {
+  @apply bg-green-500;
+}
+
+.connection-dot.connecting {
+  @apply bg-yellow-500 animate-pulse;
+}
+
+.connection-dot.disconnected {
+  @apply bg-red-500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .collaborative-editor .tiptap {
+    padding: 1rem;
+    min-height: 400px;
+  }
+  
+  .collaborative-editor-container {
+    @apply px-4;
+  }
+}
+
+/* Enhanced prose styles for better readability */
+.collaborative-editor .tiptap.prose {
+  @apply max-w-none;
+}
+
+.collaborative-editor .tiptap.prose h1 {
+  @apply text-3xl font-bold mt-8 mb-4 first:mt-0;
+}
+
+.collaborative-editor .tiptap.prose h2 {
+  @apply text-2xl font-semibold mt-6 mb-3;
+}
+
+.collaborative-editor .tiptap.prose h3 {
+  @apply text-xl font-medium mt-4 mb-2;
+}
+
+.collaborative-editor .tiptap.prose p {
+  @apply mb-4 leading-relaxed;
+}
+
+.collaborative-editor .tiptap.prose ul,
+.collaborative-editor .tiptap.prose ol {
+  @apply mb-4 pl-6;
+}
+
+.collaborative-editor .tiptap.prose li {
+  @apply mb-1;
+}
+
+.collaborative-editor .tiptap.prose blockquote {
+  @apply border-l-4 border-gray-300 pl-4 italic my-4;
+}
+
+.collaborative-editor .tiptap.prose code {
+  @apply bg-gray-100 px-1 py-0.5 rounded text-sm font-mono;
+}
+
+.collaborative-editor .tiptap.prose pre {
+  @apply bg-gray-100 p-4 rounded-lg overflow-x-auto my-4;
+}
+
+.collaborative-editor .tiptap.prose img {
+  @apply rounded-lg my-4;
+}
+
+/* Task list styles */
+.collaborative-editor .tiptap.prose ul[data-type="taskList"] {
+  @apply list-none pl-0;
+}
+
+.collaborative-editor .tiptap.prose ul[data-type="taskList"] li {
+  @apply flex items-start gap-2;
+}
+
+.collaborative-editor .tiptap.prose ul[data-type="taskList"] li input[type="checkbox"] {
+  @apply mt-1;
+}

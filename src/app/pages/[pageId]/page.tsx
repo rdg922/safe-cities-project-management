@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
 import { toast } from '~/hooks/use-toast'
-import { SimpleEditor } from '~/components/tiptap-templates/simple/simple-editor'
+import { PageCollaborativeEditor } from '~/components/tiptap-templates/collaborative/page-collaborative-editor'
 import { FileHeader } from '~/components/file-header'
 import { api } from '~/trpc/react'
 
@@ -28,6 +28,7 @@ export default function PageView() {
 
     const [content, setContent] = useState<string>('')
     const [localPermission, setLocalPermission] = useState<Permission>('view')
+    const [isCollaborationReady, setIsCollaborationReady] = useState(false)
 
     // Add state to track saving status
     const [savingStatus, setSavingStatus] = useState<
@@ -71,6 +72,10 @@ export default function PageView() {
     // Handle content change with debounced saving
     const handleContentChange = (newContent: string) => {
         setContent(newContent)
+
+        // Only auto-save if collaboration is ready and not in read-only mode
+        if (!isCollaborationReady || isReadOnly) return
+
         setSavingStatus('saving')
 
         // Clear previous timer if exists
@@ -84,14 +89,13 @@ export default function PageView() {
                 fileId: pageId,
                 content: newContent,
             })
-        }, 2000) // 2 seconds debounce
+        }, 3000) // 3 seconds debounce to allow for collaboration
     }
 
-    // Handle permission changes (for UI feedback)
-    const handlePermissionChange = (newPermission: Permission) => {
-        setLocalPermission(newPermission)
-        // Note: Actual permission changes should be handled through the share modal
-        // This is just for UI consistency
+    // Handle collaboration initialization
+    const handleCollaborationReady = () => {
+        setIsCollaborationReady(true)
+        console.log('Collaboration is ready for page:', pageId)
     }
 
     // Clean up timer on unmount
@@ -154,19 +158,18 @@ export default function PageView() {
                 filename={page.name || 'Untitled Page'}
                 fileId={pageId}
                 permission={localPermission}
-                onPermissionChange={handlePermissionChange}
                 savingStatus={savingStatus}
                 content={content}
             />
 
-            <div className="flex-1 min-h-0 flex justify-center items-start bg-background">
-                <div className="w-full max-w-4xl my-8 border border-border rounded-lg shadow bg-card p-6">
-                    <SimpleEditor
-                        initialContent={content}
-                        readOnly={isReadOnly}
-                        onUpdate={handleContentChange}
-                    />
-                </div>
+            <div className="flex-1 min-h-0">
+                <PageCollaborativeEditor
+                    documentId={`page-${pageId}`}
+                    initialContent={content}
+                    readOnly={isReadOnly}
+                    onContentChange={handleContentChange}
+                    onCollaborationReady={handleCollaborationReady}
+                />
             </div>
         </div>
     )
