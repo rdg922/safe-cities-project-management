@@ -24,7 +24,7 @@ import { SignOutButton } from '@clerk/nextjs'
 import { ThemeToggle } from './tiptap-templates/simple/theme-toggle'
 import { FILE_TYPES } from '~/server/db/schema'
 import { supabase } from '~/lib/supabase-client'
-import { uploadFileToSupabase } from '~/components/supabase-utils/uploadFile' // used in new-file-dialog.tsx now
+import { uploadFileToSupabase } from '~/components/supabase-utils/uploadFile'
 import { deleteUploadFromSupabase } from '~/components/supabase-utils/deleteUpload'
 
 import { useMobile } from '~/hooks/use-mobile'
@@ -120,6 +120,82 @@ export function AppSidebar() {
     }
 
     const isMobile = useMobile()
+
+    // Delete only from DB (used for non-upload files/folders)
+    const onDelete = async (id: number) => {
+        // If multiple items are selected, delete them all
+        if (selectedFileIds.includes(id) && selectedFileIds.length > 1) {
+            const promises = selectedFileIds.map(async (fileId) => {
+                return new Promise((resolve) => {
+                    deleteFileMutation.mutate({ id: fileId }, { onSuccess: resolve });
+                });
+            });
+
+            void Promise.all(promises).then(() => {
+                ultraFastInvalidateFileCaches(utils);
+                setSelectedFileIds([]);
+            });
+        } else {
+            deleteFileMutation.mutate(
+                { id },
+                {
+                    onSuccess: () => {
+                        smartInvalidateFileCaches(utils);
+                        if (selectedFileIds.includes(id)) {
+                            setSelectedFileIds(selectedFileIds.filter((fileId) => fileId !== id));
+                        }
+                    },
+                }
+            );
+        }
+    };
+
+    // Delete from Supabase storage and DB (used for uploads)
+    const onUploadDelete = async (id: number) => {
+        // Helper to delete from Supabase if upload
+        const deleteSupabaseFileIfNeeded = async (fileId: number) => {
+            const file = await fetchFileById(fileId);
+            if (file && file.type === 'upload' && file.path) {
+                try {
+                    await deleteUploadFromSupabase(file.path);
+                } catch (error) {
+                    toast({
+                        title: 'File Storage Delete Error',
+                        description: `Could not delete file blob: ${(error as Error).message}`,
+                        variant: 'destructive',
+                    });
+                }
+            }
+        };
+
+        // If multiple items are selected, delete them all
+        if (selectedFileIds.includes(id) && selectedFileIds.length > 1) {
+            const promises = selectedFileIds.map(async (fileId) => {
+                await deleteSupabaseFileIfNeeded(fileId);
+                return new Promise((resolve) => {
+                    deleteFileMutation.mutate({ id: fileId }, { onSuccess: resolve });
+                });
+            });
+
+            void Promise.all(promises).then(() => {
+                ultraFastInvalidateFileCaches(utils);
+                setSelectedFileIds([]);
+            });
+        } else {
+            await deleteSupabaseFileIfNeeded(id);
+            deleteFileMutation.mutate(
+                { id },
+                {
+                    onSuccess: () => {
+                        smartInvalidateFileCaches(utils);
+                        if (selectedFileIds.includes(id)) {
+                            setSelectedFileIds(selectedFileIds.filter((fileId) => fileId !== id));
+                        }
+                    },
+                }
+            );
+        }
+    };
 
     return (
         <>
@@ -430,49 +506,13 @@ export function AppSidebar() {
                                                 { onSuccess: () => refetchFileTree() }
                                             )
                                         }}
+                                        // Usage: choose which one to call based on file type in FileTree
                                         onDelete={async (id: number) => {
-                                            // Helper to delete from Supabase if upload
-                                            const deleteSupabaseFileIfNeeded = async (fileId: number) => {
-                                                const file = await fetchFileById(fileId);
-                                                if (file && file.type === 'upload' && file.path) {
-                                                    try {
-                                                        await deleteUploadFromSupabase(file.path);
-                                                    } catch (error) {
-                                                        toast({
-                                                            title: 'File Storage Delete Error',
-                                                            description: `Could not delete file blob: ${(error as Error).message}`,
-                                                            variant: 'destructive',
-                                                        });
-                                                    }
-                                                }
-                                            };
-                                        
-                                            // If multiple items are selected, delete them all
-                                            if (selectedFileIds.includes(id) && selectedFileIds.length > 1) {
-                                                const promises = selectedFileIds.map(async (fileId) => {
-                                                    await deleteSupabaseFileIfNeeded(fileId);
-                                                    return new Promise((resolve) => {
-                                                        deleteFileMutation.mutate({ id: fileId }, { onSuccess: resolve });
-                                                    });
-                                                });
-                                            
-                                                void Promise.all(promises).then(() => {
-                                                    ultraFastInvalidateFileCaches(utils);
-                                                    setSelectedFileIds([]);
-                                                });
+                                            const file = await fetchFileById(id);
+                                            if (file && file.type === 'upload') {
+                                                await onUploadDelete(id);
                                             } else {
-                                                await deleteSupabaseFileIfNeeded(id);
-                                                deleteFileMutation.mutate(
-                                                    { id },
-                                                    {
-                                                        onSuccess: () => {
-                                                            smartInvalidateFileCaches(utils);
-                                                            if (selectedFileIds.includes(id)) {
-                                                                setSelectedFileIds(selectedFileIds.filter((fileId) => fileId !== id));
-                                                            }
-                                                        },
-                                                    }
-                                                );
+                                                await onDelete(id);
                                             }
                                         }}
                                     />
