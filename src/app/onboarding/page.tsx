@@ -7,7 +7,16 @@ import {
     CardTitle,
 } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
-import { CheckCircle, Clock, Mail, Shield } from 'lucide-react'
+import { Badge } from '~/components/ui/badge'
+import { Separator } from '~/components/ui/separator'
+import {
+    CheckCircle,
+    Clock,
+    Mail,
+    Shield,
+    Building2,
+    Users,
+} from 'lucide-react'
 import { api } from '~/trpc/react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
@@ -26,151 +35,139 @@ export default function OnboardingPage() {
         },
     })
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-            <div className="w-full max-w-2xl space-y-8">
-                {/* Main Card */}
-                <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm dark:bg-gray-800/80">
-                    <CardHeader className="text-center space-y-4 pb-8">
-                        <div className="mx-auto w-20 h-20 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
-                            <Clock className="w-10 h-10 text-amber-600 dark:text-amber-400" />
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+            <div className="w-full max-w-full sm:max-w-xl space-y-8">
+                {/* Header */}
+                <div className="text-center space-y-4">
+                    <div className="flex items-center justify-center gap-3">
+                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
+                            <Building2 className="w-6 h-6 text-primary" />
                         </div>
-                        <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white">
-                            Account Under Review
-                        </CardTitle>
-                        <CardDescription className="text-lg text-gray-600 dark:text-gray-300">
-                            Your Safe Cities account is currently being verified
-                            by our team
-                        </CardDescription>
-                    </CardHeader>
+                        <h1 className="text-2xl font-bold text-foreground">
+                            Safe Cities
+                        </h1>
+                    </div>
+                    <p className="text-muted-foreground">
+                        Project Management Platform
+                    </p>
+                </div>
 
-                    <CardContent className="space-y-8">
-                        {/* Status Message */}
-                        <div className="text-center space-y-4">
-                            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                                Thank you for signing up with Safe Cities! To
-                                ensure the security and integrity of our
-                                platform, all new accounts must be manually
-                                verified by our administration team before
-                                gaining full access.
-                            </p>
-                            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-full">
-                                <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                                    Security verification in progress
-                                </span>
+                {/* Main Content */}
+                <div className="space-y-4">
+                    {/* Status Card */}
+                    <Card className="relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
+                        <CardHeader className="relative">
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-warning/10">
+                                    <Clock className="w-5 h-5 text-warning" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-xl">
+                                        Account Under Review
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Your account is being verified by our
+                                        team
+                                    </CardDescription>
+                                </div>
                             </div>
-                        </div>
+                        </CardHeader>
 
-                        {/* Verification Steps */}
-                        <div className="space-y-6">
-                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white text-center">
-                                What happens next?
-                                <button
-                                    onClick={() => {
-                                        if (user?.id) {
-                                            updateUserRole.mutateAsync({
-                                                id: user.id,
-                                                role: 'admin',
-                                            })
-                                        } else {
-                                            console.error(
-                                                'User ID not available'
-                                            )
-                                        }
-                                    }}
-                                    disabled={
-                                        !user?.id || updateUserRole.isPending
-                                    }
-                                    className="ml-4 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50"
-                                >
-                                    {updateUserRole.isPending
-                                        ? 'Loading...'
-                                        : 'Make me an admin (will remove in prod, also refresh)'}
-                                </button>
-                            </h3>
+                        <CardContent className="relative space-y-6">
+                            <div className="space-y-4">
+                                <Badge variant="secondary" className="gap-2">
+                                    <Shield className="w-3 h-3" />
+                                    Security verification in progress
+                                </Badge>
 
-                            <div className="grid gap-4">
-                                <div className="flex items-start gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                                    <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                <p className="text-sm text-muted-foreground leading-relaxed">
+                                    To ensure platform security and integrity,
+                                    all new accounts require manual verification
+                                    by our administration team before gaining
+                                    full access.
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Process Card */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Users className="w-5 h-5" />
+                                Verification Process
+                            </CardTitle>
+                            <CardDescription>
+                                What happens during account review
+                            </CardDescription>
+                        </CardHeader>
+
+                        <CardContent className="space-y-4">
+                            <div className="space-y-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 mt-0.5">
+                                        <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
                                     </div>
-                                    <div>
-                                        <h4 className="font-medium text-gray-900 dark:text-white">
+                                    <div className="space-y-1">
+                                        <h4 className="text-sm font-medium">
                                             Account Created
                                         </h4>
-                                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                                        <p className="text-xs text-muted-foreground">
                                             Your account has been successfully
-                                            created and submitted for review.
+                                            created and submitted for review
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="flex items-start gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                                    <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                <div className="flex items-start gap-3">
+                                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/30 mt-0.5">
+                                        <Clock className="w-3 h-3 text-orange-600 dark:text-orange-400" />
                                     </div>
-                                    <div>
-                                        <h4 className="font-medium text-gray-900 dark:text-white">
+                                    <div className="space-y-1">
+                                        <h4 className="text-sm font-medium">
                                             Under Review
                                         </h4>
-                                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                                        <p className="text-xs text-muted-foreground">
                                             Our team is currently reviewing your
-                                            account details and credentials.
+                                            account details and credentials
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="flex items-start gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                <div className="flex items-start gap-3">
+                                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 mt-0.5">
+                                        <Mail className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                                     </div>
-                                    <div>
-                                        <h4 className="font-medium text-gray-900 dark:text-white">
+                                    <div className="space-y-1">
+                                        <h4 className="text-sm font-medium">
                                             Email Notification
                                         </h4>
-                                        <p className="text-sm text-gray-600 dark:text-gray-300">
-                                            You'll receive an email confirmation
-                                            once your account is approved.
+                                        <p className="text-xs text-muted-foreground">
+                                            You'll receive email confirmation
+                                            once your account is approved
                                         </p>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Expected Timeline */}
-                        <div className="text-center space-y-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                            <h4 className="font-medium text-gray-900 dark:text-white">
-                                Expected Timeline
-                            </h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-300">
-                                Account verification typically takes{' '}
-                                <strong>1-3 business days</strong>. We
-                                appreciate your patience during this process.
-                            </p>
-                        </div>
+                            <Separator />
 
-                        {/* Contact Support */}
-                        <div className="text-center space-y-4">
-                            <p className="text-sm text-gray-600 dark:text-gray-300">
-                                Have questions about your account verification?
-                            </p>
-                            <Button
-                                variant="outline"
-                                className="w-full sm:w-auto"
-                            >
-                                <Mail className="w-4 h-4 mr-2" />
-                                Contact Support
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Footer */}
-                <div className="text-center text-sm text-gray-500 dark:text-gray-400">
-                    <p>Safe Cities Project Management Platform</p>
-                    <p className="mt-1">
-                        Securing communities through verified partnerships
-                    </p>
+                            <div className="space-y-4">
+                                <h4 className="text-sm font-medium">
+                                    Need Help?
+                                </h4>
+                                <Button
+                                    variant="outline"
+                                    className="w-full"
+                                    size="sm"
+                                >
+                                    <Mail className="w-4 h-4 mr-2" />
+                                    Contact Support
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </div>
