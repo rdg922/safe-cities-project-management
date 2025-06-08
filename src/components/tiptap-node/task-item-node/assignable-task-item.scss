@@ -99,3 +99,22 @@
     }
   }
 }
+
+.tiptap .task-item-assign-button {
+  background: none !important;
+  border: none !important;
+  color: var(--tt-theme-text, #444) !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  font-size: 1rem;
+  font-weight: 400;
+  opacity: 1 !important;
+  margin-left: 0.5rem !important;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+    background: none !important;
+    border: none !important;
+  }
+}

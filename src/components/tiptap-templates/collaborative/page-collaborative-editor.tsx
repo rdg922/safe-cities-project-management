@@ -13,6 +13,7 @@ import { Subscript } from '@tiptap/extension-subscript'
 import { Superscript } from '@tiptap/extension-superscript'
 import * as Y from 'yjs'
 import { WebrtcProvider } from 'y-webrtc'
+import '~/components/tiptap-node/task-item-node/assignable-task-item.scss'
 
 // Custom Extensions
 import { Link } from '@/components/tiptap-extension/link-extension'
