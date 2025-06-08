@@ -11,6 +11,7 @@ import { ChatSidebarProvider } from '~/components/ui/chat-sidebar-provider'
 import { ChatSidebar } from '~/components/chat-sidebar'
 import { Toaster } from '~/components/ui/toaster'
 import { FileTreeProvider } from '~/providers/file-tree-provider'
+import { LayoutWrapper } from '~/components/layout-wrapper'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -38,15 +39,9 @@ export default function RootLayout({
                             <FileTreeProvider>
                                 <SidebarProvider>
                                     <ChatSidebarProvider>
-                                        <div className="flex min-h-screen w-full">
-                                            <AppSidebar />
-                                            <div className="flex-1 flex flex-col overflow-hidden">
-                                                <main className="flex-1 overflow-auto">
-                                                    {children}
-                                                </main>
-                                            </div>
-                                            <ChatSidebar />
-                                        </div>
+                                        <LayoutWrapper>
+                                            {children}
+                                        </LayoutWrapper>
                                         <Toaster />
                                     </ChatSidebarProvider>
                                 </SidebarProvider>
