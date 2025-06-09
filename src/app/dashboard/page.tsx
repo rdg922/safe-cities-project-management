@@ -19,15 +19,42 @@ const measureQuery = (name: string, startTime: number) => {
 export default function DashboardPage() {
   const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
   
+  // Start measuring total page load time
+  const startTime = useMemo(() => performance.now(), []);
+  
   const { data: users, isLoading: isLoadingUsers } = api.user.getAllUsers.useQuery();
-
-  const { data: pagesInLast30Days, isLoading: isLoadingPages } = api.files.getPagesCreatedInLast30Days.useQuery();
-
   const { data: programData, isLoading: isLoadingPrograms } = api.files.getProgramsWithDetails.useQuery({
     type: FILE_TYPES.PROGRAMME,
   });
+  const { data: pagesInLast30Days, isLoading: isLoadingPages } = api.files.getPagesCreatedInLast30Days.useQuery();
 
   const { programs, childCounts, updateTimes } = programData ?? {};
+
+  // Measure total page load time when all data is loaded
+  useEffect(() => {
+    const allQueriesComplete = 
+      !isLoadingUsers && 
+      !isLoadingPrograms && 
+      !isLoadingPages && 
+      programs && 
+      childCounts && 
+      updateTimes;
+
+    if (allQueriesComplete) {
+      const endTime = performance.now();
+      console.log('=== Dashboard Load Time ===');
+      console.log(`Total time: ${(endTime - startTime).toFixed(2)}ms`);
+      console.log('========================');
+    }
+  }, [
+    isLoadingUsers,
+    isLoadingPrograms,
+    isLoadingPages,
+    programs,
+    childCounts,
+    updateTimes,
+    startTime
+  ]);
 
   return (
     <div className="container mx-auto p-6">

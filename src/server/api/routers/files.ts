@@ -603,59 +603,81 @@ export const filesRouter = createTRPCRouter({
             ]),
         }))
         .query(async ({ ctx, input }) => {
+            // get all programs in one query
             const programs = await ctx.db.query.files.findMany({
                 where: eq(files.type, input.type),
                 orderBy: [desc(files.createdAt)],
             });
 
+            // gets a list of program ids from the respective program objects
             const programIds = programs.map((program) => program.id);
 
-            const [childCounts, updateTimes] = await Promise.all([
-                ctx.db
-                    .select({
-                        parentId: files.parentId,
-                        count: sql<number>`COUNT(*)`,
-                    })
-                    .from(files)
-                    .where(inArray(files.parentId, programIds))
-                    .groupBy(files.parentId),
-
-                // Get update times for each program and its descendants
-                Promise.all(programIds.map(async (programId) => {
-                    const descendants = await getFileDescendantsFast(programId);
-                    
-                    const result = await ctx.db
-                        .select({ 
-                            updatedAt: files.updatedAt
-                        })
-                        .from(files)
-                        .where(
-                            inArray(
-                                files.id,
-                                [programId, ...descendants]
-                            )
-                        )
-                        .orderBy(sql`"updatedAt" DESC`)
-                        .limit(1);
-                    
-                    return {
-                        id: programId,
-                        updatedAt: result[0]?.updatedAt ? new Date(result[0].updatedAt) : null
-                    };
-                }))
-            ]);
-
-            const childCountsMap = Object.fromEntries(
-                childCounts.map(({ parentId, count }) => [parentId, count])
+            // get all descendants for all programs in one query
+            // maps each program id to a list of its
+            const allDescendants = await Promise.all(
+                programIds.map(id => getFileDescendantsFast(id))
+            )
+            
+            // maps each progam Id to the corresponding list of file ids
+            // the map creates a list with each entry like this [1, [1, ...allDescendants[index]]]
+            // Object.fromEntries turns it into a key value pair
+            const programFileIds = Object.fromEntries(
+                programIds.map((id, index) => [
+                    id,
+                    [id, ...allDescendants[index]]
+                ])
             );
 
+            const [childCounts, updateTimes] = await Promise.all([
+                // we already have all descendants so subtract 1 from the length of the list gives the children
+                Promise.resolve(
+                    Object.fromEntries(
+                        programIds.map(id => [
+                            id,
+                            programFileIds[id].length - 1
+                        ])
+                    )
+                ),
+                
+                // Get update times for each program and its descendants
+                ctx.db
+                    .select({
+                        id: files.id,
+                        updatedAt: files.updatedAt,
+                    })
+                    .from(files)
+                    .where(
+                        // gets all files that belong to any program
+                        inArray(
+                            files.id,
+                            programIds.flatMap(id => programFileIds[id])
+                        )
+                    )
+                    .orderBy(sql`"updatedAt" DESC`)
+                    // updateTimes is a list of objects with id and updatedAt fields 
+            ]);
+
+            // Create a map of program IDs to their most recent update time
             const updateTimesMap = Object.fromEntries(
-                updateTimes.map(({ id, updatedAt }) => [id, updatedAt])
+                programIds.map(id => {
+                    // Find the most recent update time among the program and its descendants
+                    const mostRecentUpdate = updateTimes
+                        // only keep the update objects that belong to the program ID
+                        .filter(update => programFileIds[id]?.includes(update.id))
+                        // sort the update objects by updatedAt in descending order
+                        .sort((a, b) => {
+                            const timeA = a.updatedAt?.getTime() ?? 0;
+                            const timeB = b.updatedAt?.getTime() ?? 0;
+                            return timeB - timeA;
+                        })[0];
+                    
+                    return [id, mostRecentUpdate?.updatedAt ?? null];
+                })
             );
 
             return {
                 programs,
-                childCounts: childCountsMap,
+                childCounts,  // Already in the correct format
                 updateTimes: updateTimesMap,
             };
         }),
