@@ -86,6 +86,15 @@ export function NewFileDialog({
         api.files.getFilteredFileTree.useQuery()
     const utils = api.useUtils()
 
+    // Get user profile to check permissions
+    const { data: userProfile } = api.user.getProfile.useQuery()
+
+    // Check if user can create programmes (admin only)
+    const canCreateProgramme =
+        userProfile && 'role' in userProfile
+            ? userProfile.role === 'admin'
+            : false
+
     const createFileMutation = api.files.create.useMutation({
         onSuccess: async (data) => {
             onOpenChange(false)
@@ -117,10 +126,26 @@ export function NewFileDialog({
 
             // Set file type only if provided and different from current
             if (fileType && fileType !== selectedType) {
-                setSelectedType(fileType)
+                // Only allow programme type if user has permission
+                if (fileType === 'programme' && !canCreateProgramme) {
+                    setSelectedType('page') // Default to page if programme not allowed
+                } else {
+                    setSelectedType(fileType)
+                }
+            }
+            // If current selected type is programme but user lost permission, reset to page
+            else if (selectedType === 'programme' && !canCreateProgramme) {
+                setSelectedType('page')
             }
         }
-    }, [open, fileType, defaultName, parentId])
+    }, [
+        open,
+        fileType,
+        defaultName,
+        parentId,
+        selectedType,
+        canCreateProgramme,
+    ])
 
     const handleCreate = async () => {
         if (selectedType === 'upload') {
@@ -145,6 +170,12 @@ export function NewFileDialog({
 
         if (!fileName.trim()) return
         if (selectedType !== 'programme' && selectedParentId === null) return
+
+        // Permission check: only admins can create programmes
+        if (selectedType === 'programme' && !canCreateProgramme) {
+            console.error('Unauthorized attempt to create programme')
+            return
+        }
 
         const typeMapping: Record<NewFileType, FileType> = {
             page: FILE_TYPES.PAGE,
@@ -237,6 +268,14 @@ export function NewFileDialog({
                                     // Prevent unnecessary state updates if type hasn't changed
                                     if (newType === selectedType) return
 
+                                    // Prevent selecting programme if user doesn't have permission
+                                    if (
+                                        newType === 'programme' &&
+                                        !canCreateProgramme
+                                    ) {
+                                        return
+                                    }
+
                                     setSelectedType(newType)
 
                                     // Clear file-specific state when switching types
@@ -283,12 +322,14 @@ export function NewFileDialog({
                                             Folder
                                         </div>
                                     </SelectItem>
-                                    <SelectItem value="programme">
-                                        <div className="flex items-center gap-2">
-                                            <Folders className="h-4 w-4 text-blue-600" />
-                                            Programme
-                                        </div>
-                                    </SelectItem>
+                                    {canCreateProgramme && (
+                                        <SelectItem value="programme">
+                                            <div className="flex items-center gap-2">
+                                                <Folders className="h-4 w-4 text-blue-600" />
+                                                Programme
+                                            </div>
+                                        </SelectItem>
+                                    )}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -391,7 +432,9 @@ export function NewFileDialog({
                                   isUploading
                                 : !fileName.trim() ||
                                   (selectedType !== 'programme' &&
-                                      selectedParentId === null)) ||
+                                      selectedParentId === null) ||
+                                  (selectedType === 'programme' &&
+                                      !canCreateProgramme)) ||
                             createFileMutation.isPending
                         }
                     >
