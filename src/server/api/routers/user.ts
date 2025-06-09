@@ -202,4 +202,60 @@ export const userRouter = createTRPCRouter({
 
         return newUser
     }),
+
+    // Delete user from both Clerk and database
+    deleteUser: protectedProcedure
+        .input(z.object({ userId: z.string() }))
+        .mutation(async ({ ctx, input }) => {
+            try {
+                // First, get user info for response
+                const userToDelete = await ctx.db.query.users.findFirst({
+                    where: eq(users.id, input.userId),
+                    columns: { name: true, email: true },
+                })
+
+                if (!userToDelete) {
+                    throw new TRPCError({
+                        code: 'NOT_FOUND',
+                        message: 'User not found in database',
+                    })
+                }
+
+                // Delete from Clerk first
+                const client = await clerkClient()
+                await client.users.deleteUser(input.userId)
+
+                // Delete from database (cascade will handle related data)
+                await ctx.db.delete(users).where(eq(users.id, input.userId))
+
+                return {
+                    success: true,
+                    message: `User ${userToDelete.name || userToDelete.email} deleted successfully`,
+                    deletedUser: userToDelete,
+                }
+            } catch (err) {
+                console.error('Error deleting user:', err)
+
+                // Check if it's a Clerk error
+                if (err && typeof err === 'object' && 'status' in err) {
+                    if (err.status === 404) {
+                        // User doesn't exist in Clerk, just delete from database
+                        await ctx.db
+                            .delete(users)
+                            .where(eq(users.id, input.userId))
+                        return {
+                            success: true,
+                            message:
+                                'User deleted from database (was not found in Clerk)',
+                        }
+                    }
+                }
+
+                throw new TRPCError({
+                    code: 'INTERNAL_SERVER_ERROR',
+                    message: 'Failed to delete user',
+                    cause: err,
+                })
+            }
+        }),
 })
