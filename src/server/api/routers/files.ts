@@ -591,4 +591,72 @@ export const filesRouter = createTRPCRouter({
             
             return updateTimes
         }),
-})
+
+    getProgramsWithDetails: protectedProcedure
+        .input(z.object({
+            type: z.enum([
+                FILE_TYPES.PAGE,
+                FILE_TYPES.SHEET,
+                FILE_TYPES.FOLDER,
+                FILE_TYPES.UPLOAD,
+                FILE_TYPES.PROGRAMME,
+            ]),
+        }))
+        .query(async ({ ctx, input }) => {
+            const programs = await ctx.db.query.files.findMany({
+                where: eq(files.type, input.type),
+                orderBy: [desc(files.createdAt)],
+            });
+
+            const programIds = programs.map((program) => program.id);
+
+            const [childCounts, updateTimes] = await Promise.all([
+                ctx.db
+                    .select({
+                        parentId: files.parentId,
+                        count: sql<number>`COUNT(*)`,
+                    })
+                    .from(files)
+                    .where(inArray(files.parentId, programIds))
+                    .groupBy(files.parentId),
+
+                // Get update times for each program and its descendants
+                Promise.all(programIds.map(async (programId) => {
+                    const descendants = await getFileDescendantsFast(programId);
+                    
+                    const result = await ctx.db
+                        .select({ 
+                            updatedAt: files.updatedAt
+                        })
+                        .from(files)
+                        .where(
+                            inArray(
+                                files.id,
+                                [programId, ...descendants]
+                            )
+                        )
+                        .orderBy(sql`"updatedAt" DESC`)
+                        .limit(1);
+                    
+                    return {
+                        id: programId,
+                        updatedAt: result[0]?.updatedAt ? new Date(result[0].updatedAt) : null
+                    };
+                }))
+            ]);
+
+            const childCountsMap = Object.fromEntries(
+                childCounts.map(({ parentId, count }) => [parentId, count])
+            );
+
+            const updateTimesMap = Object.fromEntries(
+                updateTimes.map(({ id, updatedAt }) => [id, updatedAt])
+            );
+
+            return {
+                programs,
+                childCounts: childCountsMap,
+                updateTimes: updateTimesMap,
+            };
+        }),
+    })

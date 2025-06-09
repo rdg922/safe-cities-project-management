@@ -18,93 +18,16 @@ const measureQuery = (name: string, startTime: number) => {
 
 export default function DashboardPage() {
   const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
-  const [loadTimes, setLoadTimes] = useState<Record<string, number>>({});
-  const startTime = useMemo(() => performance.now(), []);
   
-  // Measure users query
-  const startUsers = performance.now();
   const { data: users, isLoading: isLoadingUsers } = api.user.getAllUsers.useQuery();
-  useEffect(() => {
-    if (!isLoadingUsers) {
-      measureQuery('getAllUsers', startUsers);
-    }
-  }, [isLoadingUsers]);
 
-  // Measure programs query
-  const startPrograms = performance.now();
-  const { data: programs, isLoading: isLoadingPrograms } = api.files.getByType.useQuery({ 
-    type: FILE_TYPES.PROGRAMME 
-  });
-  useEffect(() => {
-    if (!isLoadingPrograms) {
-      measureQuery('getByType', startPrograms);
-    }
-  }, [isLoadingPrograms]);
-
-  // Measure pages query
-  const startPages = performance.now();
   const { data: pagesInLast30Days, isLoading: isLoadingPages } = api.files.getPagesCreatedInLast30Days.useQuery();
-  useEffect(() => {
-    if (!isLoadingPages) {
-      measureQuery('getPagesCreatedInLast30Days', startPages);
-    }
-  }, [isLoadingPages]);
 
-  // Measure child counts query
-  const startChildCounts = performance.now();
-  const { data: childCounts } = api.files.getChildCountsForParents.useQuery(
-    { 
-      parentIds: programs?.map(p => p.id) ?? [] 
-    },
-    { 
-      enabled: !isLoadingPrograms && !!programs?.length
-    }
-  );
-  useEffect(() => {
-    if (childCounts) {
-      measureQuery('getChildCountsForParents', startChildCounts);
-    }
-  }, [childCounts]);
+  const { data: programData, isLoading: isLoadingPrograms } = api.files.getProgramsWithDetails.useQuery({
+    type: FILE_TYPES.PROGRAMME,
+  });
 
-  // Measure update times query
-  const startUpdateTimes = performance.now();
-  const { data: programUpdateTimes, isLoading: isLoadingUpdateTimes } = api.files.getProgramUpdateTimes.useQuery(
-    { 
-      programIds: programs?.map(p => p.id) ?? [] 
-    },
-    { 
-      enabled: !isLoadingPrograms && !!programs?.length
-    }
-  );
-  useEffect(() => {
-    if (programUpdateTimes) {
-      measureQuery('getProgramUpdateTimes', startUpdateTimes);
-    }
-  }, [programUpdateTimes]);
-
-  // Measure total load time when all queries are complete
-  useEffect(() => {
-    const allQueriesComplete = 
-      !isLoadingUsers && 
-      !isLoadingPrograms && 
-      !isLoadingPages && 
-      !isLoadingUpdateTimes && 
-      childCounts && 
-      programUpdateTimes;
-
-    if (allQueriesComplete) {
-      const endTime = performance.now();
-      console.log(`Total dashboard load time: ${(endTime - startTime).toFixed(2)}ms`);
-    }
-  }, [
-    isLoadingUsers,
-    isLoadingPrograms,
-    isLoadingPages,
-    isLoadingUpdateTimes,
-    childCounts,
-    programUpdateTimes,
-    startTime
-  ]);
+  const { programs, childCounts, updateTimes } = programData ?? {};
 
   return (
     <div className="container mx-auto p-6">
@@ -190,7 +113,9 @@ export default function DashboardPage() {
                   description="No description available"
                   items={childCounts?.[program.id] ?? 0}
                   members={0}
-                  lastUpdated={isLoadingUpdateTimes ? 'Loading...' : programUpdateTimes?.[program.id] ? formatDistanceToNow(new Date(programUpdateTimes[program.id]!), { addSuffix: true }) : 'Never'}
+                  lastUpdated={updateTimes?.[program.id] 
+                    ? formatDistanceToNow(new Date(updateTimes[program.id]), { addSuffix: true }) 
+                    : 'Never'}
                 />
               ))}
             </div>
