@@ -13,11 +13,11 @@ import { formatDistanceToNow } from "date-fns"
 
 export default function DashboardPage() {
   const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
-  const { data: users } = api.user.getAllUsers.useQuery();
+  const { data: users, isLoading: isLoadingUsers } = api.user.getAllUsers.useQuery();
   const { data: programs, isLoading: isLoadingPrograms } = api.files.getByType.useQuery({ 
     type: FILE_TYPES.PROGRAMME 
   });
-  const { data: pagesInLast30Days } = api.files.getPagesCreatedInLast30Days.useQuery();
+  const { data: pagesInLast30Days, isLoading: isLoadingPages } = api.files.getPagesCreatedInLast30Days.useQuery();
 
   const { data: childCounts } = api.files.getChildCountsForParents.useQuery(
     { 
@@ -63,7 +63,14 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">Total Programs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{programs?.length}</div>
+            <div className="text-3xl font-bold">
+              {isLoadingPrograms ? (
+                <div className="h-8 w-16 animate-pulse bg-muted rounded" />
+              ) : (
+                programs?.length
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Active programs in your workspace</p>
           </CardContent>
         </Card>
         <Card>
@@ -71,7 +78,14 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{users?.length}</div>
+            <div className="text-3xl font-bold">
+              {isLoadingUsers ? (
+                <div className="h-8 w-16 animate-pulse bg-muted rounded" />
+              ) : (
+                users?.length
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Total team members</p>
           </CardContent>
         </Card>
         <Card>
@@ -79,7 +93,13 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">Pages Created</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{pagesInLast30Days}</div>
+            <div className="text-3xl font-bold">
+              {isLoadingPages ? (
+                <div className="h-8 w-16 animate-pulse bg-muted rounded" />
+              ) : (
+                pagesInLast30Days
+              )}
+            </div>
             <p className="text-xs text-muted-foreground mt-1">In the last 30 days</p>
           </CardContent>
         </Card>
