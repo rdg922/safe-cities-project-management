@@ -6,7 +6,7 @@ import { RecentActivityList } from "~/components/recent-activity-list"
 import { Plus } from "lucide-react"
 import { api } from "~/trpc/react"
 import { FILE_TYPES } from "~/server/db/schema"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { NewFileDialog } from "~/components/new-file-dialog"
 import { formatDistanceToNow } from "date-fns"
 
@@ -22,6 +22,15 @@ export default function DashboardPage() {
   const { data: childCounts } = api.files.getChildCountsForParents.useQuery(
     { 
       parentIds: programs?.map(p => p.id) ?? [] 
+    },
+    { 
+      enabled: !isLoadingPrograms && !!programs?.length 
+    }
+  );
+
+  const { data: programUpdateTimes } = api.files.getProgramUpdateTimes.useQuery(
+    { 
+      programIds: programs?.map(p => p.id) ?? [] 
     },
     { 
       enabled: !isLoadingPrograms && !!programs?.length 
@@ -88,9 +97,9 @@ export default function DashboardPage() {
                   key={program.id}
                   title={program.name}
                   description="No description available"
-                  items={childCounts?.[program.id] || 0}
+                  items={childCounts?.[program.id] ?? 0}
                   members={0}
-                  lastUpdated={formatDistanceToNow(new Date(program.updatedAt), { addSuffix: true })}
+                  lastUpdated={programUpdateTimes?.[program.id] ? formatDistanceToNow(new Date(programUpdateTimes[program.id]!), { addSuffix: true }) : 'Never'}
                 />
               ))}
             </div>

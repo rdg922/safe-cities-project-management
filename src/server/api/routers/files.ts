@@ -24,7 +24,8 @@ import {
     getAccessibleFiles,
     getUsersWithFileAccess,
 } from '~/lib/permissions-simple'
-import { rebuildEffectivePermissionsForUser } from '~/lib/permissions-optimized'
+import { rebuildEffectivePermissionsForUser, getFileDescendantsFast } from '~/lib/permissions-optimized'
+import { TRPCError } from '@trpc/server'
 
 export const filesRouter = createTRPCRouter({
     // Create a new file (page, sheet, folder, form, or upload)
@@ -552,10 +553,42 @@ export const filesRouter = createTRPCRouter({
             // Return an object with counts for each parent ID
             return input.parentIds.reduce(
                 (acc, parentId) => {
-                    acc[parentId] = countMap.get(parentId) || 0
+                    acc[parentId] = countMap.get(parentId) ?? 0
                     return acc
                 },
                 {} as Record<number, number>
             )
+        }),
+
+    // Get most recent update times for multiple programs and their descendants
+    getProgramUpdateTimes: publicProcedure
+        .input(z.object({ programIds: z.array(z.number()) }))
+        .query(async ({ ctx, input }) => {
+            const updateTimes: Record<number, Date | null> = {}
+            
+            for (const programId of input.programIds) {
+                // Get all descendants of the program
+                const descendants = await getFileDescendantsFast(programId)
+                
+                // Get the most recently updated file from the program and all its descendants
+                const result = await ctx.db
+                    .select({ 
+                        updatedAt: files.updatedAt
+                    })
+                    .from(files)
+                    .where(
+                        inArray(
+                            files.id,
+                            [programId, ...descendants]
+                        )
+                    )
+                    .orderBy(sql`"updatedAt" DESC`)
+                    .limit(1)
+                
+                // Convert the timestamp to a proper Date object
+                updateTimes[programId] = result[0]?.updatedAt ? new Date(result[0].updatedAt) : null
+            }
+            
+            return updateTimes
         }),
 })
