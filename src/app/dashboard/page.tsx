@@ -28,7 +28,7 @@ export default function DashboardPage() {
     }
   );
 
-  const { data: programUpdateTimes } = api.files.getProgramUpdateTimes.useQuery(
+  const { data: programUpdateTimes, isLoading: isLoadingUpdateTimes } = api.files.getProgramUpdateTimes.useQuery(
     { 
       programIds: programs?.map(p => p.id) ?? [] 
     },
@@ -99,7 +99,7 @@ export default function DashboardPage() {
                   description="No description available"
                   items={childCounts?.[program.id] ?? 0}
                   members={0}
-                  lastUpdated={programUpdateTimes?.[program.id] ? formatDistanceToNow(new Date(programUpdateTimes[program.id]!), { addSuffix: true }) : 'Never'}
+                  lastUpdated={isLoadingUpdateTimes ? 'Loading...' : programUpdateTimes?.[program.id] ? formatDistanceToNow(new Date(programUpdateTimes[program.id]!), { addSuffix: true }) : 'Never'}
                 />
               ))}
             </div>

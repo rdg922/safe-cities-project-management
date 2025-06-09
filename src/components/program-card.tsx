@@ -30,7 +30,9 @@ export function ProgramCard({ title, items, members, lastUpdated }: ProgramCardP
               <span>{members} members</span>
             </div>
           </div>
-          <div className="text-muted-foreground">Updated {lastUpdated}</div>
+          <div className="text-muted-foreground">
+            {lastUpdated === 'Loading...' ? 'Loading...' : `Updated ${lastUpdated}`}
+          </div>
         </div>
       </CardContent>
     </Card>
