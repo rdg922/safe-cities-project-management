@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams } from 'next/navigation'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { toast } from '~/hooks/use-toast'
 import { PageCollaborativeEditor } from '~/components/tiptap-templates/collaborative/page-collaborative-editor'
 import { FileHeader } from '~/components/file-header'
@@ -77,33 +77,36 @@ export default function PageView() {
     }, [userPermission])
 
     // Handle content change with debounced saving
-    const handleContentChange = (newContent: string) => {
-        setContent(newContent)
+    const handleContentChange = useCallback(
+        (newContent: string) => {
+            setContent(newContent)
 
-        // Only auto-save if user has edit permissions
-        if (isReadOnly) return
+            // Only auto-save if user has edit permissions
+            if (!userPermission || userPermission === 'view') return
 
-        setSavingStatus('saving')
+            setSavingStatus('saving')
 
-        // Clear previous timer if exists
-        if (contentUpdateTimerRef.current) {
-            clearTimeout(contentUpdateTimerRef.current)
-        }
+            // Clear previous timer if exists
+            if (contentUpdateTimerRef.current) {
+                clearTimeout(contentUpdateTimerRef.current)
+            }
 
-        // Set new timer for debounced save
-        contentUpdateTimerRef.current = setTimeout(() => {
-            updatePageMutation.mutate({
-                fileId: pageId,
-                content: newContent,
-            })
-        }, 2000) // 2 seconds debounce for better responsiveness
-    }
+            // Set new timer for debounced save
+            contentUpdateTimerRef.current = setTimeout(() => {
+                updatePageMutation.mutate({
+                    fileId: pageId,
+                    content: newContent,
+                })
+            }, 2000) // 2 seconds debounce for better responsiveness
+        },
+        [pageId, userPermission, updatePageMutation]
+    )
 
     // Handle collaboration initialization
-    const handleCollaborationReady = () => {
+    const handleCollaborationReady = useCallback(() => {
         console.log('Collaboration is ready for page:', pageId)
         setIsCollaborationReady(true)
-    }
+    }, [pageId])
 
     // Clean up timer on unmount
     useEffect(() => {

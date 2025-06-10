@@ -100,10 +100,9 @@ function CollaborativeEditorComponent({
         // Create WebRTC provider with signaling servers
         const webrtcProvider = new WebrtcProvider(documentId, ydoc, {
             signaling: [
-                'wss://signaling.yjs.dev',
-                'wss://y-webrtc-ckynwnzncc-uc.a.run.app',
-                'wss://y-webrtc-signaling-us.herokuapp.com',
-                'wss://y-webrtc-signaling-eu.herokuapp.com',
+                // 'ws://signaling.yjs.dev',
+                // 'ws://y-webrtc-ckynwnzncc-uc.a.run.app',
+                'ws://y-webrtc-signaling-eu.herokuapp.com',
             ],
             maxConns: 20,
             filterBcConns: true,
@@ -267,7 +266,9 @@ function CollaborativeEditorComponent({
                             <div className="flex items-center space-x-2">
                                 <span className="text-sm text-muted-foreground">
                                     {connectedUsers.length} user
-                                    {connectedUsers.length !== 1 ? 's' : ''}{' '}
+                                    {connectedUsers.length !== 1
+                                        ? 's'
+                                        : ''}{' '}
                                     online
                                 </span>
                                 <div className="flex -space-x-2">

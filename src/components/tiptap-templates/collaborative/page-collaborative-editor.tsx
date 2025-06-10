@@ -94,56 +94,96 @@ export function PageCollaborativeEditor({
 
     // Y.js document and provider state
     const [ydoc] = React.useState(() => new Y.Doc())
+    const [webrtcProvider, setWebrtcProvider] =
+        React.useState<WebrtcProvider | null>(null)
     const [isProviderSynced, setIsProviderSynced] = React.useState(false)
     const [hasLoadedInitialContent, setHasLoadedInitialContent] =
         React.useState(false)
-    // const [provider, setProvider] = React.useState<WebrtcProvider | null>(null)
+
+    // Store initial content in a ref to prevent it from causing re-renders
+    const initialContentRef = React.useRef<string | undefined>(initialContent)
+    const hasSetInitialContent = React.useRef(false)
+
+    // Update initial content ref only when it's different and we haven't set it yet
+    React.useEffect(() => {
+        if (initialContent && !hasSetInitialContent.current) {
+            initialContentRef.current = initialContent
+        }
+    }, [initialContent])
+
     // const [connectionStatus, setConnectionStatus] = React.useState<
     //     'connecting' | 'connected' | 'disconnected'
     // >('connecting')
     // const [connectedUsers, setConnectedUsers] = React.useState<UserInfo[]>([])
 
+    // Store the callback in a ref to prevent recreating the provider
+    const onCollaborationReadyRef = React.useRef(onCollaborationReady)
+    React.useEffect(() => {
+        onCollaborationReadyRef.current = onCollaborationReady
+    }, [onCollaborationReady])
+
+    // Store onContentChange in a ref to prevent recreating editor
+    const onContentChangeRef = React.useRef(onContentChange)
+    React.useEffect(() => {
+        onContentChangeRef.current = onContentChange
+    }, [onContentChange])
+
     // Initialize Y.js and WebRTC provider
     React.useEffect(() => {
-        if (!documentId) return
+        if (!documentId || webrtcProvider) return
 
         console.log('Initializing WebRTC provider for document:', documentId)
 
         // Create WebRTC provider with signaling servers
-        const webrtcProvider = new WebrtcProvider(documentId, ydoc, {
+        const provider = new WebrtcProvider(documentId, ydoc, {
             signaling: [
                 'wss://signaling.yjs.dev',
-                'wss://y-webrtc-ckynwnzncc-uc.a.run.app',
                 'wss://y-webrtc-signaling-us.herokuapp.com',
-                'wss://y-webrtc-signaling-eu.herokuapp.com',
+                'wss://demos.yjs.dev',
             ],
+            // Add STUN servers for NAT traversal across different networks
+            peerOpts: {
+                config: {
+                    iceServers: [
+                        // Google's reliable STUN servers
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+
+                        // Cloudflare STUN server as backup
+                        { urls: 'stun:stun.cloudflare.com:3478' },
+                    ],
+                },
+            },
             maxConns: 20,
             filterBcConns: true,
         })
 
-        // setProvider(webrtcProvider)
+        console.log(provider)
+
+        setWebrtcProvider(provider)
         // setConnectionStatus('connecting')
 
         // Connection status handlers
-        webrtcProvider.on('status', ({ connected }: { connected: boolean }) => {
+        provider.on('status', ({ connected }: { connected: boolean }) => {
             console.log('WebRTC Status:', connected)
             // setConnectionStatus(connected ? 'connected' : 'disconnected')
 
             // Notify parent when collaboration is ready
-            if (connected && onCollaborationReady) {
+            if (connected && onCollaborationReadyRef.current) {
                 // Small delay to ensure Y.js document is fully synced
                 setTimeout(() => {
-                    onCollaborationReady()
+                    onCollaborationReadyRef.current?.()
                 }, 100)
             }
         })
 
         // Also handle when the provider is synced
-        webrtcProvider.on('synced', () => {
+        provider.on('synced', () => {
             console.log('WebRTC Provider synced')
             setIsProviderSynced(true)
-            if (onCollaborationReady) {
-                onCollaborationReady()
+            if (onCollaborationReadyRef.current) {
+                onCollaborationReadyRef.current()
             }
         })
 
@@ -158,11 +198,11 @@ export function PageCollaborativeEditor({
         ydoc.on('update', updateHandler)
 
         // Track connected users
-        // webrtcProvider.awareness.on('change', () => {
+        // provider.awareness.on('change', () => {
         //     const users: UserInfo[] = []
-        //     webrtcProvider.awareness.getStates().forEach((state, clientId) => {
+        //     provider.awareness.getStates().forEach((state, clientId) => {
         //         if (
-        //             clientId !== webrtcProvider.awareness.clientID &&
+        //             clientId !== provider.awareness.clientID &&
         //             state.user
         //         ) {
         //             users.push({
@@ -188,8 +228,8 @@ export function PageCollaborativeEditor({
         // const randomColor =
         //     userColors[Math.floor(Math.random() * userColors.length)]
 
-        // webrtcProvider.awareness.setLocalStateField('user', {
-        //     name: `User ${webrtcProvider.awareness.clientID}`,
+        // provider.awareness.setLocalStateField('user', {
+        //     name: `User ${provider.awareness.clientID}`,
         //     color: randomColor,
         // })
 
@@ -197,14 +237,15 @@ export function PageCollaborativeEditor({
         return () => {
             console.log('Destroying WebRTC provider')
             ydoc.off('update', updateHandler)
-            webrtcProvider.destroy()
+            provider.destroy()
+            setWebrtcProvider(null)
             setIsProviderSynced(false)
             setHasLoadedInitialContent(false)
-            // setProvider(null)
+            hasSetInitialContent.current = false
             // setConnectionStatus('disconnected')
             // setConnectedUsers([])
         }
-    }, [documentId, ydoc, onCollaborationReady])
+    }, [documentId, ydoc]) // Removed onCollaborationReady from dependencies
 
     // Initialize Tiptap editor with collaboration
     const editor = useEditor({
@@ -259,8 +300,8 @@ export function PageCollaborativeEditor({
         ],
         // Don't set initial content here for collaborative mode
         onUpdate: ({ editor }) => {
-            if (onContentChange) {
-                onContentChange(editor.getHTML())
+            if (onContentChangeRef.current) {
+                onContentChangeRef.current(editor.getHTML())
             }
         },
     })
@@ -269,9 +310,10 @@ export function PageCollaborativeEditor({
     React.useEffect(() => {
         if (
             !editor ||
-            !initialContent ||
+            !initialContentRef.current ||
             hasLoadedInitialContent ||
-            !isProviderSynced
+            !isProviderSynced ||
+            hasSetInitialContent.current
         )
             return
 
@@ -289,17 +331,18 @@ export function PageCollaborativeEditor({
             if (
                 yDocIsEmpty &&
                 editorIsEmpty &&
-                initialContent &&
-                initialContent.trim() !== '' &&
-                initialContent !== 'undefined'
+                initialContentRef.current &&
+                initialContentRef.current.trim() !== '' &&
+                initialContentRef.current !== 'undefined'
             ) {
                 console.log(
                     'Loading initial content into empty Y.js document:',
-                    initialContent
+                    initialContentRef.current.substring(0, 100)
                 )
                 // Set the content in the editor, which will sync to Y.js
-                editor.commands.setContent(initialContent, false)
+                editor.commands.setContent(initialContentRef.current, false)
                 setHasLoadedInitialContent(true)
+                hasSetInitialContent.current = true
             } else {
                 console.log(
                     'Skipping initial content load - document already has content or content is invalid'
@@ -310,20 +353,15 @@ export function PageCollaborativeEditor({
                     'Editor empty:',
                     editorIsEmpty,
                     'Initial content:',
-                    initialContent?.substring(0, 100)
+                    initialContentRef.current?.substring(0, 100)
                 )
                 setHasLoadedInitialContent(true) // Mark as loaded to prevent future attempts
+                hasSetInitialContent.current = true
             }
         }, 300) // 300ms delay to allow WebRTC sync
 
         return () => clearTimeout(timer)
-    }, [
-        editor,
-        initialContent,
-        ydoc,
-        hasLoadedInitialContent,
-        isProviderSynced,
-    ])
+    }, [editor, ydoc, hasLoadedInitialContent, isProviderSynced])
 
     // const getStatusColor = () => {
     //     switch (connectionStatus) {
