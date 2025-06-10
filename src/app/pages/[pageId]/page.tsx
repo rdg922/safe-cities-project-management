@@ -29,6 +29,8 @@ export default function PageView() {
     const [content, setContent] = useState<string>('')
     const [localPermission, setLocalPermission] = useState<Permission>('view')
     const [isCollaborationReady, setIsCollaborationReady] = useState(false)
+    const [hasInitialContentLoaded, setHasInitialContentLoaded] =
+        useState(false)
 
     // Add state to track saving status
     const [savingStatus, setSavingStatus] = useState<
@@ -55,12 +57,17 @@ export default function PageView() {
     // Debounced content update using useRef to store timer
     const contentUpdateTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-    // Update content when page data loads
+    // Update content when page data loads, but only once
     useEffect(() => {
-        if (page?.content?.content) {
+        if (page?.content?.content && !hasInitialContentLoaded) {
+            console.log(
+                'Setting initial page content:',
+                page.content.content.substring(0, 100)
+            )
             setContent(page.content.content)
+            setHasInitialContentLoaded(true)
         }
-    }, [page?.content?.content])
+    }, [page?.content?.content, hasInitialContentLoaded])
 
     // Update local permission when user permission loads
     useEffect(() => {
@@ -94,8 +101,8 @@ export default function PageView() {
 
     // Handle collaboration initialization
     const handleCollaborationReady = () => {
-        setIsCollaborationReady(true)
         console.log('Collaboration is ready for page:', pageId)
+        setIsCollaborationReady(true)
     }
 
     // Clean up timer on unmount

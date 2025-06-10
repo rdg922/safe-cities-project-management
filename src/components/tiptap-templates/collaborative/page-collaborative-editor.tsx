@@ -86,6 +86,9 @@ export function PageCollaborativeEditor({
 
     // Y.js document and provider state
     const [ydoc] = React.useState(() => new Y.Doc())
+    const [isProviderSynced, setIsProviderSynced] = React.useState(false)
+    const [hasLoadedInitialContent, setHasLoadedInitialContent] =
+        React.useState(false)
     // const [provider, setProvider] = React.useState<WebrtcProvider | null>(null)
     // const [connectionStatus, setConnectionStatus] = React.useState<
     //     'connecting' | 'connected' | 'disconnected'
@@ -130,10 +133,21 @@ export function PageCollaborativeEditor({
         // Also handle when the provider is synced
         webrtcProvider.on('synced', () => {
             console.log('WebRTC Provider synced')
+            setIsProviderSynced(true)
             if (onCollaborationReady) {
                 onCollaborationReady()
             }
         })
+
+        // Listen for Y.js document updates to prevent duplicate loading
+        const updateHandler = () => {
+            // If the document gets updated by another client, mark as loaded
+            if (ydoc.getXmlFragment('default').length > 0) {
+                setHasLoadedInitialContent(true)
+            }
+        }
+
+        ydoc.on('update', updateHandler)
 
         // Track connected users
         // webrtcProvider.awareness.on('change', () => {
@@ -174,7 +188,10 @@ export function PageCollaborativeEditor({
         // Cleanup on unmount
         return () => {
             console.log('Destroying WebRTC provider')
+            ydoc.off('update', updateHandler)
             webrtcProvider.destroy()
+            setIsProviderSynced(false)
+            setHasLoadedInitialContent(false)
             // setProvider(null)
             // setConnectionStatus('disconnected')
             // setConnectedUsers([])
@@ -242,20 +259,63 @@ export function PageCollaborativeEditor({
 
     // Load initial content after editor and collaboration are ready
     React.useEffect(() => {
-        if (!editor || !initialContent) return
+        if (
+            !editor ||
+            !initialContent ||
+            hasLoadedInitialContent ||
+            !isProviderSynced
+        )
+            return
 
-        // Check if Y.js document is empty (new document)
-        const yDocIsEmpty = ydoc.getXmlFragment('default').length === 0
+        // Add a small delay to ensure all WebRTC connections are established
+        const timer = setTimeout(() => {
+            // Check if Y.js document is empty (new document)
+            const yDocIsEmpty = ydoc.getXmlFragment('default').length === 0
+            const editorIsEmpty =
+                editor.getHTML() === '<p></p>' ||
+                editor.getHTML().trim() === '' ||
+                editor.getHTML() === '<p>undefined</p>'
 
-        if (yDocIsEmpty && initialContent && initialContent.trim() !== '') {
-            console.log(
-                'Loading initial content into empty Y.js document:',
-                initialContent
-            )
-            // Set the content in the editor, which will sync to Y.js
-            editor.commands.setContent(initialContent, false)
-        }
-    }, [editor, initialContent, ydoc])
+            // Only load initial content if both Y.js document and editor are empty
+            // This prevents duplicate content when multiple browsers connect
+            if (
+                yDocIsEmpty &&
+                editorIsEmpty &&
+                initialContent &&
+                initialContent.trim() !== '' &&
+                initialContent !== 'undefined'
+            ) {
+                console.log(
+                    'Loading initial content into empty Y.js document:',
+                    initialContent
+                )
+                // Set the content in the editor, which will sync to Y.js
+                editor.commands.setContent(initialContent, false)
+                setHasLoadedInitialContent(true)
+            } else {
+                console.log(
+                    'Skipping initial content load - document already has content or content is invalid'
+                )
+                console.log(
+                    'Y.js empty:',
+                    yDocIsEmpty,
+                    'Editor empty:',
+                    editorIsEmpty,
+                    'Initial content:',
+                    initialContent?.substring(0, 100)
+                )
+                setHasLoadedInitialContent(true) // Mark as loaded to prevent future attempts
+            }
+        }, 300) // 300ms delay to allow WebRTC sync
+
+        return () => clearTimeout(timer)
+    }, [
+        editor,
+        initialContent,
+        ydoc,
+        hasLoadedInitialContent,
+        isProviderSynced,
+    ])
 
     // const getStatusColor = () => {
     //     switch (connectionStatus) {
