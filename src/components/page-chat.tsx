@@ -109,7 +109,7 @@ function PageChatContent({ pageTitle, fileId: validatedFileId }: PageChatProps) 
                     <div key={message.id} className="flex gap-3">
                         <Avatar className="h-8 w-8">
                             <AvatarFallback>
-                                {message.user?.email?.[0]}
+                                {message.user?.email?.[0]?.toUpperCase()}
                             </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 space-y-1">

@@ -37,9 +37,8 @@ export function RecentActivityList({ notifications, isLoading }: RecentActivityL
       {notifications.slice(0, 5).map((notification) => (
         <div key={notification.id} className="flex items-center gap-3 p-4">
           <Avatar className="h-8 w-8">
-            <AvatarImage src="/placeholder.svg" alt={notification.userName || "User"} />
             <AvatarFallback>
-              {(notification.userName || "U").split(" ").map(n => n[0]).join("").toUpperCase()}
+              {(notification.userName ?? "U").split(" ").map(n => n[0]).join("").toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 space-y-1">
