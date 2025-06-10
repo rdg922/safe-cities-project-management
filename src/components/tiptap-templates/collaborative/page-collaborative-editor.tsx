@@ -12,7 +12,6 @@ import { Typography } from '@tiptap/extension-typography'
 import { Subscript } from '@tiptap/extension-subscript'
 import { Superscript } from '@tiptap/extension-superscript'
 import * as Y from 'yjs'
-import { WebrtcProvider } from 'y-webrtc'
 import '~/components/tiptap-node/task-item-node/assignable-task-item.scss'
 
 // Custom Extensions
@@ -21,6 +20,7 @@ import { Selection } from '@/components/tiptap-extension/selection-extension'
 import { TrailingNode } from '@/components/tiptap-extension/trailing-node-extension'
 import { AssignableTaskItem } from '~/components/tiptap-extension/assignable-task-item-extension'
 import { ResizableImage } from '~/components/tiptap-extension/resizable-image-extension'
+import { HocuspocusProvider } from '@hocuspocus/provider'
 
 // UI Components
 import { Badge } from '~/components/ui/badge'
@@ -94,8 +94,8 @@ export function PageCollaborativeEditor({
 
     // Y.js document and provider state
     const [ydoc] = React.useState(() => new Y.Doc())
-    const [webrtcProvider, setWebrtcProvider] =
-        React.useState<WebrtcProvider | null>(null)
+    const [websocketProvider, setwebsocketProvider] =
+        React.useState<HocuspocusProvider | null>(null)
     const [isProviderSynced, setIsProviderSynced] = React.useState(false)
     const [hasLoadedInitialContent, setHasLoadedInitialContent] =
         React.useState(false)
@@ -128,23 +128,26 @@ export function PageCollaborativeEditor({
         onContentChangeRef.current = onContentChange
     }, [onContentChange])
 
-    // Initialize Y.js and WebRTC provider
+    // Initialize Y.js and websocket provider
     React.useEffect(() => {
-        if (!documentId || webrtcProvider) return
+        if (!documentId || websocketProvider) return
 
-        console.log('Initializing WebRTC provider for document:', documentId)
+        console.log('Initializing websocket provider for document:', documentId)
 
-        // Create WebRTC provider with signaling servers
-        const provider = new WebrtcProvider(documentId, ydoc)
+        // Create websocket provider with signaling servers
+        const provider = new HocuspocusProvider({
+            name: documentId,
+            url: 'ws://127.0.0.1:1234',
+        })
 
         console.log(provider)
 
-        setWebrtcProvider(provider)
+        setwebsocketProvider(provider)
         // setConnectionStatus('connecting')
 
         // Connection status handlers
         provider.on('status', ({ connected }: { connected: boolean }) => {
-            console.log('WebRTC Status:', connected)
+            console.log('websocket Status:', connected)
             // setConnectionStatus(connected ? 'connected' : 'disconnected')
 
             // Notify parent when collaboration is ready
@@ -158,7 +161,7 @@ export function PageCollaborativeEditor({
 
         // Also handle when the provider is synced
         provider.on('synced', () => {
-            console.log('WebRTC Provider synced')
+            console.log('websocket Provider synced')
             setIsProviderSynced(true)
             if (onCollaborationReadyRef.current) {
                 onCollaborationReadyRef.current()
@@ -213,10 +216,10 @@ export function PageCollaborativeEditor({
 
         // Cleanup on unmount
         return () => {
-            console.log('Destroying WebRTC provider')
+            console.log('Destroying websocket provider')
             ydoc.off('update', updateHandler)
             provider.destroy()
-            setWebrtcProvider(null)
+            setwebsocketProvider(null)
             setIsProviderSynced(false)
             setHasLoadedInitialContent(false)
             hasSetInitialContent.current = false
@@ -295,7 +298,7 @@ export function PageCollaborativeEditor({
         )
             return
 
-        // Add a small delay to ensure all WebRTC connections are established
+        // Add a small delay to ensure all websocket connections are established
         const timer = setTimeout(() => {
             // Check if Y.js document is empty (new document)
             const yDocIsEmpty = ydoc.getXmlFragment('default').length === 0
@@ -336,7 +339,7 @@ export function PageCollaborativeEditor({
                 setHasLoadedInitialContent(true) // Mark as loaded to prevent future attempts
                 hasSetInitialContent.current = true
             }
-        }, 300) // 300ms delay to allow WebRTC sync
+        }, 300) // 300ms delay to allow websocket sync
 
         return () => clearTimeout(timer)
     }, [editor, ydoc, hasLoadedInitialContent, isProviderSynced])
