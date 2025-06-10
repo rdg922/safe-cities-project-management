@@ -10,10 +10,31 @@ import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Textarea } from '~/components/ui/textarea'
 import { Switch } from '~/components/ui/switch'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '~/components/ui/select'
 import { Badge } from '~/components/ui/badge'
 import { Separator } from '~/components/ui/separator'
-import { Plus, GripVertical, Trash2, Edit2, Type, Mail, Hash, Calendar, List, CheckSquare, Circle, Square, AlignLeft, Paperclip } from 'lucide-react'
+import {
+    Plus,
+    GripVertical,
+    Trash2,
+    Edit2,
+    Type,
+    Mail,
+    Hash,
+    Calendar,
+    List,
+    CheckSquare,
+    Circle,
+    Square,
+    AlignLeft,
+    Paperclip,
+} from 'lucide-react'
 import { FORM_FIELD_TYPES } from '~/server/db/schema'
 
 interface FormBuilderProps {
@@ -60,7 +81,11 @@ const FIELD_TYPE_LABELS = {
     textarea: 'Long Text',
 }
 
-export function FormBuilder({ form, onUpdate, onSavingStatusChange }: FormBuilderProps) {
+export function FormBuilder({
+    form,
+    onUpdate,
+    onSavingStatusChange,
+}: FormBuilderProps) {
     const [editingFieldId, setEditingFieldId] = useState<number | null>(null)
     const [isAddingField, setIsAddingField] = useState(false)
     const editorRef = useRef<HTMLDivElement>(null)
@@ -207,7 +232,8 @@ export function FormBuilder({ form, onUpdate, onSavingStatusChange }: FormBuilde
             type: fieldForm.type as any,
             required: fieldForm.required,
             placeholder: fieldForm.placeholder || undefined,
-            options: fieldForm.type === 'select' ? fieldForm.options : undefined,
+            options:
+                fieldForm.type === 'select' ? fieldForm.options : undefined,
             validation:
                 Object.keys(fieldForm.validation).length > 0
                     ? fieldForm.validation
@@ -235,7 +261,8 @@ export function FormBuilder({ form, onUpdate, onSavingStatusChange }: FormBuilde
             type: fieldForm.type as any,
             required: fieldForm.required,
             placeholder: fieldForm.placeholder || undefined,
-            options: fieldForm.type === 'select' ? fieldForm.options : undefined,
+            options:
+                fieldForm.type === 'select' ? fieldForm.options : undefined,
             validation:
                 Object.keys(fieldForm.validation).length > 0
                     ? fieldForm.validation
@@ -303,10 +330,7 @@ export function FormBuilder({ form, onUpdate, onSavingStatusChange }: FormBuilde
         }))
     }
 
-    const updateOption = (
-        index: number,
-        value: string
-    ) => {
+    const updateOption = (index: number, value: string) => {
         setFieldForm((prev) => ({
             ...prev,
             options: prev.options.map((option, i) =>
@@ -361,7 +385,10 @@ export function FormBuilder({ form, onUpdate, onSavingStatusChange }: FormBuilde
                                         ...prev,
                                         type: value,
                                         // Reset options when changing type
-                                        options: value === 'select' ? [{ text: '' }] : [],
+                                        options:
+                                            value === 'select'
+                                                ? [{ text: '' }]
+                                                : [],
                                     }))
                                 }
                             >

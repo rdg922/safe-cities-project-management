@@ -53,7 +53,7 @@ export function SheetEditor({
 
     const isLiveSyncSheet = syncMetadata?.isLiveSync
     const formDataColumnCount = syncMetadata?.formDataColumnCount || 0
-    
+
     const updateMutation = api.files.updateSheetContent.useMutation({
         onSuccess: () => {
             onSavingStatusChange?.('saved')

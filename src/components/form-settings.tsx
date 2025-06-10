@@ -77,7 +77,11 @@ interface FormSettingsProps {
     onSavingStatusChange?: (status: 'idle' | 'saving' | 'saved') => void
 }
 
-export function FormSettings({ form, onUpdate, onSavingStatusChange }: FormSettingsProps) {
+export function FormSettings({
+    form,
+    onUpdate,
+    onSavingStatusChange,
+}: FormSettingsProps) {
     const router = useRouter()
     const utils = api.useUtils()
     const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)

@@ -14,7 +14,9 @@ export default function SheetPage() {
     const sheetId = Number(params.sheetId as string)
     const [localPermission, setLocalPermission] =
         useState<PermissionType>('view')
-    const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+    const [savingStatus, setSavingStatus] = useState<
+        'idle' | 'saving' | 'saved'
+    >('idle')
 
     // Fetch sheet from the server using the unified files router
     const { data: sheet, isLoading } = api.files.getById.useQuery({

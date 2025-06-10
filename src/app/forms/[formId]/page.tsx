@@ -40,7 +40,9 @@ export default function FormView() {
     const params = useParams()
     const formId = Number(params.formId)
     const [activeTab, setActiveTab] = useState('builder')
-    const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+    const [savingStatus, setSavingStatus] = useState<
+        'idle' | 'saving' | 'saved'
+    >('idle')
 
     const {
         data: formData,
@@ -228,7 +230,9 @@ export default function FormView() {
                                                 ),
                                             }}
                                             onUpdate={() => refetch()}
-                                            onSavingStatusChange={setSavingStatus}
+                                            onSavingStatusChange={
+                                                setSavingStatus
+                                            }
                                         />
                                     ) : (
                                         <div className="flex h-64 items-center justify-center">
@@ -415,7 +419,9 @@ export default function FormView() {
                                                 },
                                             }}
                                             onUpdate={() => refetch()}
-                                            onSavingStatusChange={setSavingStatus}
+                                            onSavingStatusChange={
+                                                setSavingStatus
+                                            }
                                         />
                                     ) : (
                                         <div className="flex h-full items-center justify-center">
