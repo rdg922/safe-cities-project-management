@@ -139,7 +139,6 @@ export default function DashboardPage() {
                   title={program.name}
                   description="No description available"
                   items={childCounts?.[program.id] ?? 0}
-                  members={0}
                   lastUpdated={updateTimes?.[program.id] 
                     ? formatDistanceToNow(new Date(updateTimes[program.id]), { addSuffix: true }) 
                     : 'Never'}

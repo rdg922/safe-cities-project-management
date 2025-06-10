@@ -603,11 +603,27 @@ export const filesRouter = createTRPCRouter({
             ]),
         }))
         .query(async ({ ctx, input }) => {
-            // get all programs in one query
-            const programs = await ctx.db.query.files.findMany({
+            const { userId } = ctx.auth;
+
+            // Get all programs in one query
+            const allPrograms = await ctx.db.query.files.findMany({
                 where: eq(files.type, input.type),
                 orderBy: [desc(files.createdAt)],
             });
+
+            // Get user's permission context
+            const permissionContext = await getUserPermissionContext(userId);
+
+            // Get accessible files using optimized permission context
+            const accessibleFileIds = await getAccessibleFiles(
+                permissionContext,
+                allPrograms
+            );
+
+            // Filter programs to only include accessible ones
+            const programs = allPrograms.filter(program => 
+                accessibleFileIds.has(program.id)
+            );
 
             // gets a list of program ids from the respective program objects
             const programIds = programs.map((program) => program.id);
@@ -616,7 +632,7 @@ export const filesRouter = createTRPCRouter({
             // maps each program id to a list of its
             const allDescendants = await Promise.all(
                 programIds.map(id => getFileDescendantsFast(id))
-            )
+            );
             
             // maps each progam Id to the corresponding list of file ids
             // the map creates a list with each entry like this [1, [1, ...allDescendants[index]]]
@@ -624,7 +640,7 @@ export const filesRouter = createTRPCRouter({
             const programFileIds = Object.fromEntries(
                 programIds.map((id, index) => [
                     id,
-                    [id, ...allDescendants[index]]
+                    [id, ...(allDescendants[index] ?? [])]
                 ])
             );
 
@@ -634,7 +650,7 @@ export const filesRouter = createTRPCRouter({
                     Object.fromEntries(
                         programIds.map(id => [
                             id,
-                            programFileIds[id].length - 1
+                            (programFileIds[id]?.length ?? 1) - 1
                         ])
                     )
                 ),
@@ -650,7 +666,7 @@ export const filesRouter = createTRPCRouter({
                         // gets all files that belong to any program
                         inArray(
                             files.id,
-                            programIds.flatMap(id => programFileIds[id])
+                            programIds.flatMap(id => programFileIds[id] ?? [])
                         )
                     )
                     .orderBy(sql`"updatedAt" DESC`)
@@ -663,7 +679,7 @@ export const filesRouter = createTRPCRouter({
                     // Find the most recent update time among the program and its descendants
                     const mostRecentUpdate = updateTimes
                         // only keep the update objects that belong to the program ID
-                        .filter(update => programFileIds[id]?.includes(update.id))
+                        .filter(update => (programFileIds[id] ?? []).includes(update.id))
                         // sort the update objects by updatedAt in descending order
                         .sort((a, b) => {
                             const timeA = a.updatedAt?.getTime() ?? 0;
