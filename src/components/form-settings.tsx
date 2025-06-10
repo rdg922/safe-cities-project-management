@@ -74,9 +74,10 @@ interface FormSettingsProps {
         }
     }
     onUpdate: () => void
+    onSavingStatusChange?: (status: 'idle' | 'saving' | 'saved') => void
 }
 
-export function FormSettings({ form, onUpdate }: FormSettingsProps) {
+export function FormSettings({ form, onUpdate, onSavingStatusChange }: FormSettingsProps) {
     const router = useRouter()
     const utils = api.useUtils()
     const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
@@ -94,11 +95,16 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
     })
 
     const updateSettingsMutation = api.forms.updateSettings.useMutation({
+        onMutate: () => {
+            onSavingStatusChange?.('saving')
+        },
         onSuccess: () => {
-            toast({ title: 'Form settings updated successfully' })
+            onSavingStatusChange?.('saved')
+            setTimeout(() => onSavingStatusChange?.('idle'), 2000)
             onUpdate()
         },
         onError: (error) => {
+            onSavingStatusChange?.('idle')
             toast({
                 title: 'Error updating settings',
                 description: error.message,
@@ -108,7 +114,12 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
     })
 
     const syncMutation = api.forms.syncToSheet.useMutation({
+        onMutate: () => {
+            onSavingStatusChange?.('saving')
+        },
         onSuccess: (data) => {
+            onSavingStatusChange?.('saved')
+            setTimeout(() => onSavingStatusChange?.('idle'), 2000)
             toast({
                 title: 'Form synced successfully!',
                 description: `Live sync enabled to ${data.sheetFile.name}. ${data.totalSubmissions} submissions included.`,
@@ -120,6 +131,7 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
             ultraFastInvalidateFileCaches(utils)
         },
         onError: (error) => {
+            onSavingStatusChange?.('idle')
             toast({
                 title: 'Sync failed',
                 description: error.message,
@@ -129,7 +141,12 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
     })
 
     const disableSyncMutation = api.forms.disableSync.useMutation({
+        onMutate: () => {
+            onSavingStatusChange?.('saving')
+        },
         onSuccess: () => {
+            onSavingStatusChange?.('saved')
+            setTimeout(() => onSavingStatusChange?.('idle'), 2000)
             toast({
                 title: 'Sync disabled',
                 description: 'Form is no longer syncing to sheet.',
@@ -138,6 +155,7 @@ export function FormSettings({ form, onUpdate }: FormSettingsProps) {
             setDisableSyncDialogId(null)
         },
         onError: (error) => {
+            onSavingStatusChange?.('idle')
             toast({
                 title: 'Failed to disable sync',
                 description: error.message,

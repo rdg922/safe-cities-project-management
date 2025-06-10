@@ -35,6 +35,7 @@ interface FormBuilderProps {
         }>
     }
     onUpdate: () => void
+    onSavingStatusChange?: (status: 'idle' | 'saving' | 'saved') => void
 }
 
 interface FieldOption {
@@ -59,7 +60,7 @@ const FIELD_TYPE_LABELS = {
     textarea: 'Long Text',
 }
 
-export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
+export function FormBuilder({ form, onUpdate, onSavingStatusChange }: FormBuilderProps) {
     const [editingFieldId, setEditingFieldId] = useState<number | null>(null)
     const [isAddingField, setIsAddingField] = useState(false)
     const editorRef = useRef<HTMLDivElement>(null)
@@ -91,13 +92,18 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
 
     // Mutations
     const addFieldMutation = api.forms.addField.useMutation({
+        onMutate: () => {
+            onSavingStatusChange?.('saving')
+        },
         onSuccess: () => {
-            toast({ title: 'Field added successfully' })
+            onSavingStatusChange?.('saved')
+            setTimeout(() => onSavingStatusChange?.('idle'), 2000)
             onUpdate()
             setIsAddingField(false)
             resetFieldForm()
         },
         onError: (error) => {
+            onSavingStatusChange?.('idle')
             toast({
                 title: 'Error adding field',
                 description: error.message,
@@ -107,13 +113,18 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
     })
 
     const updateFieldMutation = api.forms.updateField.useMutation({
+        onMutate: () => {
+            onSavingStatusChange?.('saving')
+        },
         onSuccess: () => {
-            toast({ title: 'Field updated successfully' })
+            onSavingStatusChange?.('saved')
+            setTimeout(() => onSavingStatusChange?.('idle'), 2000)
             onUpdate()
             setEditingFieldId(null)
             resetFieldForm()
         },
         onError: (error) => {
+            onSavingStatusChange?.('idle')
             toast({
                 title: 'Error updating field',
                 description: error.message,
@@ -123,11 +134,16 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
     })
 
     const deleteFieldMutation = api.forms.deleteField.useMutation({
+        onMutate: () => {
+            onSavingStatusChange?.('saving')
+        },
         onSuccess: () => {
-            toast({ title: 'Field deleted successfully' })
+            onSavingStatusChange?.('saved')
+            setTimeout(() => onSavingStatusChange?.('idle'), 2000)
             onUpdate()
         },
         onError: (error) => {
+            onSavingStatusChange?.('idle')
             toast({
                 title: 'Error deleting field',
                 description: error.message,
@@ -137,10 +153,16 @@ export function FormBuilder({ form, onUpdate }: FormBuilderProps) {
     })
 
     const reorderFieldsMutation = api.forms.reorderFields.useMutation({
+        onMutate: () => {
+            onSavingStatusChange?.('saving')
+        },
         onSuccess: () => {
+            onSavingStatusChange?.('saved')
+            setTimeout(() => onSavingStatusChange?.('idle'), 2000)
             onUpdate()
         },
         onError: (error) => {
+            onSavingStatusChange?.('idle')
             toast({
                 title: 'Error reordering fields',
                 description: error.message,

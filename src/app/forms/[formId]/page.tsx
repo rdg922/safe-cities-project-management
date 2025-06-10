@@ -40,6 +40,7 @@ export default function FormView() {
     const params = useParams()
     const formId = Number(params.formId)
     const [activeTab, setActiveTab] = useState('builder')
+    const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
 
     const {
         data: formData,
@@ -110,7 +111,7 @@ export default function FormView() {
                 filename={formData.file.name}
                 fileId={formData.file.id}
                 permission={userPermission as Permission}
-                savingStatus="idle"
+                savingStatus={savingStatus}
             />
 
             <div className="flex-1 flex flex-col overflow-auto">
@@ -227,6 +228,7 @@ export default function FormView() {
                                                 ),
                                             }}
                                             onUpdate={() => refetch()}
+                                            onSavingStatusChange={setSavingStatus}
                                         />
                                     ) : (
                                         <div className="flex h-64 items-center justify-center">
@@ -413,6 +415,7 @@ export default function FormView() {
                                                 },
                                             }}
                                             onUpdate={() => refetch()}
+                                            onSavingStatusChange={setSavingStatus}
                                         />
                                     ) : (
                                         <div className="flex h-full items-center justify-center">

@@ -28,6 +28,7 @@ interface SheetEditorProps {
         formDataColumnCount: number
         lastSyncAt: string
     }
+    onSavingStatusChange?: (status: 'idle' | 'saving' | 'saved') => void
 }
 
 export function SheetEditor({
@@ -36,6 +37,7 @@ export function SheetEditor({
     sheetName,
     readOnly = false,
     syncMetadata,
+    onSavingStatusChange,
 }: SheetEditorProps) {
     const [sheet, setSheet] = useState<SheetData>(initialData)
 
@@ -51,14 +53,15 @@ export function SheetEditor({
 
     const isLiveSyncSheet = syncMetadata?.isLiveSync
     const formDataColumnCount = syncMetadata?.formDataColumnCount || 0
+    
     const updateMutation = api.files.updateSheetContent.useMutation({
         onSuccess: () => {
-            toast({
-                title: '✅ Sheet saved',
-                description: 'Your changes have been saved successfully.',
-            })
+            onSavingStatusChange?.('saved')
+            // Reset status after a delay
+            setTimeout(() => onSavingStatusChange?.('idle'), 2000)
         },
         onError: (error) => {
+            onSavingStatusChange?.('idle')
             toast({
                 title: '❌ Save failed',
                 description: error.message,
@@ -74,6 +77,7 @@ export function SheetEditor({
                 clearTimeout(saveTimeoutRef.current)
             }
 
+            onSavingStatusChange?.('saving')
             saveTimeoutRef.current = setTimeout(() => {
                 updateMutation.mutate({
                     fileId: sheetId,
@@ -81,7 +85,7 @@ export function SheetEditor({
                 })
             }, 1000) // Debounce for 1 second
         },
-        [sheetId, updateMutation]
+        [sheetId, updateMutation, onSavingStatusChange]
     )
 
     // Helper function to apply changes to sheet data
@@ -159,11 +163,6 @@ export function SheetEditor({
             setSheet(newSheet)
             setHistoryIndex(historyIndex - 1)
             debouncedSave(newSheet)
-
-            toast({
-                title: '↩️ Undo',
-                description: 'Changes have been undone.',
-            })
         }
     }, [historyIndex, cellChangesHistory, sheet, applyNewValue, debouncedSave])
 
@@ -178,11 +177,6 @@ export function SheetEditor({
             setSheet(newSheet)
             setHistoryIndex(historyIndex + 1)
             debouncedSave(newSheet)
-
-            toast({
-                title: '↪️ Redo',
-                description: 'Changes have been redone.',
-            })
         }
     }, [historyIndex, cellChangesHistory, sheet, applyNewValue, debouncedSave])
 
@@ -289,11 +283,6 @@ export function SheetEditor({
 
         // Save the updated sheet with debouncing
         debouncedSave(newSheet)
-
-        toast({
-            title: '📊 Column added',
-            description: `New column ${columnLetter} has been added to the sheet.`,
-        })
     }
 
     // Function to add a new row to the sheet
@@ -332,11 +321,6 @@ export function SheetEditor({
 
         // Save the updated sheet with debouncing
         debouncedSave(newSheet)
-
-        toast({
-            title: '📝 Row added',
-            description: `New row ${newRowIndex} has been added to the sheet.`,
-        })
     }
 
     const onCellsChanged = (changes: CellChange[]) => {

@@ -14,6 +14,7 @@ export default function SheetPage() {
     const sheetId = Number(params.sheetId as string)
     const [localPermission, setLocalPermission] =
         useState<PermissionType>('view')
+    const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
 
     // Fetch sheet from the server using the unified files router
     const { data: sheet, isLoading } = api.files.getById.useQuery({
@@ -78,6 +79,7 @@ export default function SheetPage() {
                 filename={sheet.name}
                 fileId={sheetId}
                 permission={localPermission}
+                savingStatus={savingStatus}
                 onPermissionChange={handlePermissionChange}
             />
             <div className="flex-1">
@@ -87,6 +89,7 @@ export default function SheetPage() {
                     sheetName={sheet.name}
                     readOnly={isReadOnly}
                     syncMetadata={syncMetadata || undefined}
+                    onSavingStatusChange={setSavingStatus}
                 />
             </div>
         </div>

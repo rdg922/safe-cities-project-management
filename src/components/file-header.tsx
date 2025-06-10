@@ -20,6 +20,7 @@ interface FileHeaderProps {
     permission: Permission
     savingStatus?: 'saving' | 'saved' | 'idle'
     content?: string
+    onPermissionChange?: (permission: Permission) => void
 }
 
 const permissionIcons = {
@@ -40,6 +41,7 @@ export function FileHeader({
     permission,
     savingStatus = 'idle',
     content,
+    onPermissionChange,
 }: FileHeaderProps) {
     const { toggleChat } = useChatToggle({ pageTitle: filename, fileId })
     const [isShareModalOpen, setIsShareModalOpen] = useState(false)
