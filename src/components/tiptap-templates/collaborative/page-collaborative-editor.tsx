@@ -135,29 +135,7 @@ export function PageCollaborativeEditor({
         console.log('Initializing WebRTC provider for document:', documentId)
 
         // Create WebRTC provider with signaling servers
-        const provider = new WebrtcProvider(documentId, ydoc, {
-            signaling: [
-                'wss://signaling.yjs.dev',
-                'wss://y-webrtc-signaling-us.herokuapp.com',
-                'wss://demos.yjs.dev',
-            ],
-            // Add STUN servers for NAT traversal across different networks
-            peerOpts: {
-                config: {
-                    iceServers: [
-                        // Google's reliable STUN servers
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun2.l.google.com:19302' },
-
-                        // Cloudflare STUN server as backup
-                        { urls: 'stun:stun.cloudflare.com:3478' },
-                    ],
-                },
-            },
-            maxConns: 20,
-            filterBcConns: true,
-        })
+        const provider = new WebrtcProvider(documentId, ydoc)
 
         console.log(provider)
 
