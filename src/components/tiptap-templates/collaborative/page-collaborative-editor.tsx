@@ -60,6 +60,14 @@ import UniqueId from 'tiptap-unique-id'
 
 // Styles
 import '~/components/tiptap-templates/simple/simple-editor.scss'
+import './collaborative-editor.scss'
+
+// Import Tiptap Node Styles for proper markdown rendering
+import '@/components/tiptap-node/code-block-node/code-block-node.scss'
+import '@/components/tiptap-node/list-node/list-node.scss'
+import '@/components/tiptap-node/image-node/image-node.scss'
+import '@/components/tiptap-node/paragraph-node/paragraph-node.scss'
+import '~/components/tiptap-node/task-item-node/assignable-task-item.scss'
 
 interface PageCollaborativeEditorProps {
     documentId: string
@@ -204,7 +212,7 @@ export function PageCollaborativeEditor({
         editable: !readOnly,
         editorProps: {
             attributes: {
-                class: 'tiptap prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none',
+                class: 'tiptap ProseMirror focus:outline-none',
                 'aria-label':
                     'Collaborative editor - start typing to create content',
             },
@@ -340,109 +348,66 @@ export function PageCollaborativeEditor({
     // }
 
     return (
-        <div className="w-full h-full flex flex-col">
-            {/* Connection Status Bar */}
-            {/* <div className="flex items-center justify-between p-3 border-b bg-muted/30">
-                <div className="flex items-center space-x-2">
-                    <div
-                        className={`w-2 h-2 rounded-full ${getStatusColor()}`}
-                    ></div>
-                    <span className="text-sm font-medium">
-                        {getStatusText()}
-                    </span>
-                    {connectionStatus === 'disconnected' && (
-                        <span className="text-xs text-red-600">
-                            Changes may not sync
-                        </span>
-                    )}
-                </div>
-                {connectedUsers.length > 0 && (
-                    <div className="flex items-center space-x-2">
-                        <span className="text-sm text-muted-foreground">
-                            {connectedUsers.length} user
-                            {connectedUsers.length !== 1 ? 's' : ''} online
-                        </span>
-                        <div className="flex -space-x-2">
-                            {connectedUsers.slice(0, 3).map((user) => (
-                                <div
-                                    key={user.id}
-                                    className="w-6 h-6 rounded-full border-2 border-background flex items-center justify-center text-xs font-semibold text-white"
-                                    style={{
-                                        backgroundColor: user.color,
-                                    }}
-                                    title={user.name}
-                                >
-                                    {user.name.charAt(0).toUpperCase()}
-                                </div>
-                            ))}
-                            {connectedUsers.length > 3 && (
-                                <div className="w-6 h-6 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs font-semibold">
-                                    +{connectedUsers.length - 3}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </div> */}
-
+        <div className="collaborative-editor-container w-full h-full flex flex-col">
             {/* Editor */}
             <EditorContext.Provider value={{ editor }}>
-                <div className="flex-1 flex flex-col min-h-0">
-                    {/* Toolbar */}
-                    {!readOnly && (
-                        <Toolbar className="border-b bg-muted/50 flex-shrink-0">
-                            <Spacer />
+                {/* Toolbar */}
+                {!readOnly && (
+                    <Toolbar className="collaborative-editor-toolbar border-b bg-muted/50 flex-shrink-0">
+                        <Spacer />
 
-                            <ToolbarGroup>
-                                <UndoRedoButton action="undo" />
-                                <UndoRedoButton action="redo" />
-                            </ToolbarGroup>
+                        <ToolbarGroup>
+                            <UndoRedoButton action="undo" />
+                            <UndoRedoButton action="redo" />
+                        </ToolbarGroup>
 
-                            <ToolbarSeparator />
+                        <ToolbarSeparator />
 
-                            <ToolbarGroup>
-                                <HeadingDropdownMenu levels={[1, 2, 3, 4]} />
-                                <ListDropdownMenu
-                                    types={['bulletList', 'orderedList']}
-                                />
-                                <ListButton type="taskList" />
-                            </ToolbarGroup>
+                        <ToolbarGroup>
+                            <HeadingDropdownMenu levels={[1, 2, 3, 4]} />
+                            <ListDropdownMenu
+                                types={['bulletList', 'orderedList']}
+                            />
+                            <ListButton type="taskList" />
+                        </ToolbarGroup>
 
-                            <ToolbarSeparator />
+                        <ToolbarSeparator />
 
-                            <ToolbarGroup>
-                                <MarkButton type="bold" />
-                                <MarkButton type="italic" />
-                                <MarkButton type="strike" />
-                                <MarkButton type="underline" />
-                                <ColorHighlightPopover />
-                                <LinkPopover />
-                            </ToolbarGroup>
+                        <ToolbarGroup>
+                            <MarkButton type="bold" />
+                            <MarkButton type="italic" />
+                            <MarkButton type="strike" />
+                            <MarkButton type="underline" />
+                            <ColorHighlightPopover />
+                            <LinkPopover />
+                        </ToolbarGroup>
 
-                            <ToolbarSeparator />
+                        <ToolbarSeparator />
 
-                            <ToolbarGroup>
-                                <TextAlignButton align="left" />
-                                <TextAlignButton align="center" />
-                                <TextAlignButton align="right" />
-                                <TextAlignButton align="justify" />
-                            </ToolbarGroup>
+                        <ToolbarGroup>
+                            <TextAlignButton align="left" />
+                            <TextAlignButton align="center" />
+                            <TextAlignButton align="right" />
+                            <TextAlignButton align="justify" />
+                        </ToolbarGroup>
 
-                            <ToolbarSeparator />
+                        <ToolbarSeparator />
 
-                            <ToolbarGroup>
-                                <ImageUploadButton />
-                            </ToolbarGroup>
+                        <ToolbarGroup>
+                            <ImageUploadButton />
+                        </ToolbarGroup>
 
-                            <Spacer />
-                        </Toolbar>
-                    )}
+                        <Spacer />
+                    </Toolbar>
+                )}
 
-                    {/* Editor Content */}
-                    <div className="flex-1 overflow-auto p-6">
+                {/* Editor Content */}
+                <div className="collaborative-editor-scroll-container">
+                    <div className="collaborative-editor-content">
                         <EditorContent
                             editor={editor}
-                            className="min-h-full focus-within:outline-none"
+                            className="focus-within:outline-none"
+                            role="presentation"
                         />
                     </div>
                 </div>
