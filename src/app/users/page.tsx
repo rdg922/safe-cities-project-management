@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { api } from '~/trpc/react'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
@@ -11,6 +12,23 @@ import {
     DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '~/components/ui/select'
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '~/components/ui/alert-dialog'
+import {
     Table,
     TableBody,
     TableCell,
@@ -19,18 +37,83 @@ import {
     TableRow,
 } from '~/components/ui/table'
 import { Badge } from '~/components/ui/badge'
-import { MoreHorizontal, Search, UserPlus } from 'lucide-react'
+import {
+    MoreHorizontal,
+    Search,
+    UserPlus,
+    RefreshCw,
+    Trash2,
+} from 'lucide-react'
 import { useToast } from '~/hooks/use-toast'
 
 export default function UsersPage() {
-    const toast = useToast()
+    const { toast } = useToast()
+    const [roleFilter, setRoleFilter] = useState<string>('all')
+    const [deleteUserId, setDeleteUserId] = useState<string | null>(null)
+    const [userToDelete, setUserToDelete] = useState<{
+        name: string
+        email: string
+    } | null>(null)
 
-    const { data: users = [] } = api.user.getAllUsers.useQuery()
+    const {
+        data: users = [],
+        refetch: refetchUsers,
+        isLoading,
+    } = api.user.getAllUsers.useQuery()
+
     const updateUserRole = api.user.updateUserRole.useMutation({
         onSuccess: (data) => {
-            console.log(data)
-            alert(data?.message) // TODO: use toast
+            toast({
+                title: 'Success',
+                description: data?.message || 'User role updated successfully',
+            })
+            refetchUsers()
         },
+        onError: (error) => {
+            toast({
+                title: 'Error',
+                description: error.message || 'Failed to update user role',
+                variant: 'destructive',
+            })
+        },
+    })
+
+    const deleteUser = api.user.deleteUser.useMutation({
+        onSuccess: (data) => {
+            toast({
+                title: 'Success',
+                description: data?.message || 'User deleted successfully',
+            })
+            refetchUsers()
+            setDeleteUserId(null)
+            setUserToDelete(null)
+        },
+        onError: (error) => {
+            toast({
+                title: 'Error',
+                description: error.message || 'Failed to delete user',
+                variant: 'destructive',
+            })
+            setDeleteUserId(null)
+            setUserToDelete(null)
+        },
+    })
+
+    const handleDeleteUser = (user: any) => {
+        setDeleteUserId(user.id)
+        setUserToDelete({ name: user.name, email: user.email })
+    }
+
+    const confirmDeleteUser = () => {
+        if (deleteUserId) {
+            deleteUser.mutate({ userId: deleteUserId })
+        }
+    }
+
+    // Filter users based on role
+    const filteredUsers = users.filter((user) => {
+        if (roleFilter === 'all') return true
+        return user.role === roleFilter
     })
 
     return (
@@ -54,17 +137,29 @@ export default function UsersPage() {
                     <Input placeholder="Search users..." className="pl-10" />
                 </div>
                 <div className="flex items-center gap-2">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline">Role: All</Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem>Status</DropdownMenuItem>
-                            <DropdownMenuItem>Admin</DropdownMenuItem>
-                            <DropdownMenuItem>User</DropdownMenuItem>
-                            <DropdownMenuItem>Unverified</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => refetchUsers()}
+                        disabled={isLoading}
+                    >
+                        <RefreshCw
+                            className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
+                        />
+                    </Button>
+                    <Select value={roleFilter} onValueChange={setRoleFilter}>
+                        <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="Filter by role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Roles</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="user">User</SelectItem>
+                            <SelectItem value="unverified">
+                                Unverified
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
             </div>
 
@@ -82,7 +177,7 @@ export default function UsersPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {users.map((user) => (
+                            {filteredUsers.map((user) => (
                                 <TableRow key={user.id}>
                                     <TableCell>
                                         <div className="flex items-center gap-3">
@@ -142,9 +237,15 @@ export default function UsersPage() {
                                                 >
                                                     Make Admin
                                                 </DropdownMenuItem>
-                                                {/* <DropdownMenuItem className="text-destructive">
-                                                    Deactivate
-                                                </DropdownMenuItem> */}
+                                                <DropdownMenuItem
+                                                    className="text-destructive"
+                                                    onClick={() =>
+                                                        handleDeleteUser(user)
+                                                    }
+                                                >
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    Delete User
+                                                </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -154,6 +255,81 @@ export default function UsersPage() {
                     </Table>
                 </CardContent>
             </Card>
+
+            {/* Delete User Confirmation Dialog */}
+            <AlertDialog
+                open={deleteUserId !== null}
+                onOpenChange={(open) => !open && setDeleteUserId(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                            <Trash2 className="h-5 w-5" />
+                            Delete User Account
+                        </AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-3">
+                                <p>
+                                    Are you sure you want to permanently delete
+                                    the user account for{' '}
+                                    <span className="font-semibold">
+                                        {userToDelete?.name}
+                                    </span>{' '}
+                                    ({userToDelete?.email})?
+                                </p>
+                                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                                    <p className="text-sm font-medium text-destructive mb-2">
+                                        This action will:
+                                    </p>
+                                    <ul className="text-sm text-destructive/80 space-y-1 ml-4">
+                                        <li>
+                                            • Delete their Clerk authentication
+                                            account
+                                        </li>
+                                        <li>
+                                            • Remove all their data from the
+                                            database
+                                        </li>
+                                        <li>
+                                            • Delete all files, permissions, and
+                                            comments associated with this user
+                                        </li>
+                                        <li>
+                                            • Remove them from all shared
+                                            documents and projects
+                                        </li>
+                                    </ul>
+                                    <p className="text-sm font-medium text-destructive mt-2">
+                                        This action cannot be undone.
+                                    </p>
+                                </div>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleteUser.isPending}>
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={confirmDeleteUser}
+                            disabled={deleteUser.isPending}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            {deleteUser.isPending ? (
+                                <>
+                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                <>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete User
+                                </>
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

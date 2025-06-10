@@ -111,6 +111,12 @@ export function AppSidebar() {
         enabled: isUserLoaded && !!clerkUser,
     })
 
+    // Check if user can create programmes (admin or specific permissions)
+    const canCreateProgramme =
+        userProfile && 'role' in userProfile
+            ? userProfile.role === 'admin'
+            : false
+
     // Get query client for cache invalidation
     const utils = api.useUtils()
 
@@ -270,19 +276,21 @@ export function AppSidebar() {
                             <div className="flex items-center gap-2">
                                 <span>Programmes</span>
                             </div>
-                            <div className="flex gap-1">
-                                <SidebarGroupAction
-                                    onClick={() => {
-                                        setNewFileDialogType('programme')
-                                        setIsNewFileDialogOpen(true)
-                                    }}
-                                >
-                                    <Plus size={16} />
-                                    <span className="sr-only">
-                                        Add Programme
-                                    </span>
-                                </SidebarGroupAction>
-                            </div>
+                            {canCreateProgramme && (
+                                <div className="flex gap-1">
+                                    <SidebarGroupAction
+                                        onClick={() => {
+                                            setNewFileDialogType('programme')
+                                            setIsNewFileDialogOpen(true)
+                                        }}
+                                    >
+                                        <Plus size={16} />
+                                        <span className="sr-only">
+                                            Add Programme
+                                        </span>
+                                    </SidebarGroupAction>
+                                </div>
+                            )}
                         </SidebarGroupLabel>
                         <SidebarGroupContent>
                             {isFileTreeLoading ? (
