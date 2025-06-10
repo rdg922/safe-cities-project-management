@@ -6,27 +6,55 @@ import { RecentActivityList } from "~/components/recent-activity-list"
 import { Plus } from "lucide-react"
 import { api } from "~/trpc/react"
 import { FILE_TYPES } from "~/server/db/schema"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { NewFileDialog } from "~/components/new-file-dialog"
 import { formatDistanceToNow } from "date-fns"
 
+// Add performance measurement utility
+const measureQuery = (name: string, startTime: number) => {
+  const endTime = performance.now()
+  console.log(`Query ${name} took ${(endTime - startTime).toFixed(2)}ms`)
+}
 
 export default function DashboardPage() {
   const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
-  const { data: users } = api.user.getAllUsers.useQuery();
-  const { data: programs, isLoading: isLoadingPrograms } = api.files.getByType.useQuery({ 
-    type: FILE_TYPES.PROGRAMME 
+  
+  // Start measuring total page load time
+  const startTime = useMemo(() => performance.now(), []);
+  
+  const { data: users, isLoading: isLoadingUsers } = api.user.getAllUsers.useQuery();
+  const { data: programData, isLoading: isLoadingPrograms } = api.files.getProgramsWithDetails.useQuery({
+    type: FILE_TYPES.PROGRAMME,
   });
-  const { data: pagesInLast30Days } = api.files.getPagesCreatedInLast30Days.useQuery();
+  const { data: pagesInLast30Days, isLoading: isLoadingPages } = api.files.getPagesCreatedInLast30Days.useQuery();
 
-  const { data: childCounts } = api.files.getChildCountsForParents.useQuery(
-    { 
-      parentIds: programs?.map(p => p.id) ?? [] 
-    },
-    { 
-      enabled: !isLoadingPrograms && !!programs?.length 
+  const { programs, childCounts, updateTimes } = programData ?? {};
+
+  // Measure total page load time when all data is loaded
+  useEffect(() => {
+    const allQueriesComplete = 
+      !isLoadingUsers && 
+      !isLoadingPrograms && 
+      !isLoadingPages && 
+      programs && 
+      childCounts && 
+      updateTimes;
+
+    if (allQueriesComplete) {
+      const endTime = performance.now();
+      console.log('=== Dashboard Load Time ===');
+      console.log(`Total time: ${(endTime - startTime).toFixed(2)}ms`);
+      console.log('========================');
     }
-  );
+  }, [
+    isLoadingUsers,
+    isLoadingPrograms,
+    isLoadingPages,
+    programs,
+    childCounts,
+    updateTimes,
+    startTime
+  ]);
 
   return (
     <div className="container mx-auto p-6">
@@ -54,7 +82,14 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">Total Programs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{programs?.length}</div>
+            <div className="text-3xl font-bold">
+              {isLoadingPrograms ? (
+                <div className="h-8 w-16 animate-pulse bg-muted rounded" />
+              ) : (
+                programs?.length
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Active programs in your workspace</p>
           </CardContent>
         </Card>
         <Card>
@@ -62,7 +97,14 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{users?.length}</div>
+            <div className="text-3xl font-bold">
+              {isLoadingUsers ? (
+                <div className="h-8 w-16 animate-pulse bg-muted rounded" />
+              ) : (
+                users?.length
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Total team members</p>
           </CardContent>
         </Card>
         <Card>
@@ -70,7 +112,13 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">Pages Created</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{pagesInLast30Days}</div>
+            <div className="text-3xl font-bold">
+              {isLoadingPages ? (
+                <div className="h-8 w-16 animate-pulse bg-muted rounded" />
+              ) : (
+                pagesInLast30Days
+              )}
+            </div>
             <p className="text-xs text-muted-foreground mt-1">In the last 30 days</p>
           </CardContent>
         </Card>
@@ -80,7 +128,9 @@ export default function DashboardPage() {
         <div className="md:col-span-4">
           <h2 className="text-xl font-semibold mb-4">Programs</h2>
           {isLoadingPrograms ? (
-            <div>Loading programs...</div>
+            <div className="flex items-center justify-center h-32">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
           ) : (
             <div className="grid gap-4">
               {programs?.map((program) => (
@@ -88,9 +138,11 @@ export default function DashboardPage() {
                   key={program.id}
                   title={program.name}
                   description="No description available"
-                  items={childCounts?.[program.id] || 0}
+                  items={childCounts?.[program.id] ?? 0}
                   members={0}
-                  lastUpdated={formatDistanceToNow(new Date(program.updatedAt), { addSuffix: true })}
+                  lastUpdated={updateTimes?.[program.id] 
+                    ? formatDistanceToNow(new Date(updateTimes[program.id]), { addSuffix: true }) 
+                    : 'Never'}
                 />
               ))}
             </div>

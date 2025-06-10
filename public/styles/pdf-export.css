@@ -5,19 +5,20 @@ html, body {
   padding: 0;
   font-family: Helvetica, arial, freesans, clean, sans-serif;
   font-size: 1em;
-  line-height: 1.5em;
+  line-height: 1.3em;
   background-color: #fff;
 }
 
 /* Main content container */
 .prose {
   max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
+  padding: 0 2rem;
   -webkit-user-select: text;
   -moz-user-select: text;
   -ms-user-select: text;
   user-select: text;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 /* Page break control - prevent elements from being split across pages */
@@ -38,8 +39,8 @@ html, body {
 
 /* Typography */
 .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
-  margin-top: 1.5em;
-  margin-bottom: 0.5em;
+  margin-top: 1.2em;
+  margin-bottom: 0.4em;
   font-weight: 600;
   line-height: 1.25;
 }
@@ -52,7 +53,12 @@ html, body {
 .prose h6 { font-size: 0.85em; }
 
 .prose p {
-  margin: 1em 0;
+  margin: 0.3em 0;
+  min-height: 1.3em;
+}
+
+.prose p:first-child {
+  margin-top: 0;
 }
 
 /* Links */

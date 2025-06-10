@@ -24,7 +24,8 @@ import {
     getAccessibleFiles,
     getUsersWithFileAccess,
 } from '~/lib/permissions-simple'
-import { rebuildEffectivePermissionsForUser } from '~/lib/permissions-optimized'
+import { rebuildEffectivePermissionsForUser, getFileDescendantsFast } from '~/lib/permissions-optimized'
+import { TRPCError } from '@trpc/server'
 
 export const filesRouter = createTRPCRouter({
     // Create a new file (page, sheet, folder, form, or upload)
@@ -552,10 +553,132 @@ export const filesRouter = createTRPCRouter({
             // Return an object with counts for each parent ID
             return input.parentIds.reduce(
                 (acc, parentId) => {
-                    acc[parentId] = countMap.get(parentId) || 0
+                    acc[parentId] = countMap.get(parentId) ?? 0
                     return acc
                 },
                 {} as Record<number, number>
             )
         }),
-})
+
+    // Get most recent update times for multiple programs and their descendants
+    getProgramUpdateTimes: publicProcedure
+        .input(z.object({ programIds: z.array(z.number()) }))
+        .query(async ({ ctx, input }) => {
+            const updateTimes: Record<number, Date | null> = {}
+            
+            for (const programId of input.programIds) {
+                // Get all descendants of the program
+                const descendants = await getFileDescendantsFast(programId)
+                
+                // Get the most recently updated file from the program and all its descendants
+                const result = await ctx.db
+                    .select({ 
+                        updatedAt: files.updatedAt
+                    })
+                    .from(files)
+                    .where(
+                        inArray(
+                            files.id,
+                            [programId, ...descendants]
+                        )
+                    )
+                    .orderBy(sql`"updatedAt" DESC`)
+                    .limit(1)
+                
+                // Convert the timestamp to a proper Date object
+                updateTimes[programId] = result[0]?.updatedAt ? new Date(result[0].updatedAt) : null
+            }
+            
+            return updateTimes
+        }),
+
+    getProgramsWithDetails: protectedProcedure
+        .input(z.object({
+            type: z.enum([
+                FILE_TYPES.PAGE,
+                FILE_TYPES.SHEET,
+                FILE_TYPES.FOLDER,
+                FILE_TYPES.UPLOAD,
+                FILE_TYPES.PROGRAMME,
+            ]),
+        }))
+        .query(async ({ ctx, input }) => {
+            // get all programs in one query
+            const programs = await ctx.db.query.files.findMany({
+                where: eq(files.type, input.type),
+                orderBy: [desc(files.createdAt)],
+            });
+
+            // gets a list of program ids from the respective program objects
+            const programIds = programs.map((program) => program.id);
+
+            // get all descendants for all programs in one query
+            // maps each program id to a list of its
+            const allDescendants = await Promise.all(
+                programIds.map(id => getFileDescendantsFast(id))
+            )
+            
+            // maps each progam Id to the corresponding list of file ids
+            // the map creates a list with each entry like this [1, [1, ...allDescendants[index]]]
+            // Object.fromEntries turns it into a key value pair
+            const programFileIds = Object.fromEntries(
+                programIds.map((id, index) => [
+                    id,
+                    [id, ...allDescendants[index]]
+                ])
+            );
+
+            const [childCounts, updateTimes] = await Promise.all([
+                // we already have all descendants so subtract 1 from the length of the list gives the children
+                Promise.resolve(
+                    Object.fromEntries(
+                        programIds.map(id => [
+                            id,
+                            programFileIds[id].length - 1
+                        ])
+                    )
+                ),
+                
+                // Get update times for each program and its descendants
+                ctx.db
+                    .select({
+                        id: files.id,
+                        updatedAt: files.updatedAt,
+                    })
+                    .from(files)
+                    .where(
+                        // gets all files that belong to any program
+                        inArray(
+                            files.id,
+                            programIds.flatMap(id => programFileIds[id])
+                        )
+                    )
+                    .orderBy(sql`"updatedAt" DESC`)
+                    // updateTimes is a list of objects with id and updatedAt fields 
+            ]);
+
+            // Create a map of program IDs to their most recent update time
+            const updateTimesMap = Object.fromEntries(
+                programIds.map(id => {
+                    // Find the most recent update time among the program and its descendants
+                    const mostRecentUpdate = updateTimes
+                        // only keep the update objects that belong to the program ID
+                        .filter(update => programFileIds[id]?.includes(update.id))
+                        // sort the update objects by updatedAt in descending order
+                        .sort((a, b) => {
+                            const timeA = a.updatedAt?.getTime() ?? 0;
+                            const timeB = b.updatedAt?.getTime() ?? 0;
+                            return timeB - timeA;
+                        })[0];
+                    
+                    return [id, mostRecentUpdate?.updatedAt ?? null];
+                })
+            );
+
+            return {
+                programs,
+                childCounts,  // Already in the correct format
+                updateTimes: updateTimesMap,
+            };
+        }),
+    })
