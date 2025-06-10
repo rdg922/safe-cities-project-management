@@ -30,6 +30,10 @@ export default function DashboardPage() {
 
   const { programs, childCounts, updateTimes } = programData ?? {};
 
+  const { data: notificationData, isLoading: isLoadingNotifications} = api.notification.getAll.useQuery(
+    { limit: 5 },
+  );
+
   // Measure total page load time when all data is loaded
   useEffect(() => {
     const allQueriesComplete = 
@@ -151,7 +155,10 @@ export default function DashboardPage() {
           <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
           <Card>
             <CardContent className="p-0">
-              <RecentActivityList />
+              <RecentActivityList 
+                notifications={notificationData?.notifications ?? []}
+                isLoading={isLoadingNotifications}
+              />
             </CardContent>
           </Card>
         </div>
