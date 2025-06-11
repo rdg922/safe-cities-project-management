@@ -58,6 +58,7 @@ export const userRouter = createTRPCRouter({
     updateUserProfile: protectedProcedure
         .input(
             z.object({
+                name: z.string().min(1).optional(),
                 email: z.string().email().optional(),
             })
         )
@@ -74,6 +75,7 @@ export const userRouter = createTRPCRouter({
                 await ctx.db
                     .update(users)
                     .set({
+                        ...(input.name && { name: input.name }),
                         ...(input.email && { email: input.email }),
                         updatedAt: new Date(),
                     })
@@ -81,7 +83,7 @@ export const userRouter = createTRPCRouter({
 
                 return {
                     success: true,
-                    message: 'User profile updated',
+                    message: 'Profile updated successfully',
                     operation: 'updated',
                 }
             } else {

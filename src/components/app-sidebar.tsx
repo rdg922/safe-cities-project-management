@@ -55,7 +55,14 @@ export function AppSidebar() {
                 <SidebarSeparator />
 
                 <SidebarContent>
-                    <NavigationMenu currentPath={pathname} />
+                    <NavigationMenu
+                        currentPath={pathname}
+                        userRole={
+                            userProfile && 'role' in userProfile
+                                ? userProfile.role || undefined
+                                : undefined
+                        }
+                    />
 
                     <SidebarSeparator />
 

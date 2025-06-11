@@ -11,20 +11,33 @@ import {
 
 interface NavigationMenuProps {
     currentPath: string
+    userRole?: string
 }
 
 const navigationItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: Home },
-    { href: '/notifications', label: 'Notifications', icon: Bell },
-    { href: '/chats', label: 'Chats', icon: MessageSquare },
-    { href: '/users', label: 'Users', icon: Users },
+    { href: '/dashboard', label: 'Dashboard', icon: Home, adminOnly: false },
+    {
+        href: '/notifications',
+        label: 'Notifications',
+        icon: Bell,
+        adminOnly: false,
+    },
+    { href: '/chats', label: 'Chats', icon: MessageSquare, adminOnly: false },
+    { href: '/users', label: 'Users', icon: Users, adminOnly: true },
 ]
 
-export function NavigationMenu({ currentPath }: NavigationMenuProps) {
+export function NavigationMenu({ currentPath, userRole }: NavigationMenuProps) {
+    const filteredItems = navigationItems.filter((item) => {
+        if (item.adminOnly && userRole !== 'admin') {
+            return false
+        }
+        return true
+    })
+
     return (
         <SidebarGroup>
             <SidebarMenu>
-                {navigationItems.map((item) => {
+                {filteredItems.map((item) => {
                     const Icon = item.icon
                     return (
                         <SidebarMenuItem key={item.href}>
