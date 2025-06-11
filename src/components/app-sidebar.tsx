@@ -728,12 +728,6 @@ export function AppSidebar() {
                                         Profile
                                     </Link>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                    <Link href="/settings">
-                                        <Settings size={16} className="mr-2" />{' '}
-                                        Settings
-                                    </Link>
-                                </DropdownMenuItem>
                                 <DropdownMenuItem>
                                     <SignOutButton>
                                         <div className="flex items-center">
