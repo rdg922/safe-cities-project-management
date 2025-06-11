@@ -618,19 +618,21 @@ function FileTreeNode({
                         >
                             {node.filename || node.name}
                         </span>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger
-                                asChild
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                        {/* Only show dropdown if user has any permissions */}
+                        {(canCreate || canShare || canRename || canDelete) && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger
+                                    asChild
+                                    onClick={(e) => e.stopPropagation()}
                                 >
-                                    <MoreHorizontal size={14} />
-                                </Button>
-                            </DropdownMenuTrigger>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                                    >
+                                        <MoreHorizontal size={14} />
+                                    </Button>
+                                </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                                 {canCreate && (
                                     <>
@@ -733,6 +735,7 @@ function FileTreeNode({
                                 )}
                             </DropdownMenuContent>
                         </DropdownMenu>
+                        )}
                     </div>
                 ) : (
                     <div className="flex items-center gap-1 flex-1 group">
@@ -761,6 +764,8 @@ function FileTreeNode({
                         <span className="text-sm truncate flex-1">
                             {node.filename || node.name}
                         </span>
+                        {/* Only show dropdown if user has any permissions */}
+                        {(canShare || canRename || canDelete) && (
                         <DropdownMenu>
                             <DropdownMenuTrigger
                                 asChild
@@ -813,6 +818,7 @@ function FileTreeNode({
                                 )}
                             </DropdownMenuContent>
                         </DropdownMenu>
+                        )}
                     </div>
                 )}
             </div>
