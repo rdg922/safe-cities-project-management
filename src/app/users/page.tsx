@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '~/trpc/react'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
@@ -48,6 +49,7 @@ import { useToast } from '~/hooks/use-toast'
 
 export default function UsersPage() {
     const { toast } = useToast()
+    const router = useRouter()
     const [roleFilter, setRoleFilter] = useState<string>('all')
     const [deleteUserId, setDeleteUserId] = useState<string | null>(null)
     const [userToDelete, setUserToDelete] = useState<{
@@ -55,11 +57,68 @@ export default function UsersPage() {
         email: string
     } | null>(null)
 
+    // Check user permission
+    const { data: userProfile, isLoading: isProfileLoading } =
+        api.user.getProfile.useQuery()
+
+    useEffect(() => {
+        if (
+            !isProfileLoading &&
+            userProfile &&
+            'role' in userProfile &&
+            userProfile.role !== 'admin'
+        ) {
+            toast({
+                title: 'Access Denied',
+                description: 'You do not have permission to access this page.',
+                variant: 'destructive',
+            })
+            router.push('/dashboard')
+        }
+    }, [userProfile, isProfileLoading, router, toast])
+
     const {
-        data: users = [],
+        data: usersData = [],
         refetch: refetchUsers,
-        isLoading,
-    } = api.user.getAllUsers.useQuery()
+        isLoading: isUsersLoading,
+    } = api.user.getAllUsers.useQuery(undefined, {
+        enabled:
+            userProfile &&
+            'role' in userProfile &&
+            userProfile.role === 'admin',
+    })
+
+    // Show loading state while checking permissions
+    if (isProfileLoading) {
+        return (
+            <div className="container mx-auto p-6">
+                <div className="flex items-center justify-center min-h-[50vh]">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                </div>
+            </div>
+        )
+    }
+
+    // Redirect if not admin (this will be handled by useEffect, but we also return early here)
+    if (
+        (userProfile && !('role' in userProfile)) ||
+        (userProfile && 'role' in userProfile && userProfile.role !== 'admin')
+    ) {
+        return (
+            <div className="container mx-auto p-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Access Denied</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground">
+                            You do not have permission to access this page.
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
 
     const updateUserRole = api.user.updateUserRole.useMutation({
         onSuccess: (data) => {
@@ -111,7 +170,7 @@ export default function UsersPage() {
     }
 
     // Filter users based on role
-    const filteredUsers = users.filter((user) => {
+    const filteredUsers = usersData.filter((user) => {
         if (roleFilter === 'all') return true
         return user.role === roleFilter
     })
@@ -141,10 +200,10 @@ export default function UsersPage() {
                         variant="outline"
                         size="icon"
                         onClick={() => refetchUsers()}
-                        disabled={isLoading}
+                        disabled={isUsersLoading}
                     >
                         <RefreshCw
-                            className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
+                            className={`h-4 w-4 ${isUsersLoading ? 'animate-spin' : ''}`}
                         />
                     </Button>
                     <Select value={roleFilter} onValueChange={setRoleFilter}>
