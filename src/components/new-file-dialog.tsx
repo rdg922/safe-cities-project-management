@@ -341,23 +341,36 @@ export function NewFileDialog({
                             <Label htmlFor="file-name">
                                 {config.title} Name
                             </Label>
-                            <Input
-                                id="file-name"
-                                value={fileName}
-                                onChange={(e) => setFileName(e.target.value)}
-                                placeholder={config.placeholder}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        if (
-                                            selectedType === 'programme' ||
-                                            selectedParentId !== null
-                                        ) {
-                                            handleCreate()
+                            <div className="relative">
+                                <Input
+                                    id="file-name"
+                                    value={fileName}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        if (value.length <= 25) {
+                                            setFileName(value);
                                         }
-                                    }
-                                }}
-                                disabled={createFileMutation.isPending}
-                            />
+                                    }}
+                                    placeholder={config.placeholder}
+                                    className={fileName.length === 25 ? "border-red-500" : ""}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            if (
+                                                selectedType === 'programme' ||
+                                                selectedParentId !== null
+                                            ) {
+                                                handleCreate()
+                                            }
+                                        }
+                                    }}
+                                    disabled={createFileMutation.isPending}
+                                />
+                            </div>
+                            {fileName.length === 25 && (
+                                <p className="text-sm text-red-500 mt-1">
+                                    Maximum character limit reached
+                                </p>
+                            )}
                         </div>
                     ) : (
                         <div className="grid gap-2">

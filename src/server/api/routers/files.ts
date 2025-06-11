@@ -32,7 +32,7 @@ export const filesRouter = createTRPCRouter({
     create: protectedProcedure
         .input(
             z.object({
-                name: z.string().min(1),
+                name: z.string().min(1).max(25),
                 type: z.enum([
                     FILE_TYPES.PAGE,
                     FILE_TYPES.SHEET,

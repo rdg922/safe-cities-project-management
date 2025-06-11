@@ -834,20 +834,36 @@ function FileTreeNode({
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
                             <Label htmlFor="rename-input">Name</Label>
-                            <Input
-                                id="rename-input"
-                                value={renameValue}
-                                onChange={(e) => setRenameValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        handleRenameConfirm()
-                                    } else if (e.key === 'Escape') {
-                                        setIsRenameDialogOpen(false)
-                                    }
-                                }}
-                                placeholder="Enter new name"
-                                autoFocus
-                            />
+                            <div className="relative">
+                                <Input
+                                    id="rename-input"
+                                    value={renameValue}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        if (value.length <= 25) {
+                                            setRenameValue(value);
+                                        }
+                                    }}
+                                    className={renameValue.length === 25 ? "border-red-500" : ""}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            handleRenameConfirm()
+                                        } else if (e.key === 'Escape') {
+                                            setIsRenameDialogOpen(false)
+                                        }
+                                    }}
+                                    placeholder="Enter new name"
+                                    autoFocus
+                                />
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                                    {renameValue.length}/25
+                                </div>
+                            </div>
+                            {renameValue.length === 25 && (
+                                <p className="text-sm text-red-500 mt-1">
+                                    Maximum character limit reached
+                                </p>
+                            )}
                         </div>
                     </div>
                     <DialogFooter>
