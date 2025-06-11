@@ -69,6 +69,7 @@
         "clsx": "^2.1.1",
         "date-fns": "^3.6.0",
         "drizzle-orm": "^0.43.1",
+        "geist": "^1.4.2",
         "html2pdf.js": "^0.10.3",
         "lucide-react": "^0.511.0",
         "next": "^15.3.3",

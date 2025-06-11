@@ -298,7 +298,7 @@ export function AppSidebar() {
                                     Loading files...
                                 </div>
                             ) : (
-                                <div className="px-3">
+                                <div>
                                     <FileTree
                                         items={fileTree}
                                         onSelectFile={(id) => {
