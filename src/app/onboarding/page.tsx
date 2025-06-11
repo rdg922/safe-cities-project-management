@@ -161,6 +161,7 @@ export default function OnboardingPage() {
                                     variant="outline"
                                     className="w-full"
                                     size="sm"
+                                    onClick={() => window.open('mailto:safecitiessa@aol.com')}
                                 >
                                     <Mail className="w-4 h-4 mr-2" />
                                     Contact Support
