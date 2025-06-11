@@ -11,6 +11,7 @@ import {
     ultraFastInvalidateFileCaches,
     smartInvalidateFileCaches,
     rebuildFileCaches,
+    comprehensivePermissionInvalidation,
 } from '~/lib/streamlined-cache-invalidation'
 import type { FileNode } from '~/components/file-tree'
 import { NewFileDialog, type NewFileType } from '~/components/new-file-dialog'
@@ -94,8 +95,26 @@ export function useFileOperations() {
 
     // Handle deleting files
     const deleteFileMutation = api.files.delete.useMutation({
-        onSuccess: async () => {
+        onSuccess: async (data) => {
+            console.log(`✅ File deletion successful:`, data)
+
+            // Use comprehensive cache invalidation for file deletion
+            await comprehensivePermissionInvalidation(
+                utils,
+                data.deletedFileIds?.[0] || 0
+            )
             await invalidateFileTree()
+
+            console.log(`🔄 Cache invalidation completed after file deletion`)
+        },
+        onError: (error) => {
+            console.error('File deletion failed:', error)
+            toast({
+                title: 'Error deleting file',
+                description:
+                    error.message || 'Failed to delete file. Please try again.',
+                variant: 'destructive',
+            })
         },
     })
 
@@ -235,25 +254,63 @@ export function useFileOperations() {
             // Multi-delete
             const promises = selectedFileIds.map(
                 (fileId) =>
-                    new Promise((resolve) => {
+                    new Promise((resolve, reject) => {
                         deleteFileMutation.mutate(
                             { id: fileId },
-                            { onSuccess: resolve }
+                            {
+                                onSuccess: (data) => {
+                                    console.log(
+                                        `✅ Multi-delete item success:`,
+                                        data
+                                    )
+                                    resolve(data)
+                                },
+                                onError: reject,
+                            }
                         )
                     })
             )
 
-            void Promise.all(promises).then(() => {
-                ultraFastInvalidateFileCaches(utils)
-                setSelectedFileIds([])
-            })
+            void Promise.all(promises)
+                .then((results) => {
+                    console.log(`✅ Multi-delete completed:`, results)
+
+                    // Clear caches for all deleted files
+                    ultraFastInvalidateFileCaches(utils)
+                    comprehensivePermissionInvalidation(
+                        utils,
+                        selectedFileIds[0] || id
+                    )
+                    setSelectedFileIds([])
+
+                    console.log(
+                        `🔄 Cache invalidation completed after multi-delete`
+                    )
+                })
+                .catch((error) => {
+                    console.error('Multi-delete failed:', error)
+                    toast({
+                        title: 'Error deleting files',
+                        description:
+                            'Some files could not be deleted. Please try again.',
+                        variant: 'destructive',
+                    })
+                })
         } else {
             // Single delete
             deleteFileMutation.mutate(
                 { id },
                 {
-                    onSuccess: () => {
-                        smartInvalidateFileCaches(utils)
+                    onSuccess: (data) => {
+                        console.log(`✅ Single file deletion successful:`, data)
+
+                        // Use comprehensive cache invalidation for file deletion
+                        comprehensivePermissionInvalidation(
+                            utils,
+                            data.deletedFileIds?.[0] || id
+                        )
+                        smartInvalidateFileCaches(utils, id)
+
                         if (selectedFileIds.includes(id)) {
                             setSelectedFileIds(
                                 selectedFileIds.filter(
@@ -261,6 +318,20 @@ export function useFileOperations() {
                                 )
                             )
                         }
+
+                        console.log(
+                            `🔄 Cache invalidation completed after single file deletion`
+                        )
+                    },
+                    onError: (error) => {
+                        console.error('Single file deletion failed:', error)
+                        toast({
+                            title: 'Error deleting file',
+                            description:
+                                error.message ||
+                                'Failed to delete file. Please try again.',
+                            variant: 'destructive',
+                        })
                     },
                 }
             )

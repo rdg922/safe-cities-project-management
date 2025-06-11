@@ -369,7 +369,9 @@ export const effectivePermissions = createTable(
         // Track if this is a direct permission or inherited
         isDirect: d.boolean().default(false),
         // Track the source file ID for inherited permissions
-        sourceFileId: d.integer().references(() => files.id),
+        sourceFileId: d
+            .integer()
+            .references(() => files.id, { onDelete: 'cascade' }),
         createdAt: d.timestamp().notNull().defaultNow(),
         updatedAt: d.timestamp().defaultNow(),
     }),

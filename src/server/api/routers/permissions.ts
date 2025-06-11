@@ -153,31 +153,39 @@ export const permissionsRouter = createTRPCRouter({
             return await getFilePermissions(input.fileId)
         }),
 
-    // Get all permissions for a file including inherited permissions
+    // Get all permissions for a file including inherited permissions (optimized)
     getFilePermissionsWithInherited: protectedProcedure
         .input(z.object({ fileId: z.number() }))
         .query(async ({ ctx, input }) => {
             const { userId } = ctx.auth
 
-            // Check if user has at least view permission
-            const canView = await hasPermission(userId, input.fileId, 'view')
-            if (!canView) {
+            // Check if user has at least view permission (using ultra-fast check)
+            const userPermission = await superFastPermissionCheck(userId, input.fileId, 'view')
+            if (!userPermission) {
                 throw new TRPCError({
                     code: 'FORBIDDEN',
                     message: 'You do not have permission to view this file',
                 })
             }
 
-            // Get direct permissions
-            const directPermissions = await getFilePermissions(input.fileId)
-
-            // Get inherited permissions using effective permissions table
-            const inheritedPermissions =
-                await ctx.db.query.effectivePermissions.findMany({
-                    where: and(
-                        eq(effectivePermissions.fileId, input.fileId),
-                        eq(effectivePermissions.isDirect, false)
-                    ),
+            // Single optimized query to get all permissions (direct and inherited) at once
+            const [directPermissions, allEffectivePermissions] = await Promise.all([
+                // Direct permissions query
+                ctx.db.query.filePermissions.findMany({
+                    where: eq(filePermissions.fileId, input.fileId),
+                    with: {
+                        user: {
+                            columns: {
+                                id: true,
+                                name: true,
+                                email: true,
+                            },
+                        },
+                    },
+                }),
+                // All effective permissions for this file (direct and inherited)
+                ctx.db.query.effectivePermissions.findMany({
+                    where: eq(effectivePermissions.fileId, input.fileId),
                     with: {
                         user: {
                             columns: {
@@ -194,6 +202,10 @@ export const permissionsRouter = createTRPCRouter({
                         },
                     },
                 })
+            ])
+
+            // Filter inherited permissions (non-direct only)
+            const inheritedPermissions = allEffectivePermissions.filter(perm => !perm.isDirect)
 
             return {
                 directPermissions,

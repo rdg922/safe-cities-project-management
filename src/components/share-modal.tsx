@@ -56,88 +56,76 @@ export function ShareModal({
     const [searchQuery, setSearchQuery] = useState('')
     const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([])
     const [inheritedUsers, setInheritedUsers] = useState<InheritedUser[]>([])
-    const [filePermissions, setFilePermissions] = useState<any[]>([])
-    const [isLoadingPermissions, setIsLoadingPermissions] = useState(false)
 
     // Get all users from the database
     const { data: allUsers = [], isLoading } = api.user.getAllUsers.useQuery()
 
-    // Get utils for async permission fetching and cache invalidation
+    // Get utils for cache invalidation
     const utils = api.useUtils()
 
-    // Async function to fetch file permissions
-    const fetchFilePermissions = async () => {
-        if (!isOpen || !fileId || typeof fileId !== 'number' || fileId <= 0) {
+    // Use tRPC query with proper caching for file permissions
+    const { 
+        data: permissionsData, 
+        isLoading: isLoadingPermissions,
+        refetch: refetchPermissions 
+    } = api.permissions.getFilePermissionsWithInherited.useQuery(
+        { fileId },
+        { 
+            enabled: isOpen && !!fileId,
+            staleTime: 5 * 60 * 1000, // 5 minutes cache
+            refetchOnWindowFocus: false,
+        }
+    )
+
+    // Process permissions data when it changes
+    useEffect(() => {
+        if (!permissionsData) {
+            setSharedUsers([])
+            setInheritedUsers([])
             return
         }
 
-        setIsLoadingPermissions(true)
-        try {
-            // Force fresh fetch from server instead of using cache
-            // This ensures we get the latest permission state after mutations
-            const permissionsData =
-                await utils.permissions.getFilePermissionsWithInherited.fetch({
-                    fileId,
-                })
-            setFilePermissions(permissionsData?.directPermissions || [])
+        // Process direct permissions
+        const directPermissions = permissionsData.directPermissions || []
+        const users: SharedUser[] = directPermissions.map((fp: any) => ({
+            id: fp.userId,
+            name: fp.user?.name || fp.user?.email || 'Unknown User',
+            email: fp.user?.email || '',
+            permission: fp.permission as SharePermission,
+            isLoading: false,
+        }))
+        setSharedUsers(users)
 
-            // Process inherited permissions
-            const inheritedPerms: InheritedUser[] = (
-                permissionsData?.inheritedPermissions || []
-            ).map((perm: any) => ({
-                id: perm.user.id,
-                name: perm.user.name || perm.user.email || 'Unknown User',
-                email: perm.user.email || '',
-                permission: perm.permission,
-                sourceFileName: perm.sourceFile?.name || 'Unknown',
-            }))
-            setInheritedUsers(inheritedPerms)
-        } catch (error) {
-            console.error('Error fetching permissions:', error)
-            setFilePermissions([])
-            setInheritedUsers([])
-        } finally {
-            setIsLoadingPermissions(false)
-        }
-    }
-
-    // Fetch permissions when modal opens or fileId changes
-    useEffect(() => {
-        if (isOpen && fileId) {
-            fetchFilePermissions()
-        } else {
-            setFilePermissions([])
-            setInheritedUsers([])
-        }
-    }, [isOpen, fileId])
-
-    // tRPC mutations for permission management with ultra-fast cache invalidation
+        // Process inherited permissions
+        const inheritedPerms: InheritedUser[] = (
+            permissionsData.inheritedPermissions || []
+        ).map((perm: any) => ({
+            id: perm.user.id,
+            name: perm.user.name || perm.user.email || 'Unknown User',
+            email: perm.user.email || '',
+            permission: perm.permission,
+            sourceFileName: perm.sourceFile?.name || 'Unknown',
+        }))
+        setInheritedUsers(inheritedPerms)
+    }, [permissionsData])
+    // tRPC mutations for permission management with optimized cache invalidation
     const setPermissionMutation = api.permissions.setPermission.useMutation({
         onSuccess: async () => {
             console.log(
                 `✏️ Permission set for file ${fileId}, starting cache invalidation...`
             )
 
-            // Instant UI feedback with minimal cache invalidation
-            await comprehensivePermissionInvalidation(utils, fileId)
-            console.log(
-                `✅ Instant cache invalidation completed for file ${fileId}`
-            )
-
-            // Specific file tree invalidation to ensure it updates immediately
-            await invalidateFileTreePermissions(utils, fileId)
-
-            // Force invalidate the specific inherited permissions query
-            await utils.permissions.getFilePermissionsWithInherited.invalidate({
-                fileId,
-            })
-
-            // Background smart cache invalidation (includes server-side async rebuild)
-            smartInvalidatePermissionCaches(utils, fileId)
-
-            // Refresh modal data with fresh fetch
-            await fetchFilePermissions()
-            console.log(`🔄 Modal data refreshed for file ${fileId}`)
+            // Instant UI feedback with targeted cache invalidation
+            await Promise.all([
+                utils.permissions.getFilePermissionsWithInherited.invalidate({ fileId }),
+                utils.permissions.batchCheckPermissions.invalidate(),
+                utils.files.getFilteredFileTree.invalidate(),
+            ])
+            
+            // Trigger refetch to get fresh data
+            refetchPermissions()
+            
+            console.log(`✅ Cache invalidation completed for file ${fileId}`)
         },
         onError: (error) => {
             console.error('Error setting permission:', error)
@@ -151,76 +139,22 @@ export function ShareModal({
                     `🗑️ Permission removed for file ${fileId}, starting cache invalidation...`
                 )
 
-                // Instant UI feedback with minimal cache invalidation
-                await comprehensivePermissionInvalidation(utils, fileId)
-                console.log(
-                    `✅ Instant cache invalidation completed for file ${fileId}`
-                )
-
-                // Specific file tree invalidation to ensure it updates immediately
-                await invalidateFileTreePermissions(utils, fileId)
-
-                // Force invalidate the specific inherited permissions query
-                await utils.permissions.getFilePermissionsWithInherited.invalidate(
-                    { fileId }
-                )
-
-                // Background smart cache invalidation (includes server-side async rebuild)
-                smartInvalidatePermissionCaches(utils, fileId)
-
-                // Refresh modal data with fresh fetch
-                await fetchFilePermissions()
-                console.log(`🔄 Modal data refreshed for file ${fileId}`)
+                // Instant UI feedback with targeted cache invalidation
+                await Promise.all([
+                    utils.permissions.getFilePermissionsWithInherited.invalidate({ fileId }),
+                    utils.permissions.batchCheckPermissions.invalidate(),
+                    utils.files.getFilteredFileTree.invalidate(),
+                ])
+                
+                // Trigger refetch to get fresh data
+                refetchPermissions()
+                
+                console.log(`✅ Cache invalidation completed for file ${fileId}`)
             },
             onError: (error) => {
                 console.error('Error removing permission:', error)
             },
         })
-
-    // Update sharedUsers when filePermissions change
-    useEffect(() => {
-        if (!isOpen) return // Don't update if modal is closed
-
-        // Add validation to prevent errors
-        if (!filePermissions || !Array.isArray(filePermissions)) {
-            setSharedUsers((prevUsers) =>
-                prevUsers.length > 0 ? [] : prevUsers
-            )
-            return
-        }
-
-        if (filePermissions.length > 0) {
-            const users: SharedUser[] = filePermissions.map((fp: any) => ({
-                id: fp.userId,
-                name: fp.user?.name || fp.user?.email || 'Unknown User',
-                email: fp.user?.email || '',
-                permission: fp.permission as SharePermission,
-                isLoading: false,
-            }))
-
-            // Only update if the data has actually changed
-            setSharedUsers((prevUsers) => {
-                if (prevUsers.length !== users.length) return users
-
-                const hasChanges = users.some((user, index) => {
-                    const prevUser = prevUsers[index]
-                    return (
-                        !prevUser ||
-                        prevUser.id !== user.id ||
-                        prevUser.permission !== user.permission ||
-                        prevUser.name !== user.name ||
-                        prevUser.email !== user.email
-                    )
-                })
-
-                return hasChanges ? users : prevUsers
-            })
-        } else {
-            setSharedUsers((prevUsers) =>
-                prevUsers.length > 0 ? [] : prevUsers
-            )
-        }
-    }, [filePermissions, isOpen])
 
     // Filter users based on search query
     const filteredUsers = allUsers.filter(
