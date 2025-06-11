@@ -27,6 +27,7 @@ import {
     AlertDialogTitle,
 } from '~/components/ui/alert-dialog'
 import { HistoryIcon, RotateCcwIcon, TrashIcon, UserIcon } from 'lucide-react'
+import { SimpleEditor } from '~/components/tiptap-templates/simple/simple-editor'
 
 interface VersionHistoryProps {
     fileId: number
@@ -67,7 +68,9 @@ export function VersionHistory({
                 description: `Successfully restored to version ${data.restoredToVersion}`,
             })
             // Find the restored version and pass its content to onRestore
-            const restoredVersion = versions?.find(v => v.version === data.restoredToVersion)
+            const restoredVersion = versions?.find(
+                (v) => v.version === data.restoredToVersion
+            )
             if (restoredVersion && onRestore) {
                 onRestore(restoredVersion.content)
             }
@@ -130,7 +133,7 @@ export function VersionHistory({
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onClose}>
-                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+                <DialogContent className="max-w-4xl h-[80vh] min-h-[600px] sm:h-[85vh] sm:min-h-[700px] md:h-[90vh] md:min-h-[800px] w-[95vw] sm:w-full flex flex-col">
                     <DialogHeader className="flex-shrink-0">
                         <DialogTitle className="flex items-center gap-2">
                             <HistoryIcon className="h-5 w-5" />
@@ -270,7 +273,7 @@ export function VersionHistory({
 
             {/* Preview Dialog */}
             <Dialog open={showPreview} onOpenChange={setShowPreview}>
-                <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+                <DialogContent className="max-w-4xl h-[85vh] min-h-[600px] sm:h-[90vh] sm:min-h-[700px] md:h-[95vh] md:min-h-[800px] w-[95vw] sm:w-full flex flex-col">
                     <DialogHeader className="flex-shrink-0">
                         <DialogTitle>Version Preview</DialogTitle>
                         <DialogDescription>
@@ -278,16 +281,10 @@ export function VersionHistory({
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex-1 min-h-0 overflow-hidden">
-                        <div className="h-full overflow-y-auto w-full border rounded-lg p-4 bg-background scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-                            <div
-                                className="prose prose-sm max-w-none dark:prose-invert"
-                                dangerouslySetInnerHTML={{
-                                    __html: previewContent || '',
-                                }}
-                                style={{
-                                    fontFamily: 'var(--font-sans)',
-                                    lineHeight: '1.6',
-                                }}
+                        <div className="h-full w-full border rounded-lg bg-background">
+                            <SimpleEditor
+                                initialContent={previewContent || ''}
+                                readOnly={true}
                             />
                         </div>
                     </div>
