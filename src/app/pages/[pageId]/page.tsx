@@ -22,10 +22,19 @@ export default function PageView() {
     } = api.files.getById.useQuery({ id: pageId }, { enabled: !!pageId })
 
     // Get user's permission for this file using the hierarchical permission system
-    const { data: userPermission } = api.permissions.getUserPermission.useQuery(
-        { fileId: pageId },
-        { enabled: !!pageId }
-    )
+    const { data: userPermission, isLoading: isPermissionLoading } =
+        api.permissions.getUserPermission.useQuery(
+            { fileId: pageId },
+            {
+                enabled: !!pageId,
+                staleTime: 30 * 1000, // 30 seconds
+                gcTime: 5 * 60 * 1000, // 5 minutes
+                retry: 3,
+                retryDelay: (attemptIndex) =>
+                    Math.min(1000 * 2 ** attemptIndex, 30000),
+                refetchOnWindowFocus: false,
+            }
+        )
 
     const [content, setContent] = useState<string>('')
     const [localPermission, setLocalPermission] = useState<Permission>('view')
@@ -126,9 +135,13 @@ export default function PageView() {
     }, [])
 
     // Determine if the editor should be read-only based on permissions
-    const isReadOnly = !userPermission || userPermission === 'view'
+    // Default to readOnly while loading OR when userPermission is null/undefined
+    // Only allow editing when userPermission is explicitly 'edit' or 'comment'
+    const isReadOnly =
+        isPermissionLoading ||
+        (userPermission !== 'edit' && userPermission !== 'comment')
 
-    if (isLoading) {
+    if (isLoading || isPermissionLoading) {
         return (
             <div className="container mx-auto p-6">
                 <div className="flex items-center justify-center h-[calc(100vh-200px)]">
