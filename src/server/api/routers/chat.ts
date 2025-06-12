@@ -189,7 +189,7 @@ export const chatRouter = createTRPCRouter({
             .leftJoin(files, eq(messages.fileId, files.id))
             .leftJoin(users, eq(messages.userId, users.id))
             .where(inArray(messages.fileId, fileIds))
-            .orderBy(asc(messages.createdAt))
+            .orderBy(desc(messages.createdAt))
             .limit(50)
 
         // Group by file
