@@ -3,7 +3,7 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { ProgramCard } from '~/components/program-card'
 import { RecentActivityList } from '~/components/recent-activity-list'
-import { Plus } from 'lucide-react'
+import { Bell, Plus, Folders } from 'lucide-react'
 import { api } from '~/trpc/react'
 import { FILE_TYPES } from '~/server/db/schema'
 import { useState, useEffect, useMemo } from 'react'
@@ -178,6 +178,18 @@ export default function DashboardPage() {
                     {isLoadingPrograms ? (
                         <div className="flex items-center justify-center h-32">
                             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                        </div>
+                    ) : programs?.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-[400px] text-center">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                                <Folders size={24} className="text-muted-foreground" />
+                            </div>
+                            <h3 className="mt-4 text-lg font-medium">
+                                No programs yet
+                            </h3>
+                            <p className="mt-2 text-sm text-muted-foreground max-w-sm">
+                                Create your first program to get started with organizing your workspace.
+                            </p>
                         </div>
                     ) : (
                         <div className="grid gap-4">
