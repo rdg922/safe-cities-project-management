@@ -32,6 +32,7 @@ function PageChatContent({ pageTitle, fileId: validatedFileId }: PageChatProps) 
     const [newMessage, setNewMessage] = useState('')
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const [isActive, setIsActive] = useState(true)
+    const [isSending, setIsSending] = useState(false)
 
     // Get messages for this page
     const { data: messages = [], refetch: refetchMessages } =
@@ -44,9 +45,23 @@ function PageChatContent({ pageTitle, fileId: validatedFileId }: PageChatProps) 
     const { mutate: sendMessage } = api.chat.sendMessage.useMutation({
         onSuccess: () => {
             setNewMessage('')
+            setIsSending(false)
             void refetchMessages()
         },
+        onError: () => {
+            setIsSending(false)
+        }
     })
+
+    const handleSendMessage = () => {
+        if (!newMessage.trim() || !validatedFileId || isNaN(validatedFileId)) return
+
+        setIsSending(true)
+        sendMessage({
+            fileId: validatedFileId,
+            content: newMessage.trim(),
+        })
+    }
 
     // Set up polling interval with visibility check
     useEffect(() => {
@@ -78,15 +93,6 @@ function PageChatContent({ pageTitle, fileId: validatedFileId }: PageChatProps) 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages])
-
-    const handleSendMessage = () => {
-        if (!newMessage.trim() || !validatedFileId || isNaN(validatedFileId)) return
-
-        sendMessage({
-            fileId: validatedFileId,
-            content: newMessage.trim(),
-        })
-    }
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -145,14 +151,13 @@ function PageChatContent({ pageTitle, fileId: validatedFileId }: PageChatProps) 
                         onKeyDown={handleKeyDown}
                         placeholder="Type a message..."
                         className="flex-1"
+                        disabled={isSending}
                     />
-                    <Button variant="ghost" size="icon" className="h-10 w-10">
-                        <Smile size={20} />
-                    </Button>
                     <Button
                         onClick={handleSendMessage}
                         size="icon"
                         className="h-10 w-10"
+                        disabled={isSending}
                     >
                         <Send size={18} />
                     </Button>

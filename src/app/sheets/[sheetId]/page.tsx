@@ -43,7 +43,18 @@ export default function SheetPage() {
     }, [userPermission])
 
     if (isLoading) {
-        return <div className="p-4">Loading...</div>
+        return (
+            <div className="container mx-auto p-6">
+                <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+                    <div className="text-center">
+                        <div className="animate-spin h-8 w-8 border-4 border-primary rounded-full border-t-transparent mx-auto mb-4"></div>
+                        <p className="text-muted-foreground">
+                            Loading sheet content...
+                        </p>
+                    </div>
+                </div>
+            </div>
+        )
     }
 
     if (!sheet) {

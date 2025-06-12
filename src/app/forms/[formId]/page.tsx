@@ -75,7 +75,7 @@ export default function FormView() {
                 <div className="flex flex-col items-center justify-center">
                     <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
                     <p className="mt-4 text-sm text-muted-foreground">
-                        Loading form...
+                        Loading form content...
                     </p>
                 </div>
             </div>

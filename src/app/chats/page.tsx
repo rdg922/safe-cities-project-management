@@ -32,6 +32,12 @@ export default function ChatsPage() {
                 .includes(searchQuery.toLowerCase())
     )
 
+    const sortedChats = filteredChats.sort(
+        (a, b) =>
+          new Date(b.lastMessage.createdAt).getTime() -
+          new Date(a.lastMessage.createdAt).getTime()
+      )
+
     return (
         <div className="container mx-auto p-6">
             <div className="flex items-center justify-between mb-6">
@@ -72,16 +78,16 @@ export default function ChatsPage() {
                         </div>
                     )}
                     {isLoading && (
-                        <div className="p-4 text-center text-muted-foreground">
-                            Loading chats...
+                        <div className="flex items-center justify-center h-32">
+                            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
                         </div>
                     )}
                     {!isLoading && !error && (
                         <div className="divide-y">
-                            {filteredChats.map((chat) => (
+                            {sortedChats.map((chat) => (
                                 <Link
                                     key={chat?.file?.id}
-                                    href={`/pages/${chat?.file?.id}`}
+                                    href={`/${chat?.file?.type}s/${chat?.file?.id}`}
                                     className="flex items-center gap-4 p-4 hover:bg-muted/50 cursor-pointer"
                                 >
                                     <div className="flex-shrink-0">
@@ -126,7 +132,7 @@ export default function ChatsPage() {
                                     <p className="mt-2 text-sm text-muted-foreground">
                                         {searchQuery
                                             ? `No chats match "${searchQuery}". Try a different search term.`
-                                            : 'Start a chat by opening the chat panel on any page.'}
+                                            : 'Start a chat on any program item.'}
                                     </p>
                                 </div>
                             )}
