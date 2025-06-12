@@ -11,9 +11,16 @@
 }
 
 .tiptap-toolbar {
+  width: 100%;
+  min-height: var(--tt-toolbar-height);
+  background: var(--tt-toolbar-bg-color);
+  border-bottom: 1px solid var(--tt-toolbar-border-color);
+  padding: 0 0.5rem;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  justify-content: center; // Center content horizontally
+
+  gap: 0; // No gap at the toolbar level
 
   &-group {
     display: flex;
@@ -34,11 +41,6 @@
     position: sticky;
     top: 0;
     z-index: 10;
-    width: 100%;
-    min-height: var(--tt-toolbar-height);
-    background: var(--tt-toolbar-bg-color);
-    border-bottom: 1px solid var(--tt-toolbar-border-color);
-    padding: 0 0.5rem;
     overflow-x: auto;
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
@@ -59,10 +61,6 @@
       padding: 0 0.5rem var(--tt-safe-area-bottom);
       flex-wrap: nowrap;
       justify-content: flex-start;
-
-      .tiptap-toolbar-group {
-        flex: 0 0 auto;
-      }
     }
   }
 
@@ -91,6 +89,7 @@
 
     @media screen and (max-width: 768px) {
       width: 100%;
+      max-width: 100%;
       border-radius: 0;
       border: none;
       box-shadow: none;

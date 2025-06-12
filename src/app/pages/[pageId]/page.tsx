@@ -38,16 +38,13 @@ export default function PageView() {
 
     const [content, setContent] = useState<string>('')
     const [localPermission, setLocalPermission] = useState<Permission>('view')
-    const [hasInitialContentLoaded, setHasInitialContentLoaded] =
-        useState(false)
+    const [hasInitialContentLoaded, setHasInitialContentLoaded] = useState(false)
 
     // Version history state
     const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
 
     // Add state to track saving status
-    const [savingStatus, setSavingStatus] = useState<
-        'idle' | 'saving' | 'saved'
-    >('idle')
+    const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
 
     // Add mutation hook for updating the page
     const updatePageMutation = api.files.updatePageContent.useMutation({
@@ -129,8 +126,7 @@ export default function PageView() {
         setIsVersionHistoryOpen(false)
         toast({
             title: 'Version restored',
-            description:
-                'The page content has been restored to the selected version.',
+            description: 'The page content has been restored to the selected version.',
         })
     }, [])
 
@@ -185,31 +181,29 @@ export default function PageView() {
 
     return (
         <div className="h-screen flex flex-col">
-            <FileHeader
-                filename={page.name || 'Untitled Page'}
-                fileId={pageId}
-                permission={localPermission}
-                savingStatus={savingStatus}
-                content={content}
-                onVersionHistoryClick={() => setIsVersionHistoryOpen(true)}
-            />
+                <FileHeader
+                    filename={page.name || 'Untitled Page'}
+                    fileId={pageId}
+                    permission={localPermission}
+                    savingStatus={savingStatus}
+                    content={content}
+                    onVersionHistoryClick={() => setIsVersionHistoryOpen(true)}
+                />
 
-            <div className="flex-1 min-h-0 flex justify-center items-start bg-background">
-                <div className="w-full max-w-4xl my-8 border border-border rounded-lg shadow bg-card p-6">
+                <div className="flex-1 min-h-0 flex justify-center items-start bg-background">
                     <SimpleEditor
                         initialContent={content}
                         readOnly={isReadOnly}
                         onUpdate={handleContentChange}
                     />
                 </div>
-            </div>
 
-            <VersionHistory
-                fileId={pageId}
-                isOpen={isVersionHistoryOpen}
-                onClose={() => setIsVersionHistoryOpen(false)}
-                onRestore={handleVersionRestore}
-            />
+                <VersionHistory
+                    fileId={pageId}
+                    isOpen={isVersionHistoryOpen}
+                    onClose={() => setIsVersionHistoryOpen(false)}
+                    onRestore={handleVersionRestore}
+                />
         </div>
     )
 }

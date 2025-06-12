@@ -1,21 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import {
-    ChevronRight,
-    Folder,
-    FileText,
-    ChevronDown,
-    MoreHorizontal,
-    Edit2,
-    Trash2,
-    Plus,
-    AlertCircle,
-    ClipboardList,
-    Sheet,
-    Share2,
-    UploadCloud,
-} from 'lucide-react'
+import { ChevronRight, Folder, FileText, ChevronDown, MoreHorizontal, Edit2, Trash2, Plus,
+    AlertCircle, ClipboardList, Sheet, Share2, UploadCloud } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
@@ -23,23 +10,12 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { useToast } from '~/hooks/use-toast'
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '~/components/ui/dropdown-menu'
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '~/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { api } from '~/trpc/react'
 import { ShareModal } from '~/components/share-modal'
 import { useBatchPermissions } from '~/hooks/use-batch-permissions'
+import { useRouter } from 'next/navigation'
 
 export type FileNode = {
     id: number
@@ -80,7 +56,6 @@ interface FileTreeNodeProps extends Omit<FileTreeProps, 'items'> {
 export function FileTree(props: FileTreeProps) {
     // Create a ref to store component data for range selection
     const rootRef = useRef<HTMLDivElement>(null)
-
     // Use batch permissions for all files in the tree
     const { getPermissions } = useBatchPermissions(props.items)
 
@@ -107,8 +82,7 @@ export function FileTree(props: FileTreeProps) {
             // Delete key - delete selected items
             if (
                 (e.key === 'Delete' || e.key === 'Backspace') &&
-                props.selectedFileIds?.length &&
-                props.onDelete
+                props.selectedFileIds?.length && props.onDelete
             ) {
                 e.preventDefault()
 
@@ -117,9 +91,7 @@ export function FileTree(props: FileTreeProps) {
                     if (props.selectedFileIds.length === 1) {
                         props.onDelete(selectedId)
                     } else if (
-                        confirm(
-                            `Are you sure you want to delete ${props.selectedFileIds.length} selected items?`
-                        )
+                        confirm(`Are you sure you want to delete ${props.selectedFileIds.length} selected items?`)
                     ) {
                         // Multi-delete handled in the parent component
                         props.onDelete(selectedId)
@@ -200,9 +172,7 @@ function FileTreeNode({
     const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false)
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
     const [isShareModalOpen, setIsShareModalOpen] = useState(false)
-    const [renameValue, setRenameValue] = useState(
-        node.filename || node.name || ''
-    )
+    const [renameValue, setRenameValue] = useState(node.filename || node.name || '')
 
     const expandTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const animationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -210,6 +180,7 @@ function FileTreeNode({
     const isSelected = selectedFileIds.includes(node.id)
     const nodeRef = useRef<HTMLDivElement>(null)
     const { toast } = useToast()
+    const router = useRouter()
 
     // Get permissions for this file from the batch query
     const permissions = getPermissions(node.id)
@@ -270,9 +241,7 @@ function FileTreeNode({
         },
         drop: (item: any, monitor) => {
             // Only handle the drop if this component is the direct drop target
-            if (monitor.didDrop()) {
-                return
-            }
+            if (monitor.didDrop()) return
 
             if (onMove) {
                 try {
@@ -285,12 +254,8 @@ function FileTreeNode({
                     }
 
                     // Log information before the move to help with debugging
-                    console.log(
-                        `Drag item ID: ${item.id}, Drop target ID: ${node.id}`
-                    )
-                    console.log(
-                        `Target node isFolder: ${!!node.isFolder}, Target parentId: ${node.parentId}`
-                    )
+                    console.log(`Drag item ID: ${item.id}, Drop target ID: ${node.id}`)
+                    console.log(`Target node isFolder: ${!!node.isFolder}, Target parentId: ${node.parentId}`)
 
                     // Call the onMove handler
                     onMove(item.id, node.id)
@@ -305,8 +270,7 @@ function FileTreeNode({
                     console.error('Error during drag and drop: ', error)
                     toast({
                         title: 'Error moving item',
-                        description:
-                            'Failed to move the item. Please try again.',
+                        description: 'Failed to move the item. Please try again.',
                         variant: 'destructive',
                     })
 
@@ -417,9 +381,7 @@ function FileTreeNode({
             if (e.ctrlKey || e.metaKey) {
                 if (isSelected) {
                     // Remove from selection
-                    newSelectedIds = newSelectedIds.filter(
-                        (id) => id !== node.id
-                    )
+                    newSelectedIds = newSelectedIds.filter((id) => id !== node.id)
                 } else {
                     // Add to selection
                     newSelectedIds.push(node.id)
@@ -439,9 +401,7 @@ function FileTreeNode({
                 }
 
                 // Get the parent component to provide all items
-                const root = document.querySelector(
-                    '[data-file-tree-root="true"]'
-                )
+                const root = document.querySelector('[data-file-tree-root="true"]')
                 if (root) {
                     const fileTreeProps = (root as any).__fileTreeProps
                     if (fileTreeProps?.items) {
@@ -542,6 +502,10 @@ function FileTreeNode({
     const handleDeleteConfirm = () => {
         if (onDelete) {
             onDelete(node.id)
+            // If this file is currently being viewed, redirect to dashboard
+            if (activeFileId === node.id) {
+                router.push('/dashboard')
+            }
         }
         setIsDeleteDialogOpen(false)
     }

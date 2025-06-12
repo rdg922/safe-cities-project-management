@@ -25,11 +25,7 @@ import UniqueId from 'tiptap-unique-id'
 // --- UI Primitives ---
 import { Button } from '@/components/tiptap-ui-primitive/button'
 import { Spacer } from '@/components/tiptap-ui-primitive/spacer'
-import {
-    Toolbar,
-    ToolbarGroup,
-    ToolbarSeparator,
-} from '@/components/tiptap-ui-primitive/toolbar'
+import { Toolbar, ToolbarGroup, ToolbarSeparator } from '@/components/tiptap-ui-primitive/toolbar'
 
 // --- Tiptap Node ---
 import { ImageUploadNode } from '@/components/tiptap-node/image-upload-node/image-upload-node-extension'
@@ -45,16 +41,8 @@ import { ImageUploadButton } from '@/components/tiptap-ui/image-upload-button'
 import { ListDropdownMenu } from '@/components/tiptap-ui/list-dropdown-menu'
 import { BlockQuoteButton } from '@/components/tiptap-ui/blockquote-button'
 import { CodeBlockButton } from '@/components/tiptap-ui/code-block-button'
-import {
-    ColorHighlightPopover,
-    ColorHighlightPopoverContent,
-    ColorHighlightPopoverButton,
-} from '@/components/tiptap-ui/color-highlight-popover'
-import {
-    LinkPopover,
-    LinkContent,
-    LinkButton,
-} from '@/components/tiptap-ui/link-popover'
+import { ColorHighlightPopover, ColorHighlightPopoverContent, ColorHighlightPopoverButton } from '@/components/tiptap-ui/color-highlight-popover'
+import { LinkPopover, LinkContent, LinkButton } from '@/components/tiptap-ui/link-popover'
 import { MarkButton } from '@/components/tiptap-ui/mark-button'
 import { TextAlignButton } from '@/components/tiptap-ui/text-align-button'
 import { UndoRedoButton } from '@/components/tiptap-ui/undo-redo-button'
@@ -335,25 +323,26 @@ export function SimpleEditor({
                         />
                     )}
                 </Toolbar>
-
-                <div
-                  className="content-wrapper"
-                  style={{ cursor: 'text' }}
-                  onMouseDown={e => {
-                    if (e.target === e.currentTarget && editor) {
-                      setTimeout(() => {
-                        // Always move caret to end, regardless of focus state
-                        editor.commands.focus();
-                        editor.commands.setTextSelection(editor.state.doc.content.size);
-                      }, 0);
-                    }
-                  }}
-                >
-                  <EditorContent
-                    editor={editor}
-                    role="presentation"
-                    className="simple-editor-content"
-                  />
+                <div className="w-full max-w-4xl my-8 border border-border rounded-lg shadow bg-card p-6">
+                    <div
+                      className="content-wrapper"
+                      style={{ cursor: 'text' }}
+                      onMouseDown={e => {
+                        if (e.target === e.currentTarget && editor) {
+                          setTimeout(() => {
+                            // Moves text caret to text's end when you click on bottom whitepace
+                            editor.commands.focus();
+                            editor.commands.setTextSelection(editor.state.doc.content.size);
+                          }, 0);
+                        }
+                      }}
+                    >
+                      <EditorContent
+                        editor={editor}
+                        role="presentation"
+                        className="simple-editor-content"
+                      />
+                    </div>
                 </div>
             </div>
         </EditorContext.Provider>
