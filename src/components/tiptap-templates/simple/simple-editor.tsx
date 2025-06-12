@@ -336,12 +336,24 @@ export function SimpleEditor({
                     )}
                 </Toolbar>
 
-                <div className="content-wrapper">
-                    <EditorContent
-                        editor={editor}
-                        role="presentation"
-                        className="simple-editor-content"
-                    />
+                <div
+                  className="content-wrapper"
+                  style={{ cursor: 'text' }}
+                  onMouseDown={e => {
+                    if (e.target === e.currentTarget && editor) {
+                      setTimeout(() => {
+                        // Always move caret to end, regardless of focus state
+                        editor.commands.focus();
+                        editor.commands.setTextSelection(editor.state.doc.content.size);
+                      }, 0);
+                    }
+                  }}
+                >
+                  <EditorContent
+                    editor={editor}
+                    role="presentation"
+                    className="simple-editor-content"
+                  />
                 </div>
             </div>
         </EditorContext.Provider>
