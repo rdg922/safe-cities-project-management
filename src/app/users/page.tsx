@@ -88,45 +88,13 @@ export default function UsersPage() {
             userProfile.role === 'admin',
     })
 
-    // Show loading state while checking permissions
-    if (isProfileLoading) {
-        return (
-            <div className="container mx-auto p-6">
-                <div className="flex items-center justify-center min-h-[50vh]">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                </div>
-            </div>
-        )
-    }
-
-    // Redirect if not admin (this will be handled by useEffect, but we also return early here)
-    if (
-        (userProfile && !('role' in userProfile)) ||
-        (userProfile && 'role' in userProfile && userProfile.role !== 'admin')
-    ) {
-        return (
-            <div className="container mx-auto p-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Access Denied</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-muted-foreground">
-                            You do not have permission to access this page.
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
-        )
-    }
-
     const updateUserRole = api.user.updateUserRole.useMutation({
-        onSuccess: (data) => {
+        onSuccess: async (data) => {
             toast({
                 title: 'Success',
                 description: data?.message || 'User role updated successfully',
             })
-            refetchUsers()
+            await refetchUsers()
         },
         onError: (error) => {
             toast({
@@ -138,12 +106,12 @@ export default function UsersPage() {
     })
 
     const deleteUser = api.user.deleteUser.useMutation({
-        onSuccess: (data) => {
+        onSuccess: async (data) => {
             toast({
                 title: 'Success',
                 description: data?.message || 'User deleted successfully',
             })
-            refetchUsers()
+            await refetchUsers()
             setDeleteUserId(null)
             setUserToDelete(null)
         },
@@ -157,6 +125,17 @@ export default function UsersPage() {
             setUserToDelete(null)
         },
     })
+
+    // Show loading state while checking permissions
+    if (isProfileLoading) {
+        return (
+            <div className="container mx-auto p-6">
+                <div className="flex items-center justify-center min-h-[50vh]">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                </div>
+            </div>
+        )
+    }
 
     const handleDeleteUser = (user: any) => {
         setDeleteUserId(user.id)
