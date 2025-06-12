@@ -1,11 +1,14 @@
 'use client'
 
+import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import {
     Sidebar,
     SidebarContent,
     SidebarSeparator,
+    useSidebar,
 } from '~/components/ui/sidebar'
+import { useMobile } from '~/hooks/use-mobile'
 import { NewFileDialog } from './new-file-dialog'
 import { SidebarHeaderComponent } from './sidebar/sidebar-header'
 import { NavigationMenu } from './sidebar/navigation-menu'
@@ -15,6 +18,8 @@ import { useSidebarState, useFileOperations } from './sidebar/use-sidebar-state'
 
 export function AppSidebar() {
     const pathname = usePathname()
+    const isMobile = useMobile()
+    const { setOpenMobile } = useSidebar()
 
     const {
         isNewFileDialogOpen,
@@ -33,6 +38,13 @@ export function AppSidebar() {
     } = useSidebarState()
 
     const { handleMove, handleRename, handleDelete } = useFileOperations()
+
+    // Hide mobile sidebar on route navigation
+    useEffect(() => {
+        if (isMobile) {
+            setOpenMobile(false)
+        }
+    }, [pathname, isMobile, setOpenMobile])
 
     const handleNewFileClick = () => {
         setNewFileDialogType(undefined)
