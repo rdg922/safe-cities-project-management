@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { eq, ne, and, desc, asc, sql } from 'drizzle-orm'
+import { eq, ne, and, desc, asc, sql, inArray } from 'drizzle-orm'
 
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc'
-import { messages, files, users, notifications } from '~/server/db/schema'
+import { messages, files, users, notifications, filePermissions } from '~/server/db/schema'
 
 export const chatRouter = createTRPCRouter({
     // Get messages for a specific file
@@ -152,7 +152,33 @@ export const chatRouter = createTRPCRouter({
     getRecentChats: protectedProcedure.query(async ({ ctx }) => {
         const { userId } = ctx.auth
 
-        // Get the most recent message from each file where the user has participated
+        // First get user's role
+        const user = await ctx.db.query.users.findFirst({
+            where: eq(users.id, userId),
+            columns: { role: true },
+        })
+
+        let fileIds: number[]
+        if (user?.role === 'admin') {
+            // For admins, get all files in one query
+            const allFiles = await ctx.db.query.files.findMany({
+                columns: { id: true },
+            })
+            fileIds = allFiles.map(f => f.id)
+        } else {
+            // For non-admins, get their accessible files
+            const userPermissions = await ctx.db.query.filePermissions.findMany({
+                where: eq(filePermissions.userId, userId),
+                columns: { fileId: true },
+            })
+            fileIds = userPermissions.map(p => p.fileId)
+        }
+
+        if (fileIds.length === 0) {
+            return []
+        }
+
+        // Get messages for the accessible files
         const recentChats = await ctx.db
             .select({
                 message: messages,
@@ -162,7 +188,7 @@ export const chatRouter = createTRPCRouter({
             .from(messages)
             .leftJoin(files, eq(messages.fileId, files.id))
             .leftJoin(users, eq(messages.userId, users.id))
-            .where(eq(messages.userId, userId))
+            .where(inArray(messages.fileId, fileIds))
             .orderBy(desc(messages.createdAt))
             .limit(50)
 
