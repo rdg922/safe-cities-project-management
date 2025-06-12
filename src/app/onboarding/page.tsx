@@ -18,8 +18,9 @@ import {
     Users,
 } from 'lucide-react'
 import { api } from '~/trpc/react'
-import { useUser } from '@clerk/nextjs'
+import { useUser, SignOutButton } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
+import { LogOut } from 'lucide-react'
 
 export default function OnboardingPage() {
     const { user } = useUser()
@@ -161,10 +162,24 @@ export default function OnboardingPage() {
                                     variant="outline"
                                     className="w-full"
                                     size="sm"
+                                    onClick={() => window.open('mailto:safecitiessa@aol.com')}
                                 >
                                     <Mail className="w-4 h-4 mr-2" />
                                     Contact Support
                                 </Button>
+                                <SignOutButton>
+                                    <Button
+                                        variant="destructive"
+                                        className="w-full hover:bg-destructive/90"
+                                        size="sm"  
+                                    >
+                                        <LogOut
+                                            size={16}
+                                            className="w-4 h-4 mr-2"
+                                        />
+                                        Sign Out
+                                    </Button>
+                                </SignOutButton>
                             </div>
                         </CardContent>
                     </Card>
