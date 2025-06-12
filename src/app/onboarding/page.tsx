@@ -169,8 +169,8 @@ export default function OnboardingPage() {
                                 </Button>
                                 <SignOutButton>
                                     <Button
-                                        variant="outline"
-                                        className="w-full"
+                                        variant="destructive"
+                                        className="w-full hover:bg-destructive/90"
                                         size="sm"  
                                     >
                                         <LogOut
