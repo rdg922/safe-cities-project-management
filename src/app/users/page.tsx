@@ -46,6 +46,9 @@ import {
     Trash2,
 } from 'lucide-react'
 import { useToast } from '~/hooks/use-toast'
+import { SidebarTrigger } from '~/components/ui/sidebar'
+import { useMobile } from '~/hooks/use-mobile'
+import { ThemeToggle } from '~/components/tiptap-templates/simple/theme-toggle'
 
 export default function UsersPage() {
     const { toast } = useToast()
@@ -56,6 +59,7 @@ export default function UsersPage() {
         name: string
         email: string
     } | null>(null)
+    const isMobile = useMobile()
 
     // Check user permission
     const { data: userProfile, isLoading: isProfileLoading } =
@@ -163,10 +167,14 @@ export default function UsersPage() {
                         Manage users and their permissions
                     </p>
                 </div>
-                <Button className="gap-2">
-                    <UserPlus size={16} />
-                    Invite User
-                </Button>
+                <div className="flex items-center gap-2">
+                    {isMobile && <SidebarTrigger />}
+                    <ThemeToggle />
+                    <Button className="gap-2">
+                        <UserPlus size={16} />
+                        Invite User
+                    </Button>
+                </div>
             </div>
 
             <div className="flex items-center justify-between mb-6">

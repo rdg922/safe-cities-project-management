@@ -18,20 +18,24 @@ export function SidebarHeaderComponent({
 
     return (
         <SidebarHeader className="flex flex-col gap-4 p-4">
-            <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-800">
-                    <SafeCities size={18} />
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-800">
+                        <SafeCities size={18} />
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-sm font-semibold">
+                            Safe Cities
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                            Project Management
+                        </span>
+                    </div>
                 </div>
-                <div className="flex flex-col">
-                    <span className="text-sm font-semibold">Safe Cities</span>
-                    <span className="text-xs text-muted-foreground">
-                        Project Management
-                    </span>
-                </div>
-                <div>
+                <div className="flex items-center gap-2">
                     <ThemeToggle />
+                    {isMobile && <SidebarTrigger />}
                 </div>
-                <div>{isMobile && <SidebarTrigger />}</div>
             </div>
             <Button
                 size="sm"

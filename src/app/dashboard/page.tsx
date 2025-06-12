@@ -9,6 +9,8 @@ import { FILE_TYPES } from '~/server/db/schema'
 import { useState, useEffect, useMemo } from 'react'
 import { NewFileDialog } from '~/components/new-file-dialog'
 import { formatDistanceToNow } from 'date-fns'
+import { SidebarTrigger } from '~/components/ui/sidebar'
+import { useMobile } from '~/hooks/use-mobile'
 
 // Add performance measurement utility
 const measureQuery = (name: string, startTime: number) => {
@@ -18,6 +20,7 @@ const measureQuery = (name: string, startTime: number) => {
 
 export default function DashboardPage() {
     const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false)
+    const isMobile = useMobile()
 
     // Start measuring total page load time
     const startTime = useMemo(() => performance.now(), [])
@@ -79,13 +82,16 @@ export default function DashboardPage() {
     return (
         <div className="container mx-auto p-6">
             <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        Dashboard
-                    </h1>
-                    <p className="text-muted-foreground mt-1">
-                        Welcome back to your workspace
-                    </p>
+                <div className="flex items-center gap-4">
+                    {isMobile && <SidebarTrigger />}
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            Dashboard
+                        </h1>
+                        <p className="text-muted-foreground mt-1">
+                            Welcome back to your workspace
+                        </p>
+                    </div>
                 </div>
                 <Button
                     className="gap-2"
