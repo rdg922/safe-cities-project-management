@@ -1,7 +1,14 @@
 // Example model schema from the Drizzle docs
 // https://orm.drizzle.team/docs/sql-schema-declaration
 
-import { index, pgTableCreator, customType, type AnyPgColumn, pgEnum, unique } from 'drizzle-orm/pg-core'
+import {
+    index,
+    pgTableCreator,
+    customType,
+    type AnyPgColumn,
+    pgEnum,
+    unique,
+} from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { z } from 'zod'
 
@@ -76,16 +83,22 @@ export const files = createTable(
         id: d.serial().primaryKey(),
         name: d.varchar({ length: 256 }).notNull(),
         type: d.varchar({ length: 50 }).notNull().$type<FileType>(), // 'page', 'sheet', 'folder', 'upload', etc.
-        parentId: d.integer().references((): AnyPgColumn => files.id, { onDelete: 'cascade' }),
+        parentId: d
+            .integer()
+            .references((): AnyPgColumn => files.id, { onDelete: 'cascade' }),
         slug: d.varchar({ length: 256 }), // URL-friendly version of name for pages
         order: d.integer().default(0), // For ordering items within the same parent
         isPublic: d.boolean().default(false), // For public access control
         createdAt: d.timestamp().notNull().defaultNow(),
         updatedAt: d.timestamp().defaultNow(),
-        createdBy: d.text().references(() => users.id, { onDelete: 'set null' }),
-        updatedBy: d.text().references(() => users.id, { onDelete: 'set null' }),
-        path: d.varchar({ length: 512 }),      // Storage path for uploaded file
-        mimetype: d.varchar({ length: 128 }),  // MIME type for uploaded file
+        createdBy: d
+            .text()
+            .references(() => users.id, { onDelete: 'set null' }),
+        updatedBy: d
+            .text()
+            .references(() => users.id, { onDelete: 'set null' }),
+        path: d.varchar({ length: 512 }), // Storage path for uploaded file
+        mimetype: d.varchar({ length: 128 }), // MIME type for uploaded file
     }),
     (t) => [
         index('file_parent_idx').on(t.parentId),
@@ -111,6 +124,31 @@ export const pageContent = createTable('page_content', (d) => ({
     createdAt: d.timestamp().notNull().defaultNow(),
     updatedAt: d.timestamp().defaultNow(),
 }))
+
+// Page version history: stores historical versions of page content
+export const pageVersionHistory = createTable(
+    'page_version_history',
+    (d) => ({
+        id: d.serial().primaryKey(),
+        fileId: d
+            .integer()
+            .references(() => files.id, { onDelete: 'cascade' })
+            .notNull(),
+        content: d.text().notNull(),
+        version: d.integer().notNull(),
+        createdBy: d
+            .text()
+            .references(() => users.id, { onDelete: 'set null' }),
+        createdAt: d.timestamp().notNull().defaultNow(),
+        changeDescription: d.text(), // Optional description of what changed
+    }),
+    (t) => [
+        index('page_version_file_idx').on(t.fileId),
+        index('page_version_file_version_idx').on(t.fileId, t.version),
+        index('page_version_created_by_idx').on(t.createdBy),
+        index('page_version_created_at_idx').on(t.createdAt),
+    ]
+)
 
 // Sheet content: stores the actual sheet data separately from hierarchy
 export const sheetContent = createTable('sheet_content', (d) => ({
@@ -331,7 +369,9 @@ export const effectivePermissions = createTable(
         // Track if this is a direct permission or inherited
         isDirect: d.boolean().default(false),
         // Track the source file ID for inherited permissions
-        sourceFileId: d.integer().references(() => files.id),
+        sourceFileId: d
+            .integer()
+            .references(() => files.id, { onDelete: 'cascade' }),
         createdAt: d.timestamp().notNull().defaultNow(),
         updatedAt: d.timestamp().defaultNow(),
     }),
@@ -430,6 +470,16 @@ export type PageContent = {
     version: number
     createdAt: Date
     updatedAt: Date | null
+}
+
+export type PageVersionHistory = {
+    id: number
+    fileId: number
+    content: string
+    version: number
+    createdBy: string | null
+    createdAt: Date
+    changeDescription: string | null
 }
 
 export type SheetContent = {
@@ -620,6 +670,20 @@ export const pageContentRelations = relations(pageContent, ({ one }) => ({
         references: [files.id],
     }),
 }))
+
+export const pageVersionHistoryRelations = relations(
+    pageVersionHistory,
+    ({ one }) => ({
+        file: one(files, {
+            fields: [pageVersionHistory.fileId],
+            references: [files.id],
+        }),
+        createdBy: one(users, {
+            fields: [pageVersionHistory.createdBy],
+            references: [users.id],
+        }),
+    })
+)
 
 export const sheetContentRelations = relations(sheetContent, ({ one }) => ({
     file: one(files, {

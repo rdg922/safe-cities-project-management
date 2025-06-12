@@ -10,6 +10,7 @@ const isSupabaseRoute = createRouteMatcher([
     '/forms/:id(\\d+)',
     '/uploads/:id(\\d+)',
 ])
+const isAdminRoute = createRouteMatcher(['/users'])
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
     if (isApiRoute(req)) {
@@ -33,6 +34,16 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     if (sessionClaims?.metadata?.onboardingComplete && isOnboardingRoute(req)) {
         const homeUrl = new URL('/', req.url)
         return NextResponse.redirect(homeUrl)
+    }
+
+    // Check admin access for admin-only routes
+    if (isAdminRoute(req)) {
+        const userRole =
+            sessionClaims?.metadata?.role || sessionClaims?.publicMetadata?.role
+        if (userRole !== 'admin') {
+            const dashboardUrl = new URL('/dashboard', req.url)
+            return NextResponse.redirect(dashboardUrl)
+        }
     }
 
     // Only sync Supabase session for pages, sheets, forms, and upload routes

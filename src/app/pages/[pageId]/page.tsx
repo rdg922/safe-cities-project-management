@@ -3,8 +3,9 @@
 import { useParams } from 'next/navigation'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { toast } from '~/hooks/use-toast'
-import { PageCollaborativeEditor } from '~/components/tiptap-templates/collaborative/page-collaborative-editor'
+import { SimpleEditor } from '~/components/tiptap-templates/simple/simple-editor'
 import { FileHeader } from '~/components/file-header'
+import { VersionHistory } from '~/components/version-history'
 import { api } from '~/trpc/react'
 
 type Permission = 'view' | 'comment' | 'edit'
@@ -21,16 +22,27 @@ export default function PageView() {
     } = api.files.getById.useQuery({ id: pageId }, { enabled: !!pageId })
 
     // Get user's permission for this file using the hierarchical permission system
-    const { data: userPermission } = api.permissions.getUserPermission.useQuery(
-        { fileId: pageId },
-        { enabled: !!pageId }
-    )
+    const { data: userPermission, isLoading: isPermissionLoading } =
+        api.permissions.getUserPermission.useQuery(
+            { fileId: pageId },
+            {
+                enabled: !!pageId,
+                staleTime: 30 * 1000, // 30 seconds
+                gcTime: 5 * 60 * 1000, // 5 minutes
+                retry: 3,
+                retryDelay: (attemptIndex) =>
+                    Math.min(1000 * 2 ** attemptIndex, 30000),
+                refetchOnWindowFocus: false,
+            }
+        )
 
     const [content, setContent] = useState<string>('')
     const [localPermission, setLocalPermission] = useState<Permission>('view')
-    const [isCollaborationReady, setIsCollaborationReady] = useState(false)
     const [hasInitialContentLoaded, setHasInitialContentLoaded] =
         useState(false)
+
+    // Version history state
+    const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
 
     // Add state to track saving status
     const [savingStatus, setSavingStatus] = useState<
@@ -102,12 +114,6 @@ export default function PageView() {
         [pageId, userPermission, updatePageMutation]
     )
 
-    // Handle collaboration initialization
-    const handleCollaborationReady = useCallback(() => {
-        console.log('Collaboration is ready for page:', pageId)
-        setIsCollaborationReady(true)
-    }, [pageId])
-
     // Clean up timer on unmount
     useEffect(() => {
         return () => {
@@ -117,10 +123,25 @@ export default function PageView() {
         }
     }, [])
 
-    // Determine if the editor should be read-only based on permissions
-    const isReadOnly = !userPermission || userPermission === 'view'
+    // Handle version restoration
+    const handleVersionRestore = useCallback((restoredContent: string) => {
+        setContent(restoredContent)
+        setIsVersionHistoryOpen(false)
+        toast({
+            title: 'Version restored',
+            description:
+                'The page content has been restored to the selected version.',
+        })
+    }, [])
 
-    if (isLoading) {
+    // Determine if the editor should be read-only based on permissions
+    // Default to readOnly while loading OR when userPermission is null/undefined
+    // Only allow editing when userPermission is explicitly 'edit' or 'comment'
+    const isReadOnly =
+        isPermissionLoading ||
+        (userPermission !== 'edit' && userPermission !== 'comment')
+
+    if (isLoading || isPermissionLoading) {
         return (
             <div className="container mx-auto p-6">
                 <div className="flex items-center justify-center h-[calc(100vh-200px)]">
@@ -170,19 +191,25 @@ export default function PageView() {
                 permission={localPermission}
                 savingStatus={savingStatus}
                 content={content}
+                onVersionHistoryClick={() => setIsVersionHistoryOpen(true)}
             />
 
             <div className="flex-1 min-h-0 flex justify-center items-start bg-background">
                 <div className="w-full max-w-4xl my-8 border border-border rounded-lg shadow bg-card p-6">
-                    <PageCollaborativeEditor
-                        documentId={`page-${pageId}`}
+                    <SimpleEditor
                         initialContent={content}
                         readOnly={isReadOnly}
-                        onContentChange={handleContentChange}
-                        onCollaborationReady={handleCollaborationReady}
+                        onUpdate={handleContentChange}
                     />
                 </div>
             </div>
+
+            <VersionHistory
+                fileId={pageId}
+                isOpen={isVersionHistoryOpen}
+                onClose={() => setIsVersionHistoryOpen(false)}
+                onRestore={handleVersionRestore}
+            />
         </div>
     )
 }

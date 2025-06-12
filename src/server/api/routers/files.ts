@@ -9,6 +9,7 @@ import {
 import {
     files,
     pageContent,
+    pageVersionHistory,
     sheetContent,
     forms,
     formFields,
@@ -24,7 +25,11 @@ import {
     getAccessibleFiles,
     getUsersWithFileAccess,
 } from '~/lib/permissions-simple'
-import { rebuildEffectivePermissionsForUser, getFileDescendantsFast } from '~/lib/permissions-optimized'
+import {
+    rebuildEffectivePermissionsForUser,
+    getFileDescendantsFast,
+} from '~/lib/permissions-optimized'
+import { clearAllPermissionCaches } from '~/lib/permissions-ultra-fast'
 import { TRPCError } from '@trpc/server'
 
 export const filesRouter = createTRPCRouter({
@@ -328,14 +333,39 @@ export const filesRouter = createTRPCRouter({
         .mutation(async ({ ctx, input }) => {
             const { userId } = ctx.auth
 
-            // Update the page content
-            await ctx.db
-                .update(pageContent)
-                .set({
-                    content: input.content,
-                    updatedAt: new Date(),
+            // Get current page content to save as version history
+            const currentPage = await ctx.db.query.pageContent.findFirst({
+                where: eq(pageContent.fileId, input.fileId),
+                columns: { content: true, version: true },
+            })
+
+            if (currentPage && currentPage.content) {
+                // Save current content to version history before updating
+                await ctx.db.insert(pageVersionHistory).values({
+                    fileId: input.fileId,
+                    content: currentPage.content,
+                    version: currentPage.version ?? 1,
+                    createdBy: userId,
+                    changeDescription: 'Auto-saved version',
                 })
-                .where(eq(pageContent.fileId, input.fileId))
+
+                // Update the page content with incremented version
+                await ctx.db
+                    .update(pageContent)
+                    .set({
+                        content: input.content,
+                        version: (currentPage.version ?? 0) + 1,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(pageContent.fileId, input.fileId))
+            } else {
+                // If no current page exists, create it
+                await ctx.db.insert(pageContent).values({
+                    fileId: input.fileId,
+                    content: input.content,
+                    version: 1,
+                })
+            }
 
             // Update the file's updatedAt timestamp
             await ctx.db
@@ -457,9 +487,80 @@ export const filesRouter = createTRPCRouter({
     delete: protectedProcedure
         .input(z.object({ id: z.number() }))
         .mutation(async ({ ctx, input }) => {
-            // Due to cascade delete, this will also delete associated content
+            const { userId } = ctx.auth
+
+            // Get permission context for the current user
+            const permissionContext = await getUserPermissionContext(userId)
+
+            // Get the file to check permissions and validate it exists
+            const file = await ctx.db.query.files.findFirst({
+                where: eq(files.id, input.id),
+                columns: { id: true, name: true, parentId: true, type: true },
+            })
+
+            if (!file) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'File not found',
+                })
+            }
+
+            // Check if user has edit permission on this file (required for deletion)
+            const accessibleFiles = await getAccessibleFiles(
+                permissionContext,
+                [file]
+            )
+
+            if (!accessibleFiles.has(input.id)) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'You do not have permission to delete this file',
+                })
+            }
+
+            // Get all descendant files for cache invalidation
+            const descendants = await getFileDescendantsFast(input.id)
+            const allAffectedFileIds = [input.id, ...descendants]
+
+            // Get all users who have permissions on this file or its descendants for cache cleanup
+            const affectedUsers =
+                await ctx.db.query.effectivePermissions.findMany({
+                    where: inArray(
+                        effectivePermissions.fileId,
+                        allAffectedFileIds
+                    ),
+                    columns: { userId: true },
+                })
+            const uniqueUserIds = [
+                ...new Set(affectedUsers.map((u) => u.userId)),
+            ]
+
+            // Delete the file (cascade will handle dependent data)
             await ctx.db.delete(files).where(eq(files.id, input.id))
-            return { success: true }
+
+            // Clear permission caches for affected users
+            clearAllPermissionCaches()
+
+            // Trigger async rebuild of effective permissions for affected users
+            // This ensures permission consistency after deletion
+            Promise.resolve().then(async () => {
+                try {
+                    for (const affectedUserId of uniqueUserIds) {
+                        await rebuildEffectivePermissionsForUser(affectedUserId)
+                    }
+                } catch (error) {
+                    console.error(
+                        'Background permission rebuild after file deletion failed:',
+                        error
+                    )
+                }
+            })
+
+            return {
+                success: true,
+                deletedFileIds: allAffectedFileIds,
+                affectedUsers: uniqueUserIds.length,
+            }
         }),
 
     // Get all files of a specific type
@@ -565,96 +666,95 @@ export const filesRouter = createTRPCRouter({
         .input(z.object({ programIds: z.array(z.number()) }))
         .query(async ({ ctx, input }) => {
             const updateTimes: Record<number, Date | null> = {}
-            
+
             for (const programId of input.programIds) {
                 // Get all descendants of the program
                 const descendants = await getFileDescendantsFast(programId)
-                
+
                 // Get the most recently updated file from the program and all its descendants
                 const result = await ctx.db
-                    .select({ 
-                        updatedAt: files.updatedAt
+                    .select({
+                        updatedAt: files.updatedAt,
                     })
                     .from(files)
-                    .where(
-                        inArray(
-                            files.id,
-                            [programId, ...descendants]
-                        )
-                    )
+                    .where(inArray(files.id, [programId, ...descendants]))
                     .orderBy(sql`"updatedAt" DESC`)
                     .limit(1)
-                
+
                 // Convert the timestamp to a proper Date object
-                updateTimes[programId] = result[0]?.updatedAt ? new Date(result[0].updatedAt) : null
+                updateTimes[programId] = result[0]?.updatedAt
+                    ? new Date(result[0].updatedAt)
+                    : null
             }
-            
+
             return updateTimes
         }),
 
     getProgramsWithDetails: protectedProcedure
-        .input(z.object({
-            type: z.enum([
-                FILE_TYPES.PAGE,
-                FILE_TYPES.SHEET,
-                FILE_TYPES.FOLDER,
-                FILE_TYPES.UPLOAD,
-                FILE_TYPES.PROGRAMME,
-            ]),
-        }))
+        .input(
+            z.object({
+                type: z.enum([
+                    FILE_TYPES.PAGE,
+                    FILE_TYPES.SHEET,
+                    FILE_TYPES.FOLDER,
+                    FILE_TYPES.UPLOAD,
+                    FILE_TYPES.PROGRAMME,
+                ]),
+            })
+        )
         .query(async ({ ctx, input }) => {
-            const { userId } = ctx.auth;
+            const { userId } = ctx.auth
 
             // Get all programs in one query
             const allPrograms = await ctx.db.query.files.findMany({
                 where: eq(files.type, input.type),
                 orderBy: [desc(files.createdAt)],
-            });
+            })
 
             // Get user's permission context
-            const permissionContext = await getUserPermissionContext(userId);
+            const permissionContext = await getUserPermissionContext(userId)
 
             // Get accessible files using optimized permission context
             const accessibleFileIds = await getAccessibleFiles(
                 permissionContext,
                 allPrograms
-            );
+            )
 
             // Filter programs to only include accessible ones
-            const programs = allPrograms.filter(program => 
+            const programs = allPrograms.filter((program) =>
                 accessibleFileIds.has(program.id)
-            );
+            )
 
             // gets a list of program ids from the respective program objects
-            const programIds = programs.map((program) => program.id);
+            const programIds = programs.map((program) => program.id)
 
             // get all descendants for all programs in one query
             // maps each program id to a list of its
             const allDescendants = await Promise.all(
-                programIds.map(id => getFileDescendantsFast(id))
-            );
-            
+                programIds.map((id) => getFileDescendantsFast(id))
+            )
+
             // maps each progam Id to the corresponding list of file ids
             // the map creates a list with each entry like this [1, [1, ...allDescendants[index]]]
             // Object.fromEntries turns it into a key value pair
             const programFileIds = Object.fromEntries(
                 programIds.map((id, index) => [
                     id,
-                    [id, ...(allDescendants[index] ?? [])]
+                    [id, ...(allDescendants[index] ?? [])],
                 ])
-            );
+            )
 
             const [childCounts, updateTimes] = await Promise.all([
                 // we already have all descendants so subtract 1 from the length of the list gives the children
                 Promise.resolve(
                     Object.fromEntries(
-                        programIds.map(id => [
+                        programIds.map((id) => [
                             id,
-                            (programFileIds[id]?.length ?? 1) - 1
+                            (programFileIds[id]?.length ?? 1) - 1,
                         ])
                     )
                 ),
-                
+
                 // Get update times for each program and its descendants
                 ctx.db
                     .select({
@@ -666,35 +766,242 @@ export const filesRouter = createTRPCRouter({
                         // gets all files that belong to any program
                         inArray(
                             files.id,
-                            programIds.flatMap(id => programFileIds[id] ?? [])
+                            programIds.flatMap((id) => programFileIds[id] ?? [])
                         )
                     )
-                    .orderBy(sql`"updatedAt" DESC`)
-                    // updateTimes is a list of objects with id and updatedAt fields 
-            ]);
+                    .orderBy(sql`"updatedAt" DESC`),
+                // updateTimes is a list of objects with id and updatedAt fields
+            ])
 
             // Create a map of program IDs to their most recent update time
             const updateTimesMap = Object.fromEntries(
-                programIds.map(id => {
+                programIds.map((id) => {
                     // Find the most recent update time among the program and its descendants
                     const mostRecentUpdate = updateTimes
                         // only keep the update objects that belong to the program ID
-                        .filter(update => (programFileIds[id] ?? []).includes(update.id))
+                        .filter((update) =>
+                            (programFileIds[id] ?? []).includes(update.id)
+                        )
                         // sort the update objects by updatedAt in descending order
                         .sort((a, b) => {
-                            const timeA = a.updatedAt?.getTime() ?? 0;
-                            const timeB = b.updatedAt?.getTime() ?? 0;
-                            return timeB - timeA;
-                        })[0];
-                    
-                    return [id, mostRecentUpdate?.updatedAt ?? null];
+                            const timeA = a.updatedAt?.getTime() ?? 0
+                            const timeB = b.updatedAt?.getTime() ?? 0
+                            return timeB - timeA
+                        })[0]
+
+                    return [id, mostRecentUpdate?.updatedAt ?? null]
                 })
-            );
+            )
 
             return {
                 programs,
-                childCounts,  // Already in the correct format
+                childCounts, // Already in the correct format
                 updateTimes: updateTimesMap,
-            };
+            }
         }),
-    })
+
+    // Get page version history
+    getPageVersionHistory: protectedProcedure
+        .input(
+            z.object({
+                fileId: z.number(),
+                limit: z.number().min(1).max(100).default(50),
+                offset: z.number().min(0).default(0),
+            })
+        )
+        .query(async ({ ctx, input }) => {
+            const { userId } = ctx.auth
+
+            // Check if user has at least view permission on this file
+            const permissionContext = await getUserPermissionContext(userId)
+
+            // Get the file to check permissions
+            const file = await ctx.db.query.files.findFirst({
+                where: eq(files.id, input.fileId),
+                columns: { id: true, parentId: true },
+            })
+
+            if (!file) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'File not found',
+                })
+            }
+
+            const accessibleFiles = await getAccessibleFiles(
+                permissionContext,
+                [file]
+            )
+
+            if (!accessibleFiles.has(input.fileId)) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'You do not have permission to view this file',
+                })
+            }
+
+            const versions = await ctx.db.query.pageVersionHistory.findMany({
+                where: eq(pageVersionHistory.fileId, input.fileId),
+                with: {
+                    createdBy: {
+                        columns: { id: true, name: true, email: true },
+                    },
+                },
+                orderBy: desc(pageVersionHistory.version),
+                limit: input.limit,
+                offset: input.offset,
+            })
+
+            return versions
+        }),
+
+    // Restore page to a specific version
+    restorePageVersion: protectedProcedure
+        .input(
+            z.object({
+                fileId: z.number(),
+                versionId: z.number(),
+            })
+        )
+        .mutation(async ({ ctx, input }) => {
+            const { userId } = ctx.auth
+
+            // Check if user has edit permission on this file
+            const permissionContext = await getUserPermissionContext(userId)
+
+            // Get the file to check permissions
+            const file = await ctx.db.query.files.findFirst({
+                where: eq(files.id, input.fileId),
+                columns: { id: true, parentId: true },
+            })
+
+            if (!file) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'File not found',
+                })
+            }
+
+            const accessibleFiles = await getAccessibleFiles(
+                permissionContext,
+                [file]
+            )
+
+            if (!accessibleFiles.has(input.fileId)) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'You do not have permission to edit this file',
+                })
+            }
+
+            // Get the version to restore
+            const versionToRestore =
+                await ctx.db.query.pageVersionHistory.findFirst({
+                    where: and(
+                        eq(pageVersionHistory.id, input.versionId),
+                        eq(pageVersionHistory.fileId, input.fileId)
+                    ),
+                    columns: { content: true, version: true },
+                })
+
+            if (!versionToRestore) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Version not found',
+                })
+            }
+
+            // Get current page content to save as version history
+            const currentPage = await ctx.db.query.pageContent.findFirst({
+                where: eq(pageContent.fileId, input.fileId),
+                columns: { content: true, version: true },
+            })
+
+            if (currentPage && currentPage.content) {
+                // Save current content to version history before restoring
+                await ctx.db.insert(pageVersionHistory).values({
+                    fileId: input.fileId,
+                    content: currentPage.content,
+                    version: currentPage.version ?? 1,
+                    createdBy: userId,
+                    changeDescription: `Backup before restoring to version ${versionToRestore.version}`,
+                })
+
+                // Restore the content
+                await ctx.db
+                    .update(pageContent)
+                    .set({
+                        content: versionToRestore.content,
+                        version: (currentPage.version ?? 0) + 1,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(pageContent.fileId, input.fileId))
+            }
+
+            // Update the file's updatedAt timestamp
+            await ctx.db
+                .update(files)
+                .set({
+                    updatedAt: new Date(),
+                    updatedBy: userId,
+                })
+                .where(eq(files.id, input.fileId))
+
+            return {
+                success: true,
+                restoredToVersion: versionToRestore.version,
+            }
+        }),
+
+    // Delete a specific version from history
+    deletePageVersion: protectedProcedure
+        .input(
+            z.object({
+                fileId: z.number(),
+                versionId: z.number(),
+            })
+        )
+        .mutation(async ({ ctx, input }) => {
+            const { userId } = ctx.auth
+
+            // Check if user has edit permission on this file
+            const permissionContext = await getUserPermissionContext(userId)
+
+            // Get the file to check permissions
+            const file = await ctx.db.query.files.findFirst({
+                where: eq(files.id, input.fileId),
+                columns: { id: true, parentId: true },
+            })
+
+            if (!file) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'File not found',
+                })
+            }
+
+            const accessibleFiles = await getAccessibleFiles(
+                permissionContext,
+                [file]
+            )
+
+            if (!accessibleFiles.has(input.fileId)) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'You do not have permission to edit this file',
+                })
+            }
+
+            // Delete the version
+            await ctx.db
+                .delete(pageVersionHistory)
+                .where(
+                    and(
+                        eq(pageVersionHistory.id, input.versionId),
+                        eq(pageVersionHistory.fileId, input.fileId)
+                    )
+                )
+
+            return { success: true }
+        }),
+})

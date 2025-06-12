@@ -1,4 +1,4 @@
-import { eq, and, inArray } from 'drizzle-orm'
+import { eq, and, inArray, asc } from 'drizzle-orm'
 import { db } from '~/server/db'
 import {
     files,
@@ -172,7 +172,7 @@ export async function removeFilePermission(fileId: number, userId: string) {
 }
 
 /**
- * Gets all users with permissions on a specific file
+ * Gets all users with permissions on a specific file (optimized)
  */
 export async function getFilePermissions(fileId: number) {
     return await db.query.filePermissions.findMany({
@@ -186,6 +186,8 @@ export async function getFilePermissions(fileId: number) {
                 },
             },
         },
+        // Add ordering for consistent results
+        orderBy: [filePermissions.createdAt],
     })
 }
 

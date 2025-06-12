@@ -16,6 +16,7 @@ import {
     Share2,
     Users,
     Download,
+    History,
 } from 'lucide-react'
 import { useChatToggle } from '~/hooks/use-chat-toggle'
 import { ShareModal } from '~/components/share-modal'
@@ -34,6 +35,7 @@ interface FileHeaderProps {
     savingStatus?: 'saving' | 'saved' | 'idle'
     content?: string
     onPermissionChange?: (permission: Permission) => void
+    onVersionHistoryClick?: () => void
 }
 
 const permissionIcons = {
@@ -55,6 +57,7 @@ export function FileHeader({
     savingStatus = 'idle',
     content,
     onPermissionChange,
+    onVersionHistoryClick,
 }: FileHeaderProps) {
     const { toggleChat } = useChatToggle({ pageTitle: filename, fileId })
     const [isShareModalOpen, setIsShareModalOpen] = useState(false)
@@ -240,6 +243,17 @@ export function FileHeader({
                         <MessageSquare size={16} />
                         Chat
                     </Button>
+                    {onVersionHistoryClick && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={onVersionHistoryClick}
+                        >
+                            <History size={16} />
+                            History
+                        </Button>
+                    )}
                     {content && (
                         <Button
                             variant="outline"

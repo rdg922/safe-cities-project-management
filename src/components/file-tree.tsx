@@ -1,7 +1,21 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronRight, Folder, FileText, ChevronDown, MoreHorizontal, Edit2, Trash2, Plus, AlertCircle, ClipboardList, Sheet, Share2, UploadCloud } from 'lucide-react'
+import {
+    ChevronRight,
+    Folder,
+    FileText,
+    ChevronDown,
+    MoreHorizontal,
+    Edit2,
+    Trash2,
+    Plus,
+    AlertCircle,
+    ClipboardList,
+    Sheet,
+    Share2,
+    UploadCloud,
+} from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
@@ -9,8 +23,20 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { useToast } from '~/hooks/use-toast'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '~/components/ui/dialog'
 import { api } from '~/trpc/react'
 import { ShareModal } from '~/components/share-modal'
 import { useBatchPermissions } from '~/hooks/use-batch-permissions'
@@ -54,7 +80,7 @@ interface FileTreeNodeProps extends Omit<FileTreeProps, 'items'> {
 export function FileTree(props: FileTreeProps) {
     // Create a ref to store component data for range selection
     const rootRef = useRef<HTMLDivElement>(null)
-    
+
     // Use batch permissions for all files in the tree
     const { getPermissions } = useBatchPermissions(props.items)
 
@@ -188,7 +214,7 @@ function FileTreeNode({
     // Get permissions for this file from the batch query
     const permissions = getPermissions(node.id)
     const { userPermission, canEdit, canShare } = permissions
-    
+
     // Permission checks based on hierarchical permission levels
     const canCreate = canEdit // Edit permission anywhere in hierarchy allows creating files
     const canRename = canEdit // Edit permission anywhere in hierarchy allows renaming
@@ -557,7 +583,7 @@ function FileTreeNode({
                     isDropError &&
                         'bg-red-500/20 border-red-500 border-2 animate-pulse',
                     level > 0
-                        ? 'pl-[calc(theme(spacing.6)*var(--level))]'
+                        ? 'pl-[calc(theme(spacing.5)*var(--level))]'
                         : 'pl-2'
                 )}
                 style={{ '--level': level } as React.CSSProperties}
@@ -592,19 +618,21 @@ function FileTreeNode({
                         >
                             {node.filename || node.name}
                         </span>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger
-                                asChild
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                        {/* Only show dropdown if user has any permissions */}
+                        {(canCreate || canShare || canRename || canDelete) && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger
+                                    asChild
+                                    onClick={(e) => e.stopPropagation()}
                                 >
-                                    <MoreHorizontal size={14} />
-                                </Button>
-                            </DropdownMenuTrigger>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+                                    >
+                                        <MoreHorizontal size={14} />
+                                    </Button>
+                                </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                                 {canCreate && (
                                     <>
@@ -648,7 +676,10 @@ function FileTreeNode({
                                                 handleCreateUpload()
                                             }}
                                         >
-                                            <UploadCloud size={14} className="mr-2" />{' '}
+                                            <UploadCloud
+                                                size={14}
+                                                className="mr-2"
+                                            />{' '}
                                             Upload File
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
@@ -704,6 +735,7 @@ function FileTreeNode({
                                 )}
                             </DropdownMenuContent>
                         </DropdownMenu>
+                        )}
                     </div>
                 ) : (
                     <div className="flex items-center gap-1 flex-1 group">
@@ -732,6 +764,8 @@ function FileTreeNode({
                         <span className="text-sm truncate flex-1">
                             {node.filename || node.name}
                         </span>
+                        {/* Only show dropdown if user has any permissions */}
+                        {(canShare || canRename || canDelete) && (
                         <DropdownMenu>
                             <DropdownMenuTrigger
                                 asChild
@@ -784,6 +818,7 @@ function FileTreeNode({
                                 )}
                             </DropdownMenuContent>
                         </DropdownMenu>
+                        )}
                     </div>
                 )}
             </div>
