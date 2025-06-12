@@ -24,8 +24,12 @@ import {
 import { toast } from '~/hooks/use-toast'
 import { useState, useEffect } from 'react'
 import { formatDistanceToNow } from 'date-fns'
+import { SidebarTrigger } from '~/components/ui/sidebar'
+import { useMobile } from '~/hooks/use-mobile'
 
 export default function NotificationsPage() {
+    const isMobile = useMobile()
+
     // Fetch notifications from backend with polling for real-time updates
     const {
         data: notificationData,
@@ -229,23 +233,26 @@ export default function NotificationsPage() {
     return (
         <div className="container mx-auto p-6">
             <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        Notifications
-                    </h1>
-                    <p className="text-muted-foreground mt-1">
-                        Stay updated on mentions, comments, and changes
-                    </p>
-                    {stats && (
-                        <div className="flex gap-2 mt-2">
-                            <Badge variant="secondary">
-                                {stats.total} total
-                            </Badge>
-                            <Badge variant="destructive">
-                                {stats.unread} unread
-                            </Badge>
-                        </div>
-                    )}
+                <div className="flex items-center gap-4">
+                    {isMobile && <SidebarTrigger />}
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            Notifications
+                        </h1>
+                        <p className="text-muted-foreground mt-1">
+                            Stay updated on mentions, comments, and changes
+                        </p>
+                        {stats && (
+                            <div className="flex gap-2 mt-2">
+                                <Badge variant="secondary">
+                                    {stats.total} total
+                                </Badge>
+                                <Badge variant="destructive">
+                                    {stats.unread} unread
+                                </Badge>
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <div className="flex gap-2">
                     {selectedNotifications.length > 0 && (
