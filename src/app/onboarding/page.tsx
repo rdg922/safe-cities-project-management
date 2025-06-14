@@ -163,6 +163,7 @@ export default function OnboardingPage() {
                                     className="w-full"
                                     size="sm"
                                     onClick={() => window.open('mailto:safecitiessa@aol.com')}
+                                    // this is where we want to send the @gmail thing
                                 >
                                     <Mail className="w-4 h-4 mr-2" />
                                     Contact Support
