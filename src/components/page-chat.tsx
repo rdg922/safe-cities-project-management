@@ -47,6 +47,7 @@ function PageChatContent({ pageTitle, fileId: validatedFileId }: PageChatProps) 
             setNewMessage('')
             setIsSending(false)
             void refetchMessages()
+            
         },
         onError: () => {
             setIsSending(false)

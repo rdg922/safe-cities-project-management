@@ -77,10 +77,24 @@ export const chatRouter = createTRPCRouter({
             // ]
 
             // 4. Get current user info for notifications
-            const currentUser = await ctx.db.query.users.findFirst({
-                where: eq(users.id, userId),
-                columns: { name: true },
+            const filePermittedUsers = await ctx.db.query.filePermissions.findMany({
+                where: eq(filePermissions.fileId, input.fileId),
+                columns: { userId: true },
             })
+
+            const adminUsers = await ctx.db.query.users.findMany({
+                where: eq(users.role, 'admin'),
+                columns: { id: true} ,
+            })
+
+            // join both sets of users 
+            const allUsers = new Set([
+                ...filePermittedUsers.map((p) => p.userId),
+                ...adminUsers.map((u) => u.id),
+            ])
+
+            // remove the sender from the list
+            allUsers.delete(userId)
 
             // 5. Handle @mentions first (higher priority)
             // if (mentionedUsernames.length > 0) {
@@ -108,15 +122,6 @@ export const chatRouter = createTRPCRouter({
             // }
 
             // 6. Find all users who have sent a message in this file (page), except the sender and mentioned users
-            const usersInChat = await ctx.db
-                .selectDistinct({ userId: messages.userId })
-                .from(messages)
-                .where(
-                    and(
-                        eq(messages.fileId, input.fileId),
-                        ne(messages.userId, userId)
-                    )
-                )
 
             const mentionedUserIds = new Set()
             //     (
@@ -126,15 +131,10 @@ export const chatRouter = createTRPCRouter({
             //         })
             //     ).map((u) => u.id)
 
-            // 7. Insert chat notifications for users not already mentioned
-            const chatNotificationUsers = usersInChat.filter(
-                (u) => u.userId && !mentionedUserIds.has(u.userId)
-            )
-
-            if (chatNotificationUsers.length > 0) {
+            if (allUsers.size > 0) {
                 await ctx.db.insert(notifications).values(
-                    chatNotificationUsers.map((u) => ({
-                        userId: String(u.userId),
+                    Array.from(allUsers).map((u) => ({
+                        userId: String(u),
                         pageId: input.fileId,
                         content: `New message in ${pageName}: "${input.content.slice(0, 100)}"`,
                         type: 'chat',
@@ -158,6 +158,7 @@ export const chatRouter = createTRPCRouter({
             columns: { role: true },
         })
 
+        // Get the file IDs the user has access to 
         let fileIds: number[]
         if (user?.role === 'admin') {
             // For admins, get all files in one query

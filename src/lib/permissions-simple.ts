@@ -110,7 +110,7 @@ export function hasPermissionInContext(
  */
 export async function getAccessibleFiles(
     context: Awaited<ReturnType<typeof getUserPermissionContext>>,
-    allFiles: Array<{ id: number; parentId: number | null }>
+    allFiles: Array<{ id: number; parentId: number | null; type?: string }>
 ): Promise<Set<number>> {
     const accessibleFileIds = new Set<number>()
 
@@ -150,6 +150,27 @@ export async function getAccessibleFiles(
                 const parent = allFiles.find((f) => f.id === currentParentId)
                 currentParentId = parent?.parentId ?? null
             }
+        }
+    }
+
+    // Add programs that have accessible descendants
+    const programs = allFiles.filter(f => f.type === 'programme')
+    for (const program of programs) {
+        const hasAccessibleDescendant = Array.from(accessibleFileIds).some(fileId => {
+            const file = allFiles.find(f => f.id === fileId)
+            if (!file) return false
+            
+            let currentParentId = file.parentId
+            while (currentParentId) {
+                if (currentParentId === program.id) return true
+                const parent = allFiles.find(f => f.id === currentParentId)
+                currentParentId = parent?.parentId ?? null
+            }
+            return false
+        })
+        
+        if (hasAccessibleDescendant) {
+            accessibleFileIds.add(program.id)
         }
     }
 
