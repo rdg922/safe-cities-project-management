@@ -39,7 +39,9 @@ body {
   /* Providing explicit height with room for headers/tabs */
   overflow-y: auto;
   position: relative;
-  width: 800px;
+  width: 190mm;
+  margin: 0 auto;
+  max-width: 100%;
 
 
   &::-webkit-scrollbar {
