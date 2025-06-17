@@ -45,24 +45,9 @@ export function FormPreview({ form }: FormPreviewProps) {
         e.preventDefault()
         setIsSubmitting(true)
 
-        // Extract name and email from form fields
-        const nameField = form.fields.find(
-            (f) => f.label.toLowerCase() === 'name'
-        )
-        const emailField = form.fields.find((f) => f.type === 'email')
-
-        const submitterName = nameField
-            ? (formData[nameField.id] as string) || undefined
-            : undefined
-        const submitterEmail = emailField
-            ? (formData[emailField.id] as string) || undefined
-            : undefined
-
         try {
             await submitFormMutation.mutateAsync({
                 formId: form.id,
-                submitterName,
-                submitterEmail,
                 responses: Object.entries(formData).map(([fieldId, value]) => ({
                     fieldId: Number(fieldId),
                     value,

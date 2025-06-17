@@ -347,25 +347,27 @@ export default function FormView() {
                                                                     <div className="flex items-center justify-between border-b pb-2">
                                                                         <div>
                                                                             <p className="font-medium">
-                                                                                {submission.submitterName ||
-                                                                                    'Anonymous'}
+                                                                                {(() => {
+                                                                                    // Find name from form responses
+                                                                                    const nameResponse =
+                                                                                        submission.responses.find(
+                                                                                            (
+                                                                                                r
+                                                                                            ) =>
+                                                                                                r.field.label.toLowerCase() ===
+                                                                                                'name'
+                                                                                        )
+                                                                                    return (
+                                                                                        nameResponse?.value ||
+                                                                                        'Anonymous'
+                                                                                    )
+                                                                                })()}
                                                                             </p>
                                                                             <p className="text-sm text-muted-foreground">
                                                                                 {new Date(
                                                                                     submission.createdAt
                                                                                 ).toLocaleString()}
                                                                             </p>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Badge variant="outline">
-                                                                                {
-                                                                                    submission
-                                                                                        .responses
-                                                                                        .length
-                                                                                }{' '}
-                                                                                responses
-                                                                            </Badge>
-                                                                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
                                                                         </div>
                                                                     </div>
                                                                 </CollapsibleTrigger>
