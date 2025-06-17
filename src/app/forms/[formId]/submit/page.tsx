@@ -202,7 +202,7 @@ export default function FormSubmitPage() {
     }
 
     const formProps: FormData = {
-        id: form.id,
+        id: form.fileId,
         title: form.title,
         description: form.description,
         showProgressBar: form.showProgressBar ?? false,
@@ -252,13 +252,8 @@ export default function FormSubmitPage() {
                     form={formProps}
                     formData={formData}
                     onFieldChange={handleFieldChange}
-                    submitterName={submitterName}
-                    submitterEmail={submitterEmail}
-                    onSubmitterNameChange={setSubmitterName}
-                    onSubmitterEmailChange={setSubmitterEmail}
                     onSubmit={handleSubmit}
                     isSubmitting={isSubmitting}
-                    showContactInfo={form.allowAnonymous ?? true}
                 />
             </div>
         </div>

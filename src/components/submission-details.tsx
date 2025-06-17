@@ -1,13 +1,11 @@
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-import { Badge } from "~/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
+import { Badge } from '~/components/ui/badge'
 
 interface SubmissionDetailsProps {
     submission: {
         id: number
         createdAt: Date
         user?: { name: string | null; email: string | null } | null
-        submitterName: string | null
-        submitterEmail: string | null
         responses: Array<{
             field: {
                 id: number
@@ -34,10 +32,34 @@ export function SubmissionDetails({ submission }: SubmissionDetailsProps) {
                 <div className="space-y-4">
                     {/* Submitter Info */}
                     <div className="rounded-lg border p-4">
-                        <h3 className="font-medium mb-2">Submitter Information</h3>
+                        <h3 className="font-medium mb-2">
+                            Submitter Information
+                        </h3>
                         <div className="text-sm text-muted-foreground">
-                            <p>Name: {submission.submitterName || 'Anonymous'}</p>
-                            <p>Email: {submission.submitterEmail || 'Not provided'}</p>
+                            <p>
+                                Name:{' '}
+                                {(() => {
+                                    const nameResponse =
+                                        submission.responses.find(
+                                            (r) =>
+                                                r.field.label.toLowerCase() ===
+                                                'name'
+                                        )
+                                    return nameResponse?.value || 'Not provided'
+                                })()}
+                            </p>
+                            <p>
+                                Email:{' '}
+                                {(() => {
+                                    const emailResponse =
+                                        submission.responses.find(
+                                            (r) => r.field.type === 'email'
+                                        )
+                                    return (
+                                        emailResponse?.value || 'Not provided'
+                                    )
+                                })()}
+                            </p>
                         </div>
                     </div>
 
@@ -47,8 +69,13 @@ export function SubmissionDetails({ submission }: SubmissionDetailsProps) {
                         <div className="max-h-[300px] overflow-y-auto">
                             <div className="space-y-4">
                                 {submission.responses.map((response) => (
-                                    <div key={response.field.id} className="space-y-1">
-                                        <p className="font-medium">{response.field.label}</p>
+                                    <div
+                                        key={response.field.id}
+                                        className="space-y-1"
+                                    >
+                                        <p className="font-medium">
+                                            {response.field.label}
+                                        </p>
                                         <p className="text-sm text-muted-foreground">
                                             {Array.isArray(response.value)
                                                 ? response.value.join(', ')
@@ -63,4 +90,4 @@ export function SubmissionDetails({ submission }: SubmissionDetailsProps) {
             </CardContent>
         </Card>
     )
-} 
+}

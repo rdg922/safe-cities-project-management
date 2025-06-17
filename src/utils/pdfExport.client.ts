@@ -22,42 +22,30 @@ export async function downloadFile(htmlString: string, fileName: string) {
             res.text()
         )
 
-        // Clean the HTML before processing - remove any inline font styles
-        const cleanedHtml = htmlString
-            .replace(/font-family\s*:\s*[^;]+;?/gi, '') // Remove any inline font-family styles
-            .replace(/style\s*=\s*["'][^"']*font-family[^"']*["']/gi, '') // Remove style attributes with font-family
-            .replace(/class\s*=\s*["'][^"']*tiptap[^"']*["']/gi, 'class=""') // Remove tiptap classes
-            .replace(
-                /class\s*=\s*["'][^"']*ProseMirror[^"']*["']/gi,
-                'class=""'
-            ) // Remove ProseMirror classes
-
         // Create the HTML structure with inlined styles
         const htmlWithStyles = `
         <head>
           <style>
+            @font-face {
+              font-family: 'DM Sans';
+              font-weight: normal;
+              font-style: normal;
+            }
             ${pdfExportCss}
-            
+
             /* Force font overrides for all elements */
             * {
               font-family: "DM Sans", sans-serif !important;
             }
             
-            body, html {
-              font-family: "Inter", sans-serif !important;
-            }
-            
-            /* Override any TipTap specific font styles */
-            .ProseMirror,
-            .tiptap,
-            [class*="tiptap"],
-            [class*="ProseMirror"] {
+            .prose {
               font-family: "DM Sans", sans-serif !important;
             }
+            
           </style>
         </head>
           <div class="prose">
-            ${cleanedHtml}
+            ${htmlString}
           </div>
     `
 
@@ -73,8 +61,10 @@ export async function downloadFile(htmlString: string, fileName: string) {
                 useCORS: true,
                 allowTaint: true,
                 logging: true,
+                windowWidth: 794,
+                windowHeight: 1123,
             },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait'},
         }
 
         await html2pdfInstance().set(opt).from(htmlWithStyles).save()

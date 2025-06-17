@@ -424,8 +424,6 @@ export const formsRouter = createTRPCRouter({
                         value: z.any(), // Can be string, number, array, etc.
                     })
                 ),
-                submitterEmail: z.string().email().optional(),
-                submitterName: z.string().optional(),
             })
         )
         .mutation(async ({ ctx, input }) => {
@@ -468,8 +466,6 @@ export const formsRouter = createTRPCRouter({
                 .values({
                     formFileId: input.formId,
                     userId: userId || null,
-                    submitterEmail: input.submitterEmail || null,
-                    submitterName: input.submitterName || null,
                     ipAddress: null, // TODO: Get from request
                     userAgent: null, // TODO: Get from request
                 })

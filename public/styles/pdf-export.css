@@ -15,17 +15,17 @@ html, body {
   font-style: normal;
 }
 
-/* Main content container */
 .prose {
-  max-width: 800px;
-  padding: 0 2rem;
+  max-width: 190mm;
+  margin: 0 auto;
+  padding: 2rem 2rem;
   font-family: "DM Sans", sans-serif;
   -webkit-user-select: text;
   -moz-user-select: text;
   -ms-user-select: text;
   user-select: text;
-  white-space: pre-wrap;
   word-wrap: break-word;
+  line-height: 1.6em;
 }
 
 /* Page break control - prevent elements from being split across pages */
@@ -46,54 +46,94 @@ html, body {
 
 /* Typography */
 .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
-  margin-top: 1.2em;
-  margin-bottom: 0.4em;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
   font-weight: 600;
   line-height: 1.25;
 }
 
-.prose h1 { font-size: 2em; }
-.prose h2 { font-size: 1.5em; }
-.prose h3 { font-size: 1.25em; }
-.prose h4 { font-size: 1em; }
-.prose h5 { font-size: 0.875em; }
-.prose h6 { font-size: 0.85em; }
+/* Heading font size and weights */
+.prose h1 { font-size: 1.5em; font-weight: 700;}
+.prose h2 { font-size: 1.25em; font-weight: 700;}
+.prose h3 { font-size: 1.125em; font-weight: 600;}
+.prose h4 { font-size: 1em; font-weight: 600;}
 
+
+/* Spacing rules */
 .prose p {
   margin: 0.3em 0;
   min-height: 1.3em;
 }
 
+/* Add extra spacing between consecutive blocks (paragraphs, headings, lists, etc.) */
+.prose p + p,
+.prose h1 + p,
+.prose h2 + p,
+.prose h3 + p,
+.prose h4 + p,
+.prose h5 + p,
+.prose h6 + p,
+.prose ul + p,
+.prose ol + p,
+.prose blockquote + p,
+.prose p + h1,
+.prose p + h2,
+.prose p + h3,
+.prose p + h4,
+.prose p + h5,
+.prose p + h6,
+.prose p + ul,
+.prose p + ol,
+.prose p + blockquote,
+.prose ul + ul,
+.prose ol + ol,
+.prose ul + ol,
+.prose ol + ul,
+.prose blockquote + blockquote,
+.prose h1 + h1,
+.prose h2 + h2,
+.prose h3 + h3,
+.prose h4 + h4,
+.prose h5 + h5,
+.prose h6 + h6 {
+  margin-top: 1.2em;
+}
+
+/* Remove top margin from the first paragraph in prose */
 .prose p:first-child {
   margin-top: 0;
 }
 
-/* Links */
+/* Style links with color and remove underline by default */
 .prose a {
   color: #0366d6;
   text-decoration: none;
 }
 
+/* Underline links on hover */
 .prose a:hover {
   text-decoration: underline;
 }
 
-/* Lists */
+/* Remove default list styles and set left padding for lists */
 .prose ul, .prose ol {
   list-style-type: none;
   padding-left: 1em;
   position: relative;
 }
 
+/* Remove margin from paragraphs directly inside list items */
 .prose li > p {
   margin: 0;
 }
 
+/* Remove default list style and set relative positioning for list items */
 .prose ul li, .prose ol li {
   list-style-type: none;
   position: relative;
 }
 
+/* Add custom bullet for top-level unordered list items */
 .prose ul > li::before {
   content: '• ';
   margin-left: -1em;
@@ -101,14 +141,17 @@ html, body {
   left: 0;
 }
 
+/* Add custom bullet for second-level unordered list items */
 .prose ul ul > li::before {
   content: '◦ ';
 }
+
+/* Add custom bullet for third-level unordered list items */
 .prose ul ul ul > li::before {
   content: '▪ ';
 }
 
-/* Remove bullet marker from ol li and from ul inside ol */
+/* Remove bullet marker from ordered list items and unordered lists inside ordered lists */
 .prose ol li::before,
 .prose ol ul > li::before,
 .prose ol ul ul > li::before,
@@ -116,15 +159,17 @@ html, body {
   content: '';
 }
 
-/* Ordered lists: custom counters for each level */
+/* Reset counter for top-level ordered lists */
 .prose ol {
   counter-reset: ol-decimal;
 }
 
+/* Increment counter for each top-level ordered list item */
 .prose ol > li {
   counter-increment: ol-decimal;
 }
 
+/* Display decimal counter for top-level ordered list items */
 .prose ol > li::before {
   content: counter(ol-decimal) '. ';
   margin-left: -1.5em;
@@ -132,14 +177,17 @@ html, body {
   left: 0;
 } 
 
+/* Reset counter for second-level ordered lists */
 .prose ol ol {
   counter-reset: ol-alpha;
 }
 
+/* Increment counter for each second-level ordered list item */
 .prose ol ol > li {
   counter-increment: ol-alpha;
 }
 
+/* Display lower-alpha counter for second-level ordered list items */
 .prose ol ol > li::before {
   content: counter(ol-alpha, lower-alpha) '. ';
   margin-left: -1.5em;
@@ -147,12 +195,17 @@ html, body {
   left: 0;
 }
 
+/* Reset counter for third-level ordered lists */
 .prose ol ol ol {
   counter-reset: ol-roman;
 }
+
+/* Increment counter for each third-level ordered list item */
 .prose ol ol ol > li {
   counter-increment: ol-roman;
 }
+
+/* Display lower-roman counter for third-level ordered list items */
 .prose ol ol ol > li::before {
   content: counter(ol-roman, lower-roman) '. ';
   margin-left: -1.5em;
@@ -160,17 +213,27 @@ html, body {
   left: 0;
 }
 
-/* Task lists */
+/* Remove extra vertical margin for all nested lists, any depth */
+.prose ul ul,
+.prose ul ol,
+.prose ol ul,
+.prose ol ol {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* Add right margin to checkboxes in task lists */
 .prose input[type="checkbox"] {
   margin-right: 0.5em;
 }
 
-/* Assignable Task Items */
+/* Remove default list style and left padding for task lists */
 .prose ul[data-type="taskList"] {
   list-style-type: none;
   padding-left: 0;
 }
 
+/* Style task list items with flex layout and spacing */
 .prose ul[data-type="taskList"] li[data-type="taskItem"] {
   position: relative;
   display: flex;
@@ -179,16 +242,19 @@ html, body {
   padding-right: 2rem;
 }
 
+/* Style label in task list items for flex alignment and spacing */
 .prose ul[data-type="taskList"] li[data-type="taskItem"] label {
   display: flex;
   align-items: flex-start;
   margin-right: 0.5rem;
 }
 
+/* Hide the native checkbox in task list items */
 .prose ul[data-type="taskList"] li[data-type="taskItem"] label input[type="checkbox"] {
   display: none;
 }
 
+/* Show an empty box before the label in unchecked task list items */
 .prose ul[data-type="taskList"] li[data-type="taskItem"] label span::before {
   content: '☐';
   font-size: 1.2em;
@@ -196,23 +262,28 @@ html, body {
   vertical-align: baseline;
 }
 
+/* Show a checked box before the label in checked task list items */
 .prose ul[data-type="taskList"] li[data-type="taskItem"][data-checked="true"] label span::before {
   content: '☑';
 }
 
+/* Add top margin to checkboxes in task list items for alignment */
 .prose ul[data-type="taskList"] li[data-type="taskItem"] input[type="checkbox"] {
   margin-top: 0.35rem;
   margin-right: 0.5rem;
 }
 
+/* Make the main content of a task list item take up remaining space */
 .prose ul[data-type="taskList"] li[data-type="taskItem"] div {
   flex: 1;
 }
 
+/* Remove margin from paragraphs inside the main content of a task list item */
 .prose ul[data-type="taskList"] li[data-type="taskItem"] div p {
   margin: 0;
 }
 
+/* Style the assignment badge in task list items */
 .prose ul[data-type="taskList"] li[data-type="taskItem"] .task-item-assign-badge {
   position: absolute;
   right: 0;
@@ -228,27 +299,62 @@ html, body {
   font-weight: 500;
 }
 
+/* Remove extra margin between task list items */
+.prose ul[data-type="taskList"] > li,
+.prose ul[data-type="taskList"] li[data-type="taskItem"] {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* Add border and padding to table cells */
 .prose th, .prose td {
   border: 1px solid #dfe2e5;
   padding: 6px 13px;
 }
 
+/* Add background color and bold font to table headers */
 .prose th {
   background-color: #f6f8fa;
   font-weight: 600;
 }
 
-/* Images */
+/* Style images: set max width, auto height, margin, and prevent page breaks inside images */
 .prose img {
   max-width: 100%;
   height: auto;
-  margin: 1em 0;
+  margin: 1.5em 0;
   image-rendering: auto;
   image-rendering: crisp-edges;
   image-rendering: high-quality;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  display: block;
+  orphans: 0;
+  widows: 0;
 }
 
-/* Horizontal rule */
+/* Center images inside a parent with text-align: center */
+.prose [style*="text-align: center"] > img {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Left-align images inside a parent with text-align: left */
+.prose [style*="text-align: left"] > img {
+  display: block;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* Right-align images inside a parent with text-align: right */
+.prose [style*="text-align: right"] > img {
+  display: block;
+  margin-left: auto;
+  margin-right: 0;
+}
+
+/* Style horizontal rules with height, margin, and background color */
 .prose hr {
   height: 0.25em;
   padding: 0;
@@ -257,20 +363,12 @@ html, body {
   border: 0;
 }
 
-.prose img {
-  page-break-inside: avoid;
-  break-inside: avoid;
-  max-width: 100%;
-  height: auto;
-  display: block;
-  orphans: 0;
-  widows: 0;
-}
-
+/* Prevent page breaks after headings */
 .prose h1, .prose h2, .prose h3 {
   page-break-after: avoid;
 }
 
+/* Allow code blocks to wrap lines */
 .prose pre {
   white-space: pre-wrap;
 }
@@ -282,6 +380,7 @@ html, body {
   display: none;
 }
 
+/* Remove top margin from the first heading in prose */
 .prose > h1:first-child,
 .prose > h2:first-child,
 .prose > h3:first-child,

@@ -346,12 +346,12 @@ export function NewFileDialog({
                                     value={fileName}
                                     onChange={(e) => {
                                         const value = e.target.value;
-                                        if (value.length <= 25) {
+                                        if (value.length <= 50) {
                                             setFileName(value);
                                         }
                                     }}
                                     placeholder={config.placeholder}
-                                    className={fileName.length === 25 ? "border-red-500" : ""}
+                                    className={fileName.length === 50 ? "border-red-500" : ""}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
                                             if (
@@ -365,7 +365,7 @@ export function NewFileDialog({
                                     disabled={createFileMutation.isPending}
                                 />
                             </div>
-                            {fileName.length === 25 && (
+                            {fileName.length === 50 && (
                                 <p className="text-sm text-red-500 mt-1">
                                     Maximum character limit reached
                                 </p>

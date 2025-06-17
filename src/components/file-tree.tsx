@@ -839,11 +839,11 @@ function FileTreeNode({
                                     value={renameValue}
                                     onChange={(e) => {
                                         const value = e.target.value;
-                                        if (value.length <= 25) {
+                                        if (value.length <= 50) {
                                             setRenameValue(value);
                                         }
                                     }}
-                                    className={renameValue.length === 25 ? "border-red-500" : ""}
+                                    className={renameValue.length === 50 ? "border-red-500" : ""}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
                                             handleRenameConfirm()
@@ -855,10 +855,10 @@ function FileTreeNode({
                                     autoFocus
                                 />
                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                                    {renameValue.length}/25
+                                    {renameValue.length}/50
                                 </div>
                             </div>
-                            {renameValue.length === 25 && (
+                            {renameValue.length === 50 && (
                                 <p className="text-sm text-red-500 mt-1">
                                     Maximum character limit reached
                                 </p>
