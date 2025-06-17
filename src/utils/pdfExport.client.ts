@@ -72,6 +72,8 @@ export async function downloadFile(htmlString: string, fileName: string) {
                 useCORS: true,
                 allowTaint: true,
                 logging: true,
+                windowWidth: 794,
+                windowHeight: 1123,
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait'},
         }
