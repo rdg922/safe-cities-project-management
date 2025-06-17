@@ -65,9 +65,6 @@ export default function NotificationsPage() {
 
     const notifications = notificationData?.notifications || []
     const unreadNotifications = notifications.filter((n) => !n.read)
-    const mentionNotifications = notifications.filter(
-        (n) => n.type === 'mention'
-    )
 
     const markAsRead = async (notificationId: number) => {
         try {
@@ -85,9 +82,7 @@ export default function NotificationsPage() {
 
     const markAllAsRead = async () => {
         try {
-            const result = await markAllAsReadMutation.mutateAsync({
-                type: activeTab === 'mentions' ? 'mention' : undefined,
-            })
+            const result = await markAllAsReadMutation.mutateAsync({})
             toast({
                 title: 'Success',
                 description: `Marked ${result.updatedCount} notifications as read`,
@@ -188,9 +183,7 @@ export default function NotificationsPage() {
     const deleteAllReadNotifications = async () => {
         try {
             const result = await deleteAllReadNotificationsMutation.mutateAsync(
-                {
-                    type: activeTab === 'mentions' ? 'mention' : undefined,
-                }
+                {}
             )
             toast({
                 title: 'Success',
@@ -208,8 +201,6 @@ export default function NotificationsPage() {
 
     const getNotificationTypeColor = (type: string) => {
         switch (type) {
-            case 'mention':
-                return 'bg-orange-100 text-orange-800'
             case 'edit':
                 return 'bg-green-100 text-green-800'
             case 'share':
@@ -223,8 +214,6 @@ export default function NotificationsPage() {
         switch (activeTab) {
             case 'unread':
                 return unreadNotifications
-            case 'mentions':
-                return mentionNotifications
             default:
                 return notifications
         }
@@ -240,7 +229,7 @@ export default function NotificationsPage() {
                             Notifications
                         </h1>
                         <p className="text-muted-foreground mt-1">
-                            Stay updated on mentions, comments, and changes
+                            Stay updated on comments and changes
                         </p>
                         {stats && (
                             <div className="flex gap-2 mt-2">
@@ -334,14 +323,6 @@ export default function NotificationsPage() {
                             {unreadNotifications.length}
                         </span>
                     </TabsTrigger>
-                    <TabsTrigger value="mentions">
-                        Mentions
-                        {mentionNotifications.length > 0 && (
-                            <span className="ml-1 rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] text-white">
-                                {mentionNotifications.length}
-                            </span>
-                        )}
-                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value={activeTab} className="mt-0">
@@ -351,9 +332,7 @@ export default function NotificationsPage() {
                                 <span>
                                     {activeTab === 'all'
                                         ? 'All Notifications'
-                                        : activeTab === 'unread'
-                                          ? 'Unread Notifications'
-                                          : 'Mentions'}
+                                        : 'Unread Notifications'}
                                 </span>
                                 {isLoading && (
                                     <RefreshCw
@@ -509,16 +488,12 @@ export default function NotificationsPage() {
                                             <h3 className="mt-4 text-lg font-medium">
                                                 {activeTab === 'unread'
                                                     ? 'All caught up!'
-                                                    : activeTab === 'mentions'
-                                                      ? 'No mentions'
-                                                      : 'No notifications'}
+                                                    : 'No notifications'}
                                             </h3>
                                             <p className="mt-2 text-sm text-muted-foreground max-w-sm">
                                                 {activeTab === 'unread'
                                                     ? 'You have no unread notifications at the moment.'
-                                                    : activeTab === 'mentions'
-                                                      ? "You haven't been mentioned in any pages yet."
-                                                      : "You're all caught up! Check back later for new notifications."}
+                                                    : "You're all caught up! Check back later for new notifications."}
                                             </p>
                                         </div>
                                     )}
