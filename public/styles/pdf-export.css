@@ -14,18 +14,18 @@ html, body {
   font-weight: 400;
   font-style: normal;
 }
+/*  SANS FONT LOCATION */
 
-/* Main content container */
 .prose {
   max-width: 800px;
-  padding: 0 2rem;
+  padding: 2rem 2rem;
   font-family: "DM Sans", sans-serif;
   -webkit-user-select: text;
   -moz-user-select: text;
   -ms-user-select: text;
   user-select: text;
-  white-space: pre-wrap;
   word-wrap: break-word;
+  line-height: 1.6em;
 }
 
 /* Page break control - prevent elements from being split across pages */
@@ -46,22 +46,56 @@ html, body {
 
 /* Typography */
 .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
-  margin-top: 1.2em;
-  margin-bottom: 0.4em;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
   font-weight: 600;
   line-height: 1.25;
 }
 
-.prose h1 { font-size: 2em; }
-.prose h2 { font-size: 1.5em; }
-.prose h3 { font-size: 1.25em; }
+.prose h1 { font-size: 1.5em; }
+.prose h2 { font-size: 1.25em; }
+.prose h3 { font-size: 1.125em; }
 .prose h4 { font-size: 1em; }
-.prose h5 { font-size: 0.875em; }
-.prose h6 { font-size: 0.85em; }
 
+
+/* Spacing rules */
 .prose p {
   margin: 0.3em 0;
   min-height: 1.3em;
+}
+
+/* Double spacing between elements */
+.prose p + p,
+.prose h1 + p,
+.prose h2 + p,
+.prose h3 + p,
+.prose h4 + p,
+.prose h5 + p,
+.prose h6 + p,
+.prose ul + p,
+.prose ol + p,
+.prose blockquote + p,
+.prose p + h1,
+.prose p + h2,
+.prose p + h3,
+.prose p + h4,
+.prose p + h5,
+.prose p + h6,
+.prose p + ul,
+.prose p + ol,
+.prose p + blockquote,
+.prose ul + ul,
+.prose ol + ol,
+.prose ul + ol,
+.prose ol + ul,
+.prose blockquote + blockquote,
+.prose h1 + h1,
+.prose h2 + h2,
+.prose h3 + h3,
+.prose h4 + h4,
+.prose h5 + h5,
+.prose h6 + h6 {
+  margin-top: 1.2em;
 }
 
 .prose p:first-child {
