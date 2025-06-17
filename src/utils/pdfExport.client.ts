@@ -36,24 +36,23 @@ export async function downloadFile(htmlString: string, fileName: string) {
         const htmlWithStyles = `
         <head>
           <style>
+            @font-face {
+              font-family: 'DM Sans';
+              src: url('https://fonts.gstatic.com/s/dmsans/v14/rP2Y2ywxg044UriZO5Q4.ttf') format('truetype');
+              font-weight: normal;
+              font-style: normal;
+            }
             ${pdfExportCss}
-            
+
             /* Force font overrides for all elements */
             * {
               font-family: "DM Sans", sans-serif !important;
             }
             
-            body, html {
-              font-family: "Inter", sans-serif !important;
-            }
-            
-            /* Override any TipTap specific font styles */
-            .ProseMirror,
-            .tiptap,
-            [class*="tiptap"],
-            [class*="ProseMirror"] {
+            .prose {
               font-family: "DM Sans", sans-serif !important;
             }
+            
           </style>
         </head>
           <div class="prose">

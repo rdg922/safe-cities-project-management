@@ -52,10 +52,10 @@ html, body {
   line-height: 1.25;
 }
 
-.prose h1 { font-size: 1.5em; }
-.prose h2 { font-size: 1.25em; }
-.prose h3 { font-size: 1.125em; }
-.prose h4 { font-size: 1em; }
+.prose h1 { font-size: 1.5em; font-weight: 700;}
+.prose h2 { font-size: 1.25em; font-weight: 700;}
+.prose h3 { font-size: 1.125em; font-weight: 600;}
+.prose h4 { font-size: 1em; font-weight: 600;}
 
 
 /* Spacing rules */
