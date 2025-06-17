@@ -14,7 +14,6 @@ html, body {
   font-weight: 400;
   font-style: normal;
 }
-/*  SANS FONT LOCATION */
 
 .prose {
   max-width: 190mm;
@@ -53,6 +52,7 @@ html, body {
   line-height: 1.25;
 }
 
+/* Heading font size and weights */
 .prose h1 { font-size: 1.5em; font-weight: 700;}
 .prose h2 { font-size: 1.25em; font-weight: 700;}
 .prose h3 { font-size: 1.125em; font-weight: 600;}
@@ -213,6 +213,15 @@ html, body {
   left: 0;
 }
 
+/* Remove extra vertical margin for all nested lists, any depth */
+.prose ul ul,
+.prose ul ol,
+.prose ol ul,
+.prose ol ol {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
 /* Add right margin to checkboxes in task lists */
 .prose input[type="checkbox"] {
   margin-right: 0.5em;
@@ -290,6 +299,13 @@ html, body {
   font-weight: 500;
 }
 
+/* Remove extra margin between task list items */
+.prose ul[data-type="taskList"] > li,
+.prose ul[data-type="taskList"] li[data-type="taskItem"] {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
 /* Add border and padding to table cells */
 .prose th, .prose td {
   border: 1px solid #dfe2e5;
@@ -315,6 +331,27 @@ html, body {
   display: block;
   orphans: 0;
   widows: 0;
+}
+
+/* Center images inside a parent with text-align: center */
+.prose [style*="text-align: center"] > img {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Left-align images inside a parent with text-align: left */
+.prose [style*="text-align: left"] > img {
+  display: block;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* Right-align images inside a parent with text-align: right */
+.prose [style*="text-align: right"] > img {
+  display: block;
+  margin-left: auto;
+  margin-right: 0;
 }
 
 /* Style horizontal rules with height, margin, and background color */

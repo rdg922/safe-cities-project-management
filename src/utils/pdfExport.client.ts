@@ -22,16 +22,6 @@ export async function downloadFile(htmlString: string, fileName: string) {
             res.text()
         )
 
-        // Clean the HTML before processing - remove any inline font styles
-        const cleanedHtml = htmlString
-            .replace(/font-family\s*:\s*[^;]+;?/gi, '') // Remove any inline font-family styles
-            .replace(/style\s*=\s*["'][^"']*font-family[^"']*["']/gi, '') // Remove style attributes with font-family
-            .replace(/class\s*=\s*["'][^"']*tiptap[^"']*["']/gi, 'class=""') // Remove tiptap classes
-            .replace(
-                /class\s*=\s*["'][^"']*ProseMirror[^"']*["']/gi,
-                'class=""'
-            ) // Remove ProseMirror classes
-
         // Create the HTML structure with inlined styles
         const htmlWithStyles = `
         <head>
@@ -55,7 +45,7 @@ export async function downloadFile(htmlString: string, fileName: string) {
           </style>
         </head>
           <div class="prose">
-            ${cleanedHtml}
+            ${htmlString}
           </div>
     `
 
