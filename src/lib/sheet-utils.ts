@@ -139,8 +139,6 @@ export function createSyncedSheetData(
     formSubmissions: Array<{
         id: number
         createdAt: Date
-        submitterName?: string | null
-        submitterEmail?: string | null
         user?: { name?: string | null; email?: string | null } | null
         responses: Array<{
             fieldId: number

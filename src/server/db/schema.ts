@@ -224,8 +224,6 @@ export const formSubmissions = createTable(
             .references(() => forms.fileId, { onDelete: 'cascade' })
             .notNull(),
         userId: d.text().references(() => users.id, { onDelete: 'set null' }), // nullable for anonymous submissions
-        submitterEmail: d.varchar({ length: 256 }), // for anonymous submissions
-        submitterName: d.varchar({ length: 256 }), // for anonymous submissions
         ipAddress: d.varchar({ length: 45 }), // for tracking (IPv4/IPv6)
         userAgent: d.text(), // browser info
         createdAt: d.timestamp().notNull().defaultNow(),
@@ -527,8 +525,6 @@ export type FormSubmission = {
     id: number
     formFileId: number
     userId: string | null
-    submitterEmail: string | null
-    submitterName: string | null
     ipAddress: string | null
     userAgent: string | null
     createdAt: Date
