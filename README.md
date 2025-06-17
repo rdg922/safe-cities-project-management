@@ -6,6 +6,12 @@ A modern collaborative workspace platform designed specifically for Safe Cities 
 
 Safe Cities South Africa is a non-profit organization dedicated to creating safer communities across South Africa. This platform was developed to address the unique organizational challenges faced by non-profit teams, providing an intuitive workspace that combines project management, content creation, and team communication.
 
+## Screenshots
+
+![image](https://github.com/user-attachments/assets/4e059539-ee92-46eb-bcb6-071b627dbefa)
+![image](https://github.com/user-attachments/assets/5150956d-3a0b-4f73-8315-8dd48f5e7b2a)
+![image](https://github.com/user-attachments/assets/3350c3fd-0c6b-4811-a9db-85c9784ba5d5)
+
 ## 🎯 Project Overview
 
 This platform serves as a comprehensive workspace solution that combines the best aspects of Notion's content editing capabilities with project management features tailored for non-profit organizations. The system enables teams to organize programmes hierarchically, collaborate in real-time, and maintain clear communication channels across all projects.
