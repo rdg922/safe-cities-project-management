@@ -38,7 +38,6 @@ export async function downloadFile(htmlString: string, fileName: string) {
           <style>
             @font-face {
               font-family: 'DM Sans';
-              src: url('https://fonts.gstatic.com/s/dmsans/v14/rP2Y2ywxg044UriZO5Q4.ttf') format('truetype');
               font-weight: normal;
               font-style: normal;
             }
