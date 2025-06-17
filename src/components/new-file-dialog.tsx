@@ -152,8 +152,7 @@ export function NewFileDialog({
             if (!selectedFile) return
             setIsUploading(true)
             try {
-                const { path, publicUrl } =
-                    await uploadFileToSupabase(selectedFile)
+                const { path, publicUrl } = await uploadFileToSupabase(selectedFile)
                 createFileMutation.mutate({
                     name: selectedFile.name,
                     type: FILE_TYPES.UPLOAD,
