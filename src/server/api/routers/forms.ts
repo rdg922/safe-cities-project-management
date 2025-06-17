@@ -20,6 +20,11 @@ import {
     type FormField,
 } from '~/server/db/schema'
 import { createSyncedSheetData } from '~/lib/sheet-utils'
+import { TRPCError } from '@trpc/server'
+import {
+    getUserPermissionContext,
+    getAccessibleFiles,
+} from '~/lib/permissions-simple'
 
 // Validation schemas for form field options and validation rules
 const fieldOptionsSchema = z.array(
@@ -120,10 +125,30 @@ export const formsRouter = createTRPCRouter({
             return { file, form }
         }),
 
-    // Get form by file ID
+    // Get form by file ID (public access for published forms ONLY)
     getByFileId: publicProcedure
         .input(z.object({ fileId: z.number() }))
         .query(async ({ ctx, input }) => {
+            // First check if file exists and is a form
+            const file = await ctx.db.query.files.findFirst({
+                where: eq(files.id, input.fileId),
+                columns: { id: true, name: true, type: true }
+            })
+
+            if (!file) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Form not found',
+                })
+            }
+
+            if (file.type !== FILE_TYPES.FORM) {
+                throw new TRPCError({
+                    code: 'BAD_REQUEST',
+                    message: 'The specified file is not a form',
+                })
+            }
+
             const form = await ctx.db.query.forms.findFirst({
                 where: eq(forms.fileId, input.fileId),
                 with: {
@@ -135,7 +160,87 @@ export const formsRouter = createTRPCRouter({
             })
 
             if (!form) {
-                throw new Error('Form not found')
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Form not found',
+                })
+            }
+
+            // SECURITY: Only allow access to published forms for public access
+            if (!form.isPublished) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'This form is not published and cannot be accessed publicly',
+                })
+            }
+
+            // Parse JSON fields
+            const fieldsWithParsedData = form.fields.map((field) => ({
+                ...field,
+                options: field.options ? JSON.parse(field.options) : null,
+                validation: field.validation
+                    ? JSON.parse(field.validation)
+                    : null,
+            }))
+
+            return {
+                ...form,
+                fields: fieldsWithParsedData,
+            }
+        }),
+
+    // Get form by file ID (protected - for editing/management)
+    getByFileIdProtected: protectedProcedure
+        .input(z.object({ fileId: z.number() }))
+        .query(async ({ ctx, input }) => {
+            const { userId } = ctx.auth
+
+            // First check if file exists and is a form
+            const file = await ctx.db.query.files.findFirst({
+                where: eq(files.id, input.fileId),
+                columns: { id: true, name: true, type: true, parentId: true }
+            })
+
+            if (!file) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Form not found',
+                })
+            }
+
+            if (file.type !== FILE_TYPES.FORM) {
+                throw new TRPCError({
+                    code: 'BAD_REQUEST',
+                    message: 'The specified file is not a form',
+                })
+            }
+
+            // Check if user has at least view permission on this file
+            const permissionContext = await getUserPermissionContext(userId)
+            const accessibleFiles = await getAccessibleFiles(permissionContext, [file])
+
+            if (!accessibleFiles.has(input.fileId)) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'You do not have permission to access this form',
+                })
+            }
+
+            const form = await ctx.db.query.forms.findFirst({
+                where: eq(forms.fileId, input.fileId),
+                with: {
+                    file: true,
+                    fields: {
+                        orderBy: asc(formFields.order),
+                    },
+                },
+            })
+
+            if (!form) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Form not found',
+                })
             }
 
             // Parse JSON fields

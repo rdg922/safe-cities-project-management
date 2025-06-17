@@ -260,16 +260,57 @@ export const filesRouter = createTRPCRouter({
         return buildFileTree(null)
     }),
 
-    // Get a specific file by ID
-    getById: publicProcedure
-        .input(z.object({ id: z.number() }))
+    // Get a specific file by ID with permission checking
+    getById: protectedProcedure
+        .input(
+            z.object({
+                id: z.number(),
+                expectedType: z
+                    .enum([
+                        FILE_TYPES.PAGE,
+                        FILE_TYPES.SHEET,
+                        FILE_TYPES.FOLDER,
+                        FILE_TYPES.FORM,
+                        FILE_TYPES.UPLOAD,
+                        FILE_TYPES.PROGRAMME,
+                    ])
+                    .optional(),
+            })
+        )
         .query(async ({ ctx, input }) => {
+            const { userId } = ctx.auth
+
             const file = await ctx.db.query.files.findFirst({
                 where: eq(files.id, input.id),
             })
 
             if (!file) {
-                return null
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'File not found',
+                })
+            }
+
+            // SECURITY: Strict file type validation to prevent cross-type access
+            if (input.expectedType && file.type !== input.expectedType) {
+                throw new TRPCError({
+                    code: 'BAD_REQUEST',
+                    message: `Access denied: File type mismatch. This URL is for ${input.expectedType} files, but the requested file is a ${file.type}. Please use the correct URL pattern for this file type.`,
+                })
+            }
+
+            // Check if user has at least view permission on this file
+            const permissionContext = await getUserPermissionContext(userId)
+            const accessibleFiles = await getAccessibleFiles(
+                permissionContext,
+                [file]
+            )
+
+            if (!accessibleFiles.has(input.id)) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'Access denied: This file has not been shared with you. Please contact the file owner to request access.',
+                })
             }
 
             let content = null
@@ -795,7 +836,7 @@ export const filesRouter = createTRPCRouter({
 
             return {
                 programs,
-                childCounts, // Already in the correct format
+                childCounts: childCounts, // Already in the correct format
                 updateTimes: updateTimesMap,
             }
         }),

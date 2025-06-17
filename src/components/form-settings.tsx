@@ -172,7 +172,10 @@ export function FormSettings({
     const syncStatus = api.forms.getSyncStatus.useQuery({ formId: form.id })
 
     // Query the file information to get parentId
-    const fileInfo = api.files.getById.useQuery({ id: form.file.id })
+    const fileInfo = api.files.getById.useQuery({ 
+        id: form.file.id,
+        expectedType: 'form'
+    })
 
     const handleUpdateSettings = () => {
         updateSettingsMutation.mutate({
