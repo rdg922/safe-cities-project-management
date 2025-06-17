@@ -73,7 +73,7 @@ export async function downloadFile(htmlString: string, fileName: string) {
                 allowTaint: true,
                 logging: true,
             },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait'},
         }
 
         await html2pdfInstance().set(opt).from(htmlWithStyles).save()

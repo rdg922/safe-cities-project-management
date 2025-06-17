@@ -13,11 +13,14 @@ html, body {
   font-optical-sizing: auto;
   font-weight: 400;
   font-style: normal;
+  width: 190mm;
+  margin: 0 auto;
 }
 /*  SANS FONT LOCATION */
 
 .prose {
-  max-width: 800px;
+  max-width: 190mm;
+  margin: 0 auto;
   padding: 2rem 2rem;
   font-family: "DM Sans", sans-serif;
   -webkit-user-select: text;
