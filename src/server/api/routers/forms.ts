@@ -132,7 +132,7 @@ export const formsRouter = createTRPCRouter({
             // First check if file exists and is a form
             const file = await ctx.db.query.files.findFirst({
                 where: eq(files.id, input.fileId),
-                columns: { id: true, name: true, type: true }
+                columns: { id: true, name: true, type: true },
             })
 
             if (!file) {
@@ -170,7 +170,8 @@ export const formsRouter = createTRPCRouter({
             if (!form.isPublished) {
                 throw new TRPCError({
                     code: 'FORBIDDEN',
-                    message: 'This form is not published and cannot be accessed publicly',
+                    message:
+                        'This form is not published and cannot be accessed publicly',
                 })
             }
 
@@ -198,7 +199,7 @@ export const formsRouter = createTRPCRouter({
             // First check if file exists and is a form
             const file = await ctx.db.query.files.findFirst({
                 where: eq(files.id, input.fileId),
-                columns: { id: true, name: true, type: true, parentId: true }
+                columns: { id: true, name: true, type: true, parentId: true },
             })
 
             if (!file) {
@@ -217,7 +218,10 @@ export const formsRouter = createTRPCRouter({
 
             // Check if user has at least view permission on this file
             const permissionContext = await getUserPermissionContext(userId)
-            const accessibleFiles = await getAccessibleFiles(permissionContext, [file])
+            const accessibleFiles = await getAccessibleFiles(
+                permissionContext,
+                [file]
+            )
 
             if (!accessibleFiles.has(input.fileId)) {
                 throw new TRPCError({

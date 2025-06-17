@@ -19,19 +19,25 @@ export default function PageView() {
         data: page,
         isLoading,
         error,
-    } = api.files.getById.useQuery({ 
-        id: pageId, 
-        expectedType: 'page' 
-    }, { 
-        enabled: !!pageId,
-        retry: (failureCount, error) => {
-            // Don't retry on permission or type validation errors
-            if (error?.data?.code === 'FORBIDDEN' || error?.data?.code === 'BAD_REQUEST') {
-                return false
-            }
-            return failureCount < 3
+    } = api.files.getById.useQuery(
+        {
+            id: pageId,
+            expectedType: 'page',
+        },
+        {
+            enabled: !!pageId,
+            retry: (failureCount, error) => {
+                // Don't retry on permission or type validation errors
+                if (
+                    error?.data?.code === 'FORBIDDEN' ||
+                    error?.data?.code === 'BAD_REQUEST'
+                ) {
+                    return false
+                }
+                return failureCount < 3
+            },
         }
-    })
+    )
 
     // Get user's permission for this file using the hierarchical permission system
     const { data: userPermission, isLoading: isPermissionLoading } =
@@ -50,13 +56,16 @@ export default function PageView() {
 
     const [content, setContent] = useState<string>('')
     const [localPermission, setLocalPermission] = useState<Permission>('view')
-    const [hasInitialContentLoaded, setHasInitialContentLoaded] = useState(false)
+    const [hasInitialContentLoaded, setHasInitialContentLoaded] =
+        useState(false)
 
     // Version history state
     const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
 
     // Add state to track saving status
-    const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+    const [savingStatus, setSavingStatus] = useState<
+        'idle' | 'saving' | 'saved'
+    >('idle')
 
     // Add mutation hook for updating the page
     const updatePageMutation = api.files.updatePageContent.useMutation({
@@ -138,7 +147,8 @@ export default function PageView() {
         setIsVersionHistoryOpen(false)
         toast({
             title: 'Version restored',
-            description: 'The page content has been restored to the selected version.',
+            description:
+                'The page content has been restored to the selected version.',
         })
     }, [])
 
@@ -172,38 +182,74 @@ export default function PageView() {
                         <div className="mb-4">
                             {error.data?.code === 'FORBIDDEN' ? (
                                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 dark:bg-red-900">
-                                    <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H9m3-7V9m0 0V7m0 2h2M12 9H9m3-7a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    <svg
+                                        className="w-8 h-8 text-red-600 dark:text-red-400"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M12 15v2m0 0v2m0-2h2m-2 0H9m3-7V9m0 0V7m0 2h2M12 9H9m3-7a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
                                     </svg>
                                 </div>
                             ) : error.data?.code === 'BAD_REQUEST' ? (
                                 <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4 dark:bg-yellow-900">
-                                    <svg className="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                    <svg
+                                        className="w-8 h-8 text-yellow-600 dark:text-yellow-400"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"
+                                        />
                                     </svg>
                                 </div>
                             ) : (
                                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 dark:bg-gray-800">
-                                    <svg className="w-8 h-8 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    <svg
+                                        className="w-8 h-8 text-gray-600 dark:text-gray-400"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
                                     </svg>
                                 </div>
                             )}
                         </div>
                         <h2 className="text-xl font-bold mb-2">
-                            {error.data?.code === 'FORBIDDEN' ? 'Access Denied' : 
-                             error.data?.code === 'BAD_REQUEST' ? 'Invalid File Type' :
-                             error.data?.code === 'NOT_FOUND' ? 'Page Not Found' :
-                             'Error Loading Page'}
+                            {error.data?.code === 'FORBIDDEN'
+                                ? 'Access Denied'
+                                : error.data?.code === 'BAD_REQUEST'
+                                  ? 'Invalid File Type'
+                                  : error.data?.code === 'NOT_FOUND'
+                                    ? 'Page Not Found'
+                                    : 'Error Loading Page'}
                         </h2>
                         <p className="text-muted-foreground mb-4">
-                            {error.data?.code === 'FORBIDDEN' ? 'You do not have permission to access this page.' :
-                             error.data?.code === 'BAD_REQUEST' ? 'This file is not a page or has an invalid format.' :
-                             error.data?.code === 'NOT_FOUND' ? 'The page you are looking for does not exist.' :
-                             error.message}
+                            {error.data?.code === 'FORBIDDEN'
+                                ? 'You do not have permission to access this page.'
+                                : error.data?.code === 'BAD_REQUEST'
+                                  ? 'This file is not a page or has an invalid format.'
+                                  : error.data?.code === 'NOT_FOUND'
+                                    ? 'The page you are looking for does not exist.'
+                                    : error.message}
                         </p>
-                        <button 
-                            onClick={() => window.history.back()} 
+                        <button
+                            onClick={() => window.history.back()}
                             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary/90"
                         >
                             Go Back
@@ -228,29 +274,29 @@ export default function PageView() {
 
     return (
         <div className="h-screen flex flex-col">
-                <FileHeader
-                    filename={page.name || 'Untitled Page'}
-                    fileId={pageId}
-                    permission={localPermission}
-                    savingStatus={savingStatus}
-                    content={content}
-                    onVersionHistoryClick={() => setIsVersionHistoryOpen(true)}
-                />
+            <FileHeader
+                filename={page.name || 'Untitled Page'}
+                fileId={pageId}
+                permission={localPermission}
+                savingStatus={savingStatus}
+                content={content}
+                onVersionHistoryClick={() => setIsVersionHistoryOpen(true)}
+            />
 
-                <div className="flex-1 min-h-0 flex justify-center items-start bg-background">
-                    <SimpleEditor
-                        initialContent={content}
-                        readOnly={isReadOnly}
-                        onUpdate={handleContentChange}
-                    />
-                </div>
-
-                <VersionHistory
-                    fileId={pageId}
-                    isOpen={isVersionHistoryOpen}
-                    onClose={() => setIsVersionHistoryOpen(false)}
-                    onRestore={handleVersionRestore}
+            <div className="flex-1 min-h-0 flex justify-center items-start bg-background">
+                <SimpleEditor
+                    initialContent={content}
+                    readOnly={isReadOnly}
+                    onUpdate={handleContentChange}
                 />
+            </div>
+
+            <VersionHistory
+                fileId={pageId}
+                isOpen={isVersionHistoryOpen}
+                onClose={() => setIsVersionHistoryOpen(false)}
+                onRestore={handleVersionRestore}
+            />
         </div>
     )
 }

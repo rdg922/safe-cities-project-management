@@ -309,7 +309,8 @@ export const filesRouter = createTRPCRouter({
             if (!accessibleFiles.has(input.id)) {
                 throw new TRPCError({
                     code: 'FORBIDDEN',
-                    message: 'Access denied: This file has not been shared with you. Please contact the file owner to request access.',
+                    message:
+                        'Access denied: This file has not been shared with you. Please contact the file owner to request access.',
                 })
             }
 
@@ -594,7 +595,7 @@ export const filesRouter = createTRPCRouter({
                         'Background permission rebuild after file deletion failed:',
                         error
                     )
-              }
+                }
             })
 
             return {
@@ -784,7 +785,6 @@ export const filesRouter = createTRPCRouter({
 
             // gets a list of program ids from the respective program objects
             const programIds = programs.map((program) => program.id)
-
 
             // get all descendants for all programs in one query
             // maps each program id to a list of its

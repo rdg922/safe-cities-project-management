@@ -19,19 +19,25 @@ export default function SheetPage() {
     >('idle')
 
     // Fetch sheet from the server using the unified files router with type validation
-    const { data: sheet, isLoading } = api.files.getById.useQuery({
-        id: sheetId,
-        expectedType: 'sheet'
-    }, {
-        enabled: !!sheetId,
-        retry: (failureCount, error) => {
-            // Don't retry on permission or type validation errors
-            if (error?.data?.code === 'FORBIDDEN' || error?.data?.code === 'BAD_REQUEST') {
-                return false
-            }
-            return failureCount < 3
+    const { data: sheet, isLoading } = api.files.getById.useQuery(
+        {
+            id: sheetId,
+            expectedType: 'sheet',
+        },
+        {
+            enabled: !!sheetId,
+            retry: (failureCount, error) => {
+                // Don't retry on permission or type validation errors
+                if (
+                    error?.data?.code === 'FORBIDDEN' ||
+                    error?.data?.code === 'BAD_REQUEST'
+                ) {
+                    return false
+                }
+                return failureCount < 3
+            },
         }
-    })
+    )
 
     // Get user's permission for this file using the hierarchical permission system
     const { data: userPermission } = api.permissions.getUserPermission.useQuery(

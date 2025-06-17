@@ -51,15 +51,18 @@ export default function FormView() {
         refetch,
     } = api.forms.getByFileIdProtected.useQuery(
         { fileId: formId },
-        { 
+        {
             enabled: !!formId && !isNaN(formId),
             retry: (failureCount, error) => {
                 // Don't retry on permission or type validation errors
-                if (error?.data?.code === 'FORBIDDEN' || error?.data?.code === 'BAD_REQUEST') {
+                if (
+                    error?.data?.code === 'FORBIDDEN' ||
+                    error?.data?.code === 'BAD_REQUEST'
+                ) {
                     return false
                 }
                 return failureCount < 3
-            }
+            },
         }
     )
 
