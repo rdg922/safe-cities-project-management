@@ -594,7 +594,7 @@ export const filesRouter = createTRPCRouter({
                         'Background permission rebuild after file deletion failed:',
                         error
                     )
-                }
+              }
             })
 
             return {
@@ -744,6 +744,7 @@ export const filesRouter = createTRPCRouter({
             })
         )
         .query(async ({ ctx, input }) => {
+            console.log('Input type:', input.type)
             const { userId } = ctx.auth
 
             // Get all programs in one query
@@ -751,14 +752,29 @@ export const filesRouter = createTRPCRouter({
                 where: eq(files.type, input.type),
                 orderBy: [desc(files.createdAt)],
             })
+            console.log('All programs:', allPrograms)
 
             // Get user's permission context
             const permissionContext = await getUserPermissionContext(userId)
 
+            // Get all files to check for program descendants
+            const allFiles = await ctx.db.query.files.findMany({
+                columns: {
+                    id: true,
+                    parentId: true,
+                    type: true,
+                },
+            })
+
             // Get accessible files using optimized permission context
             const accessibleFileIds = await getAccessibleFiles(
                 permissionContext,
-                allPrograms
+                allFiles
+            )
+
+            console.log(
+                `Accessible file IDs for user ${userId}:`,
+                accessibleFileIds
             )
 
             // Filter programs to only include accessible ones
@@ -768,6 +784,7 @@ export const filesRouter = createTRPCRouter({
 
             // gets a list of program ids from the respective program objects
             const programIds = programs.map((program) => program.id)
+
 
             // get all descendants for all programs in one query
             // maps each program id to a list of its
