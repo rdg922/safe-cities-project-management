@@ -1,29 +1,150 @@
-# Create T3 App
+# Safe Cities Project Management Platform
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+A modern collaborative workspace platform designed specifically for Safe Cities South Africa Non-Profit organization. This Notion-inspired project management system streamlines programme coordination, enhances team collaboration, and simplifies content management for non-profit operations.
 
-## What's next? How do I make an app with this?
+## 🌍 About Safe Cities South Africa
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+Safe Cities South Africa is a non-profit organization dedicated to creating safer communities across South Africa. This platform was developed to address the unique organizational challenges faced by non-profit teams, providing an intuitive workspace that combines project management, content creation, and team communication.
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+## 🎯 Project Overview
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+This platform serves as a comprehensive workspace solution that combines the best aspects of Notion's content editing capabilities with project management features tailored for non-profit organizations. The system enables teams to organize programmes hierarchically, collaborate in real-time, and maintain clear communication channels across all projects.
 
-## Learn More
+### Key Objectives
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+- **Streamline Programme Management**: Replace fragmented tools with a unified workspace
+- **Enhance Collaboration**: Enable seamless communication between team members
+- **Simplify Content Creation**: Provide intuitive editing tools accessible to all skill levels
+- **Improve Organization**: Implement structured programme and page hierarchies
+- **Ensure Security**: Role-based permissions for viewing, commenting, and editing
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+## 🚀 Features
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+### Core Functionality
+- **Hierarchical Programme Structure**: Organize programmes and pages in nested structures
+- **Notion-Style Editor**: WYSIWYG markdown editor with keyboard shortcuts and drag-and-drop functionality
+- **Real-time Collaboration**: Live editing with conflict resolution
+- **File Management**: Upload and embed images, documents, and media files
+- **Per-Page Permissions**: Granular access control (View/Comment/Edit) based on user roles
 
-## How do I deploy this?
+### Communication & Collaboration
+- **Page-Level Chat**: Dedicated chat rooms for each page with @mention functionality
+- **Global Chat Hub**: Centralized access to all chat conversations
+- **Notification System**: Real-time alerts for mentions, comments, and permission changes
+- **Activity Feed**: Track recent edits, new pages, and programme updates
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+### Advanced Features (Planned)
+- **Form Builder**: Create forms that automatically update connected spreadsheets
+- **Task Management**: Assign and track tasks at the page level
+- **Calendar Integration**: Schedule and view events across programmes
+- **Offline Support**: PWA capabilities for offline content editing
+- **Data Export**: Backup content to .docx, .png, and .csv formats
+
+## 🛠️ Technology Stack
+
+### Frontend & Backend
+- **Next.js 14**: Full-stack React framework with App Router
+- **TypeScript**: Type-safe development environment
+- **Tailwind CSS**: Utility-first CSS framework for responsive design
+- **tRPC**: End-to-end typesafe APIs
+
+### Database & Authentication
+- **Drizzle ORM**: Type-safe database interactions
+- **Supabase**: PostgreSQL database with real-time capabilities
+- **Clerk**: User authentication and session management
+
+## 🏗️ Architecture
+
+The platform follows a modern full-stack architecture with:
+
+- **Server-Side Rendering**: Next.js App Router for optimal performance
+- **Type Safety**: End-to-end TypeScript implementation
+- **Component-Based Design**: Reusable UI components with shadcn/ui
+- **API Layer**: tRPC for type-safe client-server communication
+
+## 👥 User Personas
+
+### Programme Coordinators
+- Need to organize and oversee multiple programmes
+- Require permission management capabilities
+- Focus on high-level programme structure and team coordination
+
+### Content Contributors
+- Create and edit programme content
+- Participate in discussions and provide updates
+- Need intuitive editing tools with minimal learning curve
+
+### Community Members
+- View programme information and progress
+- Participate in relevant discussions
+- Access shared resources and documents
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
+- PostgreSQL database (Supabase recommended)
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/rdg922/safe-cities-project-management.git
+cd safe-cities-project-management
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Set up environment variables:
+```bash
+cp .env.example .env.local
+# Configure your database, authentication, and other services
+```
+
+4. Run database migrations:
+```bash
+npm run db:push
+```
+
+5. Start the development server:
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:3000`.
+
+## 🤝 Contributing
+
+This project is developed for Safe Cities South Africa. For contribution guidelines and development standards, please refer to our internal documentation.
+
+## 📄 License
+
+MIT License
+
+Copyright (c) 2025 Safe Cities South Africa
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+*Built with ❤️ for South African communities*
