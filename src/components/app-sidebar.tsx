@@ -66,17 +66,18 @@ export function AppSidebar() {
 
                 <SidebarSeparator />
 
-                <SidebarContent>
-                    <NavigationMenu
+                <NavigationMenu
                         currentPath={pathname}
                         userRole={
                             userProfile && 'role' in userProfile
                                 ? userProfile.role || undefined
                                 : undefined
                         }
-                    />
+                />
 
-                    <SidebarSeparator />
+                <SidebarSeparator />
+
+                <SidebarContent>
 
                     <ProgrammeSection
                         canCreateProgramme={canCreateProgramme}
@@ -87,6 +88,8 @@ export function AppSidebar() {
                         setActiveFileId={setActiveFileId}
                     />
                 </SidebarContent>
+
+                <SidebarSeparator />
 
                 <SidebarFooterComponent userProfile={userProfile} />
             </Sidebar>
