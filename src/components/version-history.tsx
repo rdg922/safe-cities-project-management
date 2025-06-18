@@ -8,24 +8,9 @@ import { Badge } from '~/components/ui/badge'
 import { Separator } from '~/components/ui/separator'
 import { toast } from '~/hooks/use-toast'
 import { formatDistanceToNow } from 'date-fns'
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '~/components/ui/dialog'
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '~/components/ui/alert-dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+    AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '~/components/ui/alert-dialog'
 import { HistoryIcon, RotateCcwIcon, TrashIcon, UserIcon } from 'lucide-react'
 import { SimpleEditor } from '~/components/tiptap-templates/simple/simple-editor'
 
@@ -56,7 +41,7 @@ export function VersionHistory({
         isLoading,
         refetch,
     } = api.files.getPageVersionHistory.useQuery(
-        { fileId, limit: 50 },
+        { fileId, limit: 30 },
         { enabled: isOpen && !!fileId }
     )
 

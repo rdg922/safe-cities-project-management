@@ -1,6 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse, NextRequest } from 'next/server'
-import { updateSession } from '@/utils/supabase/middleware'
+import { updateSession } from 'src/components/supabase-utils/middleware'
 
 const isOnboardingRoute = createRouteMatcher(['/onboarding'])
 const isApiRoute = createRouteMatcher(['/api(.*)'])

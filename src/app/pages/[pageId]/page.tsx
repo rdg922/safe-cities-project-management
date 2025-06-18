@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { toast } from '~/hooks/use-toast'
 import { SimpleEditor } from '~/components/tiptap-templates/simple/simple-editor'
@@ -12,6 +12,7 @@ type Permission = 'view' | 'comment' | 'edit'
 
 export default function PageView() {
     const params = useParams()
+    const router = useRouter()
     const pageId = Number(params.pageId as string)
 
     // Fetch page data using tRPC with type validation
@@ -56,16 +57,13 @@ export default function PageView() {
 
     const [content, setContent] = useState<string>('')
     const [localPermission, setLocalPermission] = useState<Permission>('view')
-    const [hasInitialContentLoaded, setHasInitialContentLoaded] =
-        useState(false)
+    const [hasInitialContentLoaded, setHasInitialContentLoaded] = useState(false)
 
     // Version history state
     const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
 
     // Add state to track saving status
-    const [savingStatus, setSavingStatus] = useState<
-        'idle' | 'saving' | 'saved'
-    >('idle')
+    const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
 
     // Add mutation hook for updating the page
     const updatePageMutation = api.files.updatePageContent.useMutation({
@@ -114,20 +112,19 @@ export default function PageView() {
             // Only auto-save if user has edit permissions
             if (!userPermission || userPermission === 'view') return
 
-            setSavingStatus('saving')
-
             // Clear previous timer if exists
             if (contentUpdateTimerRef.current) {
                 clearTimeout(contentUpdateTimerRef.current)
             }
 
-            // Set new timer for debounced save
+            // Set new timer for debounced save, this determines how long to wait before saving the version
             contentUpdateTimerRef.current = setTimeout(() => {
+                setSavingStatus('saving') // =Saving status is set only right before saving
                 updatePageMutation.mutate({
                     fileId: pageId,
                     content: newContent,
                 })
-            }, 2000) // 2 seconds debounce for better responsiveness
+            }, 10 * 1000) // <--- this means after 10 seconds of no activity, it auto saves
         },
         [pageId, userPermission, updatePageMutation]
     )
@@ -283,7 +280,7 @@ export default function PageView() {
                 onVersionHistoryClick={() => setIsVersionHistoryOpen(true)}
             />
 
-            <div className="flex-1 min-h-0 flex justify-center items-start bg-background">
+            <div className="flex-1 min-h-0 flex flex-col justify-start items-center bg-background">
                 <SimpleEditor
                     initialContent={content}
                     readOnly={isReadOnly}
