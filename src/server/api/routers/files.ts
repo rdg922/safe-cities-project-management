@@ -364,7 +364,7 @@ export const filesRouter = createTRPCRouter({
             return { success: true }
         }),
 
-    // Update page content
+        // Update page content
     updatePageContent: protectedProcedure
         .input(
             z.object({
@@ -374,13 +374,13 @@ export const filesRouter = createTRPCRouter({
         )
         .mutation(async ({ ctx, input }) => {
             const { userId } = ctx.auth
-
+        
             // Get current page content to save as version history
             const currentPage = await ctx.db.query.pageContent.findFirst({
                 where: eq(pageContent.fileId, input.fileId),
                 columns: { content: true, version: true },
             })
-
+        
             if (currentPage && currentPage.content) {
                 // Save current content to version history before updating
                 await ctx.db.insert(pageVersionHistory).values({
@@ -389,8 +389,21 @@ export const filesRouter = createTRPCRouter({
                     version: currentPage.version ?? 1,
                     createdBy: userId,
                     changeDescription: 'Auto-saved version',
-                })
-
+                });
+            
+                // PRUNE: Keep only the 30 most recent versions
+                const allVersions = await ctx.db.query.pageVersionHistory.findMany({
+                    where: eq(pageVersionHistory.fileId, input.fileId),
+                    orderBy: desc(pageVersionHistory.version),
+                    columns: { id: true },
+                });
+                if (allVersions.length > 30) {
+                    const idsToDelete = allVersions.slice(30).map(v => v.id);
+                    await ctx.db.delete(pageVersionHistory).where(
+                        inArray(pageVersionHistory.id, idsToDelete)
+                    );
+                }
+            
                 // Update the page content with incremented version
                 await ctx.db
                     .update(pageContent)
@@ -408,7 +421,7 @@ export const filesRouter = createTRPCRouter({
                     version: 1,
                 })
             }
-
+        
             // Update the file's updatedAt timestamp
             await ctx.db
                 .update(files)
@@ -417,7 +430,7 @@ export const filesRouter = createTRPCRouter({
                     updatedBy: userId,
                 })
                 .where(eq(files.id, input.fileId))
-
+            
             // Optimized notification query - get file and user info in parallel
             const [file, currentUser, usersWithAccessIds] = await Promise.all([
                 ctx.db.query.files.findFirst({
@@ -431,7 +444,7 @@ export const filesRouter = createTRPCRouter({
                 // Use optimized function for faster lookup
                 getUsersWithFileAccess(input.fileId),
             ])
-
+        
             if (file && currentUser && usersWithAccessIds.length > 0) {
                 // Create edit notifications for users with access (excluding the editor)
                 const notificationsToInsert = usersWithAccessIds
@@ -445,14 +458,14 @@ export const filesRouter = createTRPCRouter({
                         createdAt: new Date(),
                         updatedAt: new Date(),
                     }))
-
+                
                 if (notificationsToInsert.length > 0) {
                     await ctx.db
                         .insert(notifications)
                         .values(notificationsToInsert)
                 }
             }
-
+        
             return { success: true }
         }),
 
