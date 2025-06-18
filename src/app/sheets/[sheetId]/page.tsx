@@ -5,7 +5,9 @@ import { useParams } from 'next/navigation'
 import { api } from '~/trpc/react'
 import { SheetEditor } from '~/components/sheet-editor'
 import { FileHeader } from '~/components/file-header'
+import { VersionHistory } from '~/components/version-history/version-history'
 import { createEmptySheet, type SheetData } from '~/lib/sheet-utils'
+import { toast } from '~/hooks/use-toast'
 
 type PermissionType = 'view' | 'comment' | 'edit'
 
@@ -17,6 +19,10 @@ export default function SheetPage() {
     const [savingStatus, setSavingStatus] = useState<
         'idle' | 'saving' | 'saved'
     >('idle')
+    const [showVersionHistory, setShowVersionHistory] = useState(false)
+    const [currentSheetData, setCurrentSheetData] = useState<SheetData | null>(
+        null
+    )
 
     // Fetch sheet from the server using the unified files router with type validation
     const { data: sheet, isLoading } = api.files.getById.useQuery(
@@ -102,6 +108,38 @@ export default function SheetPage() {
     // Determine if the editor should be read-only based on permissions
     const isReadOnly = !userPermission || userPermission === 'view'
 
+    // Handle version restore
+    const handleVersionRestore = (content: string) => {
+        try {
+            const restoredData = JSON.parse(content)
+            if (
+                restoredData?.rows &&
+                Array.isArray(restoredData.rows) &&
+                restoredData?.cells &&
+                Array.isArray(restoredData.cells)
+            ) {
+                setCurrentSheetData(restoredData)
+                toast({
+                    title: '✅ Version restored',
+                    description:
+                        'Sheet has been restored to the selected version',
+                })
+            } else {
+                throw new Error('Invalid sheet data format')
+            }
+        } catch (error) {
+            console.error('Error restoring sheet version:', error)
+            toast({
+                title: '❌ Restore failed',
+                description: 'Could not restore the selected version',
+                variant: 'destructive',
+            })
+        }
+    }
+
+    // Use the restored data if available, otherwise use initial data
+    const sheetDataToUse = currentSheetData || initialData
+
     return (
         <div className="h-screen flex flex-col">
             <FileHeader
@@ -110,17 +148,36 @@ export default function SheetPage() {
                 permission={localPermission}
                 savingStatus={savingStatus}
                 onPermissionChange={handlePermissionChange}
+                onVersionHistoryClick={
+                    !isReadOnly ? () => setShowVersionHistory(true) : undefined
+                }
             />
             <div className="flex-1">
                 <SheetEditor
-                    initialData={initialData}
+                    initialData={sheetDataToUse}
                     sheetId={sheetId}
                     sheetName={sheet.name}
                     readOnly={isReadOnly}
-                    syncMetadata={syncMetadata || undefined}
+                    syncMetadata={
+                        syncMetadata
+                            ? {
+                                  ...syncMetadata,
+                                  isLiveSync: syncMetadata.isLiveSync ?? false,
+                              }
+                            : undefined
+                    }
                     onSavingStatusChange={setSavingStatus}
                 />
             </div>
+
+            {/* Version History Modal */}
+            <VersionHistory
+                fileId={sheetId}
+                fileType="sheet"
+                isOpen={showVersionHistory}
+                onClose={() => setShowVersionHistory(false)}
+                onRestore={handleVersionRestore}
+            />
         </div>
     )
 }

@@ -29,6 +29,7 @@ interface SheetEditorProps {
         lastSyncAt: string
     }
     onSavingStatusChange?: (status: 'idle' | 'saving' | 'saved') => void
+    onShowVersionHistory?: () => void
 }
 
 export function SheetEditor({
@@ -38,6 +39,7 @@ export function SheetEditor({
     readOnly = false,
     syncMetadata,
     onSavingStatusChange,
+    onShowVersionHistory,
 }: SheetEditorProps) {
     const [sheet, setSheet] = useState<SheetData>(initialData)
 
@@ -47,8 +49,7 @@ export function SheetEditor({
     >([])
     const [historyIndex, setHistoryIndex] = useState(-1)
 
-    // Debounced saving
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+    // Debounced saving - only save after 5 seconds of no editing
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     const isLiveSyncSheet = syncMetadata?.isLiveSync
@@ -70,20 +71,20 @@ export function SheetEditor({
         },
     })
 
-    // Debounced save function
+    // Debounced save function - 5 seconds of no editing
     const debouncedSave = useCallback(
         (sheetData: SheetData) => {
             if (saveTimeoutRef.current) {
                 clearTimeout(saveTimeoutRef.current)
             }
 
-            onSavingStatusChange?.('saving')
             saveTimeoutRef.current = setTimeout(() => {
+                onSavingStatusChange?.('saving')
                 updateMutation.mutate({
                     fileId: sheetId,
                     content: JSON.stringify(sheetData),
                 })
-            }, 1000) // Debounce for 1 second
+            }, 5000) // Debounce for 5 seconds
         },
         [sheetId, updateMutation, onSavingStatusChange]
     )
@@ -230,12 +231,9 @@ export function SheetEditor({
         }
     }, [handleKeyDown])
 
-    // Cleanup timeouts on unmount
+    // Cleanup timeout on unmount
     useEffect(() => {
         return () => {
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current)
-            }
             if (saveTimeoutRef.current) {
                 clearTimeout(saveTimeoutRef.current)
             }
@@ -281,7 +279,7 @@ export function SheetEditor({
 
         setSheet(newSheet)
 
-        // Save the updated sheet with debouncing
+        // Trigger debounced save after 5 seconds
         debouncedSave(newSheet)
     }
 
@@ -319,7 +317,7 @@ export function SheetEditor({
 
         setSheet(newSheet)
 
-        // Save the updated sheet with debouncing
+        // Trigger debounced save after 5 seconds
         debouncedSave(newSheet)
     }
 
@@ -360,7 +358,7 @@ export function SheetEditor({
         const newSheet = applyChangesToHistory(allowedChanges, sheet)
         setSheet(newSheet)
 
-        // Debounced save
+        // Trigger debounced save after 5 seconds of no editing
         debouncedSave(newSheet)
     }
 
@@ -399,24 +397,9 @@ export function SheetEditor({
                 `}</style>
             )}
 
-            {/* Header with controls */}
-            <div className="flex items-center justify-between p-4 border-b">
-                <div className="flex items-center gap-4">
-                    <h2 className="text-lg font-semibold">
-                        {sheetName || 'Sheet'}
-                    </h2>
-                    {isLiveSyncSheet && (
-                        <Badge
-                            variant="secondary"
-                            className="flex items-center gap-1"
-                        >
-                            <Activity className="h-3 w-3" />
-                            Live Sync
-                        </Badge>
-                    )}
-                </div>
-
-                {!readOnly && (
+            {/* Centered Action Bar */}
+            {!readOnly && (
+                <div className="flex justify-center items-center p-3 border-b bg-muted/30">
                     <div className="flex items-center gap-2">
                         <Button
                             variant="outline"
@@ -442,7 +425,7 @@ export function SheetEditor({
                             <Redo className="h-4 w-4" />
                             Redo
                         </Button>
-                        <div className="h-4 border-l border-gray-300" />
+                        <div className="h-4 border-l border-gray-300 mx-2" />
                         <Button
                             variant="outline"
                             size="sm"
@@ -454,8 +437,21 @@ export function SheetEditor({
                             Add Column
                         </Button>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
+
+            {/* Live Sync Badge - only show if present */}
+            {isLiveSyncSheet && (
+                <div className="flex justify-center p-2 border-b bg-blue-50 dark:bg-blue-950/50">
+                    <Badge
+                        variant="secondary"
+                        className="flex items-center gap-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                    >
+                        <Activity className="h-3 w-3" />
+                        Live Sync Active
+                    </Badge>
+                </div>
+            )}
 
             {/* Live sync notification */}
             {isLiveSyncSheet && (

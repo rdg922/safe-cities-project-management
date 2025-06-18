@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { toast } from '~/hooks/use-toast'
 import { SimpleEditor } from '~/components/tiptap-templates/simple/simple-editor'
 import { FileHeader } from '~/components/file-header'
-import { VersionHistory } from '~/components/version-history'
+import { VersionHistory } from '~/components/version-history/version-history'
 import { api } from '~/trpc/react'
 
 type Permission = 'view' | 'comment' | 'edit'
@@ -57,13 +57,16 @@ export default function PageView() {
 
     const [content, setContent] = useState<string>('')
     const [localPermission, setLocalPermission] = useState<Permission>('view')
-    const [hasInitialContentLoaded, setHasInitialContentLoaded] = useState(false)
+    const [hasInitialContentLoaded, setHasInitialContentLoaded] =
+        useState(false)
 
     // Version history state
     const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
 
     // Add state to track saving status
-    const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+    const [savingStatus, setSavingStatus] = useState<
+        'idle' | 'saving' | 'saved'
+    >('idle')
 
     // Add mutation hook for updating the page
     const updatePageMutation = api.files.updatePageContent.useMutation({
@@ -291,6 +294,7 @@ export default function PageView() {
 
             <VersionHistory
                 fileId={pageId}
+                fileType="page"
                 isOpen={isVersionHistoryOpen}
                 onClose={() => setIsVersionHistoryOpen(false)}
                 onRestore={handleVersionRestore}

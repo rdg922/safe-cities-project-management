@@ -364,7 +364,7 @@ export const filesRouter = createTRPCRouter({
             return { success: true }
         }),
 
-        // Update page content
+    // Update page content
     updatePageContent: protectedProcedure
         .input(
             z.object({
@@ -374,13 +374,13 @@ export const filesRouter = createTRPCRouter({
         )
         .mutation(async ({ ctx, input }) => {
             const { userId } = ctx.auth
-        
+
             // Get current page content to save as version history
             const currentPage = await ctx.db.query.pageContent.findFirst({
                 where: eq(pageContent.fileId, input.fileId),
                 columns: { content: true, version: true },
             })
-        
+
             if (currentPage && currentPage.content) {
                 // Save current content to version history before updating
                 await ctx.db.insert(pageVersionHistory).values({
@@ -389,21 +389,22 @@ export const filesRouter = createTRPCRouter({
                     version: currentPage.version ?? 1,
                     createdBy: userId,
                     changeDescription: 'Auto-saved version',
-                });
-            
+                })
+
                 // PRUNE: Keep only the 30 most recent versions
-                const allVersions = await ctx.db.query.pageVersionHistory.findMany({
-                    where: eq(pageVersionHistory.fileId, input.fileId),
-                    orderBy: desc(pageVersionHistory.version),
-                    columns: { id: true },
-                });
+                const allVersions =
+                    await ctx.db.query.pageVersionHistory.findMany({
+                        where: eq(pageVersionHistory.fileId, input.fileId),
+                        orderBy: desc(pageVersionHistory.version),
+                        columns: { id: true },
+                    })
                 if (allVersions.length > 30) {
-                    const idsToDelete = allVersions.slice(30).map(v => v.id);
-                    await ctx.db.delete(pageVersionHistory).where(
-                        inArray(pageVersionHistory.id, idsToDelete)
-                    );
+                    const idsToDelete = allVersions.slice(30).map((v) => v.id)
+                    await ctx.db
+                        .delete(pageVersionHistory)
+                        .where(inArray(pageVersionHistory.id, idsToDelete))
                 }
-            
+
                 // Update the page content with incremented version
                 await ctx.db
                     .update(pageContent)
@@ -421,7 +422,7 @@ export const filesRouter = createTRPCRouter({
                     version: 1,
                 })
             }
-        
+
             // Update the file's updatedAt timestamp
             await ctx.db
                 .update(files)
@@ -430,7 +431,7 @@ export const filesRouter = createTRPCRouter({
                     updatedBy: userId,
                 })
                 .where(eq(files.id, input.fileId))
-            
+
             // Optimized notification query - get file and user info in parallel
             const [file, currentUser, usersWithAccessIds] = await Promise.all([
                 ctx.db.query.files.findFirst({
@@ -444,7 +445,7 @@ export const filesRouter = createTRPCRouter({
                 // Use optimized function for faster lookup
                 getUsersWithFileAccess(input.fileId),
             ])
-        
+
             if (file && currentUser && usersWithAccessIds.length > 0) {
                 // Create edit notifications for users with access (excluding the editor)
                 const notificationsToInsert = usersWithAccessIds
@@ -458,14 +459,14 @@ export const filesRouter = createTRPCRouter({
                         createdAt: new Date(),
                         updatedAt: new Date(),
                     }))
-                
+
                 if (notificationsToInsert.length > 0) {
                     await ctx.db
                         .insert(notifications)
                         .values(notificationsToInsert)
                 }
             }
-        
+
             return { success: true }
         }),
 
@@ -481,12 +482,44 @@ export const filesRouter = createTRPCRouter({
         .mutation(async ({ ctx, input }) => {
             const { userId } = ctx.auth
 
-            // Update the sheet content
+            // Get current sheet content and version for history
+            const currentSheet = await ctx.db.query.sheetContent.findFirst({
+                where: eq(sheetContent.fileId, input.fileId),
+                columns: { content: true, version: true },
+            })
+
+            if (currentSheet && currentSheet.content) {
+                // Save current content to version history before updating
+                await ctx.db.insert(pageVersionHistory).values({
+                    fileId: input.fileId,
+                    content: currentSheet.content,
+                    version: currentSheet.version ?? 1,
+                    createdBy: userId,
+                    changeDescription: 'Auto-saved version',
+                })
+
+                // PRUNE: Keep only the 30 most recent versions
+                const allVersions =
+                    await ctx.db.query.pageVersionHistory.findMany({
+                        where: eq(pageVersionHistory.fileId, input.fileId),
+                        orderBy: desc(pageVersionHistory.version),
+                        columns: { id: true },
+                    })
+                if (allVersions.length > 30) {
+                    const idsToDelete = allVersions.slice(30).map((v) => v.id)
+                    await ctx.db
+                        .delete(pageVersionHistory)
+                        .where(inArray(pageVersionHistory.id, idsToDelete))
+                }
+            }
+
+            // Update the sheet content with incremented version
             await ctx.db
                 .update(sheetContent)
                 .set({
                     content: input.content,
                     schema: input.schema,
+                    version: (currentSheet?.version ?? 0) + 1,
                     updatedAt: new Date(),
                 })
                 .where(eq(sheetContent.fileId, input.fileId))
@@ -871,7 +904,62 @@ export const filesRouter = createTRPCRouter({
             }
         }),
 
-    // Get page version history
+    // Get version history for any file type
+    getVersionHistory: protectedProcedure
+        .input(
+            z.object({
+                fileId: z.number(),
+                limit: z.number().min(1).max(100).default(50),
+                offset: z.number().min(0).default(0),
+            })
+        )
+        .query(async ({ ctx, input }) => {
+            const { userId } = ctx.auth
+
+            // Check if user has at least view permission on this file
+            const permissionContext = await getUserPermissionContext(userId)
+
+            // Get the file to check permissions
+            const file = await ctx.db.query.files.findFirst({
+                where: eq(files.id, input.fileId),
+                columns: { id: true, parentId: true },
+            })
+
+            if (!file) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'File not found',
+                })
+            }
+
+            const accessibleFiles = await getAccessibleFiles(
+                permissionContext,
+                [file]
+            )
+
+            if (!accessibleFiles.has(input.fileId)) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'You do not have permission to view this file',
+                })
+            }
+
+            const versions = await ctx.db.query.pageVersionHistory.findMany({
+                where: eq(pageVersionHistory.fileId, input.fileId),
+                with: {
+                    createdBy: {
+                        columns: { id: true, name: true, email: true },
+                    },
+                },
+                orderBy: desc(pageVersionHistory.version),
+                limit: input.limit,
+                offset: input.offset,
+            })
+
+            return versions
+        }),
+
+    // Keep old endpoint for backward compatibility
     getPageVersionHistory: protectedProcedure
         .input(
             z.object({
@@ -926,7 +1014,130 @@ export const filesRouter = createTRPCRouter({
             return versions
         }),
 
-    // Restore page to a specific version
+    // Restore any file type to a specific version
+    restoreVersion: protectedProcedure
+        .input(
+            z.object({
+                fileId: z.number(),
+                versionId: z.number(),
+            })
+        )
+        .mutation(async ({ ctx, input }) => {
+            const { userId } = ctx.auth
+
+            // Check if user has edit permission on this file
+            const permissionContext = await getUserPermissionContext(userId)
+
+            // Get the file to check permissions and determine type
+            const file = await ctx.db.query.files.findFirst({
+                where: eq(files.id, input.fileId),
+                columns: { id: true, parentId: true, type: true },
+            })
+
+            if (!file) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'File not found',
+                })
+            }
+
+            const accessibleFiles = await getAccessibleFiles(
+                permissionContext,
+                [file]
+            )
+
+            if (!accessibleFiles.has(input.fileId)) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'You do not have permission to edit this file',
+                })
+            }
+
+            // Get the version to restore
+            const versionToRestore =
+                await ctx.db.query.pageVersionHistory.findFirst({
+                    where: and(
+                        eq(pageVersionHistory.id, input.versionId),
+                        eq(pageVersionHistory.fileId, input.fileId)
+                    ),
+                })
+
+            if (!versionToRestore) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Version not found',
+                })
+            }
+
+            // Save current content to version history before restoring
+            let currentContent = ''
+            let currentVersion = 1
+
+            if (file.type === 'sheet') {
+                const currentSheet = await ctx.db.query.sheetContent.findFirst({
+                    where: eq(sheetContent.fileId, input.fileId),
+                    columns: { content: true, version: true },
+                })
+                if (currentSheet) {
+                    currentContent = currentSheet.content || ''
+                    currentVersion = currentSheet.version ?? 1
+                }
+            } else {
+                const currentPage = await ctx.db.query.pageContent.findFirst({
+                    where: eq(pageContent.fileId, input.fileId),
+                    columns: { content: true, version: true },
+                })
+                if (currentPage) {
+                    currentContent = currentPage.content || ''
+                    currentVersion = currentPage.version ?? 1
+                }
+            }
+
+            // Save current content as a new version
+            await ctx.db.insert(pageVersionHistory).values({
+                fileId: input.fileId,
+                content: currentContent,
+                version: currentVersion,
+                createdBy: userId,
+                changeDescription: 'Before restore operation',
+            })
+
+            const newVersion = currentVersion + 1
+
+            // Restore the content based on file type
+            if (file.type === 'sheet') {
+                await ctx.db
+                    .update(sheetContent)
+                    .set({
+                        content: versionToRestore.content,
+                        version: newVersion,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(sheetContent.fileId, input.fileId))
+            } else {
+                await ctx.db
+                    .update(pageContent)
+                    .set({
+                        content: versionToRestore.content,
+                        version: newVersion,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(pageContent.fileId, input.fileId))
+            }
+
+            // Update the file's updatedAt timestamp
+            await ctx.db
+                .update(files)
+                .set({
+                    updatedAt: new Date(),
+                    updatedBy: userId,
+                })
+                .where(eq(files.id, input.fileId))
+
+            return { restoredToVersion: versionToRestore.version }
+        }),
+
+    // Keep old endpoint for backward compatibility
     restorePageVersion: protectedProcedure
         .input(
             z.object({
@@ -1024,7 +1235,59 @@ export const filesRouter = createTRPCRouter({
             }
         }),
 
-    // Delete a specific version from history
+    // Delete a specific version from history (works for all file types)
+    deleteVersion: protectedProcedure
+        .input(
+            z.object({
+                fileId: z.number(),
+                versionId: z.number(),
+            })
+        )
+        .mutation(async ({ ctx, input }) => {
+            const { userId } = ctx.auth
+
+            // Check if user has edit permission on this file
+            const permissionContext = await getUserPermissionContext(userId)
+
+            // Get the file to check permissions
+            const file = await ctx.db.query.files.findFirst({
+                where: eq(files.id, input.fileId),
+                columns: { id: true, parentId: true },
+            })
+
+            if (!file) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'File not found',
+                })
+            }
+
+            const accessibleFiles = await getAccessibleFiles(
+                permissionContext,
+                [file]
+            )
+
+            if (!accessibleFiles.has(input.fileId)) {
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'You do not have permission to edit this file',
+                })
+            }
+
+            // Delete the version
+            await ctx.db
+                .delete(pageVersionHistory)
+                .where(
+                    and(
+                        eq(pageVersionHistory.id, input.versionId),
+                        eq(pageVersionHistory.fileId, input.fileId)
+                    )
+                )
+
+            return { success: true }
+        }),
+
+    // Keep old endpoint for backward compatibility
     deletePageVersion: protectedProcedure
         .input(
             z.object({
