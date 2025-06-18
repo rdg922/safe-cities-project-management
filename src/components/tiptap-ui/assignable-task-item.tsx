@@ -24,6 +24,9 @@ export const AssignableTaskItemComponent = (props: any) => {
     // Fetch users from the database
     const { data: users, isLoading } = api.user.getAllUsers.useQuery()
 
+    // Mutation for updating task status
+    const updateTaskStatusMutation = api.tasks.updateTaskStatus.useMutation()
+
     // Handle task ID generation
     const handleTaskIdGenerated = React.useCallback(
         (newTaskId: string) => {
@@ -33,6 +36,14 @@ export const AssignableTaskItemComponent = (props: any) => {
         },
         [props]
     )
+
+    // Extract task text from the node content (memoized value)
+    const taskText = React.useMemo(() => {
+        return (
+            props?.node?.content?.content?.[0]?.content?.content?.[0]?.text ??
+            '[Could not save task description]'
+        ) // You can't make this up... wtf
+    }, [props.node])
 
     // Handler functions for TaskAssignmentManager
     const handleUsersChange = React.useCallback(
@@ -66,6 +77,40 @@ export const AssignableTaskItemComponent = (props: any) => {
         [props, taskId]
     )
 
+    // Handle status change from TaskAssignmentManager
+    const handleStatusChange = React.useCallback(
+        (checked: boolean) => {
+            // Update the TipTap node attributes
+            props.updateAttributes({
+                checked: checked,
+            })
+        },
+        [props]
+    )
+
+    // Handle checkbox change and sync with database
+    const handleCheckboxChange = React.useCallback(
+        (checked: boolean) => {
+            // Update the TipTap node attributes immediately for UI responsiveness
+            props.updateAttributes({
+                checked: checked,
+            })
+
+            // Sync to database if we have the necessary data
+            if (fileId && taskId) {
+                const status = checked ? 'completed' : 'pending'
+                updateTaskStatusMutation.mutate({
+                    fileId,
+                    taskId,
+                    status: status as 'pending' | 'completed',
+                })
+            }
+        },
+        [props, fileId, taskId, updateTaskStatusMutation]
+    )
+
+    // Remove the useEffect for checkbox status since we're handling it directly above
+
     return (
         <NodeViewWrapper
             className="task-item-wrapper group"
@@ -79,9 +124,7 @@ export const AssignableTaskItemComponent = (props: any) => {
                     type="checkbox"
                     checked={props.node.attrs.checked}
                     onChange={(event) =>
-                        props.updateAttributes({
-                            checked: event.target.checked,
-                        })
+                        handleCheckboxChange(event.target.checked)
                     }
                     className="mt-1.5 mr-2 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary dark:border-gray-600 dark:bg-gray-900"
                 />
@@ -102,9 +145,11 @@ export const AssignableTaskItemComponent = (props: any) => {
                     onPriorityChange={handlePriorityChange}
                     onDueDateChange={handleDueDateChange}
                     onUsersChange={handleUsersChange}
+                    onStatusChange={handleStatusChange}
                     enableDatabaseSync={true}
                     fileId={fileId}
                     taskId={taskId}
+                    taskText={taskText}
                     onTaskIdGenerated={handleTaskIdGenerated}
                     showOnlyOnHover={true}
                     isHovered={isHovered}

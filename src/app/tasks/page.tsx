@@ -47,10 +47,10 @@ import Link from 'next/link'
 type Task = {
     id: number
     taskId: string
+    taskText: string | null
     dueDate: Date | null
     priority: string | null
     status: string | null // Updated to match API return type
-    notes: string | null
     file: {
         id: number
         name: string
@@ -142,10 +142,6 @@ export default function TasksCalendarPage() {
         switch (status) {
             case 'completed':
                 return 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300'
-            case 'in_progress':
-                return 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
-            case 'cancelled':
-                return 'bg-gray-50 text-gray-700 dark:bg-gray-950 dark:text-gray-300'
             case 'pending':
                 return 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
             default:
@@ -190,6 +186,7 @@ export default function TasksCalendarPage() {
             updateTaskPriorityMutation.mutate({
                 fileId: task.file.id,
                 taskId: task.taskId,
+                taskText: task.taskText || undefined,
                 priority: newPriority,
             })
         }
@@ -198,6 +195,7 @@ export default function TasksCalendarPage() {
             updateTaskDueDateMutation.mutate({
                 fileId: task.file.id,
                 taskId: task.taskId,
+                taskText: task.taskText || undefined,
                 dueDate: date,
             })
         }
@@ -207,6 +205,7 @@ export default function TasksCalendarPage() {
             assignTaskMutation.mutate({
                 fileId: task.file.id,
                 taskId: task.taskId,
+                taskText: task.taskText || undefined,
                 userIds,
                 dueDate: task.dueDate || undefined,
                 priority: (task.priority || 'medium') as
@@ -235,6 +234,16 @@ export default function TasksCalendarPage() {
                     </Badge>
                 </div>
 
+                {/* Display task text if available */}
+                {task.taskText && (
+                    <div className="px-2 py-1 bg-muted/50 rounded text-sm">
+                        <span className="font-medium text-muted-foreground">
+                            Task:{' '}
+                        </span>
+                        {task.taskText}
+                    </div>
+                )}
+
                 <div className="flex items-center gap-2 flex-wrap">
                     <TaskAssignmentManager
                         taskData={taskData}
@@ -245,6 +254,7 @@ export default function TasksCalendarPage() {
                         fetchAssignments={true}
                         fileId={task.file.id}
                         taskId={task.taskId}
+                        taskText={task.taskText || undefined}
                         isLoading={!users || isMutating}
                         compact={true}
                         className="flex items-center gap-2"
@@ -257,12 +267,6 @@ export default function TasksCalendarPage() {
                         </div>
                     )}
                 </div>
-
-                {task.notes && (
-                    <p className="text-xs text-muted-foreground">
-                        {task.notes}
-                    </p>
-                )}
             </div>
         )
     }
@@ -288,11 +292,7 @@ export default function TasksCalendarPage() {
                         <SelectContent>
                             <SelectItem value="all">All Tasks</SelectItem>
                             <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="in_progress">
-                                In Progress
-                            </SelectItem>
                             <SelectItem value="completed">Completed</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -384,7 +384,7 @@ export default function TasksCalendarPage() {
                                                         <div
                                                             key={idx}
                                                             className={cn(
-                                                                'w-full h-1 rounded',
+                                                                'w-full h-1 rounded cursor-help',
                                                                 task.priority ===
                                                                     'high'
                                                                     ? 'bg-red-400'
@@ -393,6 +393,7 @@ export default function TasksCalendarPage() {
                                                                       ? 'bg-yellow-400'
                                                                       : 'bg-green-400'
                                                             )}
+                                                            title={`${task.taskText || 'Task'} (${task.priority})`}
                                                         />
                                                     ))}
                                                 {dayTasks.length > 2 && (

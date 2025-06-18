@@ -50,11 +50,13 @@ export interface TaskAssignmentManagerProps {
     onPriorityChange?: (priority: 'low' | 'medium' | 'high') => void
     onDueDateChange?: (date: Date | null) => void
     onUsersChange?: (users: AssignedUser[]) => void
+    onStatusChange?: (checked: boolean) => void
 
     // Database sync options (for TipTap integration)
     enableDatabaseSync?: boolean
     fileId?: number | null
     taskId?: string | null
+    taskText?: string
     onTaskIdGenerated?: (taskId: string) => void
 
     // Internal assignment fetching (for existing tasks)
@@ -81,9 +83,11 @@ export function TaskAssignmentManager({
     onPriorityChange,
     onDueDateChange,
     onUsersChange,
+    onStatusChange,
     enableDatabaseSync = false,
     fileId,
     taskId,
+    taskText,
     onTaskIdGenerated,
     fetchAssignments = false,
     showPriority = true,
@@ -105,9 +109,11 @@ export function TaskAssignmentManager({
         users?: AssignedUser[]
         priority?: 'low' | 'medium' | 'high'
         dueDate?: Date | null
+        taskText?: string
     }>({})
     const syncInProgress = useRef(false)
     const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const lastTaskText = useRef<string | undefined>(taskText)
 
     const { priority, dueDate, assignedUsers: passedAssignedUsers } = taskData
 
@@ -171,12 +177,31 @@ export function TaskAssignmentManager({
             },
         }
     )
+    const updateTaskStatusMutation = api.tasks.updateTaskStatus.useMutation({
+        onSuccess: () => {
+            if (fetchAssignments && refetchAssignments) {
+                refetchAssignments()
+            }
+        },
+    })
 
     // Track if any mutations are loading
     const isMutating =
         assignTaskMutation.isPending ||
         updateTaskDueDateMutation.isPending ||
-        updateTaskPriorityMutation.isPending
+        updateTaskPriorityMutation.isPending ||
+        updateTaskStatusMutation.isPending
+
+    // Effect to detect taskText changes and mark for sync
+    useEffect(() => {
+        if (enableDatabaseSync && taskText !== lastTaskText.current) {
+            lastTaskText.current = taskText
+            if (taskText && fileId && currentTaskId) {
+                // Mark taskText for sync
+                pendingSync.current.taskText = taskText
+            }
+        }
+    }, [taskText, enableDatabaseSync, fileId, currentTaskId])
 
     // Improved database sync with better error handling and deduplication
     const performDatabaseSync = useCallback(async () => {
@@ -193,13 +218,15 @@ export function TaskAssignmentManager({
             users,
             priority: newPriority,
             dueDate: newDueDate,
+            taskText: newTaskText,
         } = pendingSync.current
 
         // Check if there are any changes to sync
         const hasChanges =
             users !== undefined ||
             newPriority !== undefined ||
-            newDueDate !== undefined
+            newDueDate !== undefined ||
+            newTaskText !== undefined
         if (!hasChanges) return
 
         syncInProgress.current = true
@@ -213,6 +240,7 @@ export function TaskAssignmentManager({
                 await assignTaskMutation.mutateAsync({
                     fileId,
                     taskId: currentTaskId,
+                    taskText: newTaskText || taskText,
                     userIds,
                     dueDate: dueDate ? new Date(dueDate) : undefined,
                     priority: priority as 'low' | 'medium' | 'high',
@@ -224,6 +252,7 @@ export function TaskAssignmentManager({
                 await updateTaskPriorityMutation.mutateAsync({
                     fileId,
                     taskId: currentTaskId,
+                    taskText: newTaskText || taskText,
                     priority: newPriority,
                 })
             }
@@ -233,7 +262,24 @@ export function TaskAssignmentManager({
                 await updateTaskDueDateMutation.mutateAsync({
                     fileId,
                     taskId: currentTaskId,
+                    taskText: newTaskText || taskText,
                     dueDate: newDueDate,
+                })
+            }
+
+            // If only taskText changed, we need to update it via one of the existing mutations
+            if (
+                newTaskText !== undefined &&
+                users === undefined &&
+                newPriority === undefined &&
+                newDueDate === undefined
+            ) {
+                // Use updateTaskPriority to update just the taskText, keeping the current priority
+                await updateTaskPriorityMutation.mutateAsync({
+                    fileId,
+                    taskId: currentTaskId,
+                    taskText: newTaskText,
+                    priority: priority as 'low' | 'medium' | 'high',
                 })
             }
 
@@ -409,6 +455,30 @@ export function TaskAssignmentManager({
         }
 
         // Refetch assignments after a short delay to allow for sync
+        if (fetchAssignments && refetchAssignments) {
+            setTimeout(() => {
+                refetchAssignments()
+            }, 500)
+        }
+    }
+
+    // Handle status change (checkbox)
+    const handleStatusChange = (checked: boolean) => {
+        if (!onStatusChange || !enableDatabaseSync || !fileId || !currentTaskId)
+            return
+
+        // Update local state immediately
+        onStatusChange(checked)
+
+        // Update database immediately (no batching for status changes)
+        const status = checked ? 'completed' : 'pending'
+        updateTaskStatusMutation.mutate({
+            fileId,
+            taskId: currentTaskId,
+            status: status as 'pending' | 'completed',
+        })
+
+        // Refetch assignments after a short delay
         if (fetchAssignments && refetchAssignments) {
             setTimeout(() => {
                 refetchAssignments()

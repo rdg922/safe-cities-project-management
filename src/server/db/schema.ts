@@ -455,6 +455,7 @@ export const taskAssignments = createTable(
             .references(() => files.id, { onDelete: 'cascade' })
             .notNull(),
         taskId: d.varchar({ length: 256 }).notNull(), // TipTap node ID
+        taskText: d.text(), // The actual text content of the task
         userId: d
             .text()
             .references(() => users.id, { onDelete: 'cascade' })
@@ -465,7 +466,6 @@ export const taskAssignments = createTable(
         dueDate: d.timestamp(), // Optional due date for the task
         priority: d.varchar({ length: 20 }).default('medium'), // low, medium, high
         status: d.varchar({ length: 20 }).default('pending'), // pending, in_progress, completed, cancelled
-        notes: d.text(), // Optional notes about the assignment
         createdAt: d.timestamp().notNull().defaultNow(),
         updatedAt: d.timestamp().defaultNow(),
     }),
@@ -634,7 +634,6 @@ export type TaskAssignment = {
     dueDate: Date | null
     priority: 'low' | 'medium' | 'high'
     status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
-    notes: string | null
     createdAt: Date
     updatedAt: Date | null
 }

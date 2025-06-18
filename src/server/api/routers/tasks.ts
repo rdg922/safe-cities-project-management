@@ -225,10 +225,10 @@ export const tasksRouter = createTRPCRouter({
             z.object({
                 fileId: z.number(),
                 taskId: z.string(),
+                taskText: z.string().optional(),
                 userIds: z.array(z.string()),
                 dueDate: z.date().optional(),
                 priority: z.enum(['low', 'medium', 'high']).default('medium'),
-                notes: z.string().optional(),
             })
         )
         .mutation(async ({ ctx, input }) => {
@@ -249,11 +249,11 @@ export const tasksRouter = createTRPCRouter({
                 const assignments = input.userIds.map((userId) => ({
                     fileId: input.fileId,
                     taskId: input.taskId,
+                    taskText: input.taskText,
                     userId,
                     assignedBy,
                     dueDate: input.dueDate,
                     priority: input.priority,
-                    notes: input.notes,
                 }))
 
                 await ctx.db.insert(taskAssignments).values(assignments)
@@ -268,13 +268,7 @@ export const tasksRouter = createTRPCRouter({
             z.object({
                 fileId: z.number(),
                 taskId: z.string(),
-                status: z.enum([
-                    'pending',
-                    'in_progress',
-                    'completed',
-                    'cancelled',
-                ]),
-                notes: z.string().optional(),
+                status: z.enum(['pending', 'completed']),
             })
         )
         .mutation(async ({ ctx, input }) => {
@@ -284,7 +278,6 @@ export const tasksRouter = createTRPCRouter({
                 .update(taskAssignments)
                 .set({
                     status: input.status,
-                    notes: input.notes,
                     updatedAt: new Date(),
                 })
                 .where(
@@ -304,16 +297,23 @@ export const tasksRouter = createTRPCRouter({
             z.object({
                 fileId: z.number(),
                 taskId: z.string(),
+                taskText: z.string().optional(),
                 dueDate: z.date().nullable(),
             })
         )
         .mutation(async ({ ctx, input }) => {
+            const updateData: any = {
+                dueDate: input.dueDate,
+                updatedAt: new Date(),
+            }
+
+            if (input.taskText !== undefined) {
+                updateData.taskText = input.taskText
+            }
+
             await ctx.db
                 .update(taskAssignments)
-                .set({
-                    dueDate: input.dueDate,
-                    updatedAt: new Date(),
-                })
+                .set(updateData)
                 .where(
                     and(
                         eq(taskAssignments.fileId, input.fileId),
@@ -416,16 +416,23 @@ export const tasksRouter = createTRPCRouter({
             z.object({
                 fileId: z.number(),
                 taskId: z.string(),
+                taskText: z.string().optional(),
                 priority: z.enum(['low', 'medium', 'high']),
             })
         )
         .mutation(async ({ ctx, input }) => {
+            const updateData: any = {
+                priority: input.priority,
+                updatedAt: new Date(),
+            }
+
+            if (input.taskText !== undefined) {
+                updateData.taskText = input.taskText
+            }
+
             await ctx.db
                 .update(taskAssignments)
-                .set({
-                    priority: input.priority,
-                    updatedAt: new Date(),
-                })
+                .set(updateData)
                 .where(
                     and(
                         eq(taskAssignments.fileId, input.fileId),
