@@ -895,14 +895,32 @@ function FileTreeNode({
                 open={isDeleteDialogOpen}
                 onOpenChange={setIsDeleteDialogOpen}
             >
-                <DialogContent>
+                <DialogContent
+                    // Allow enter and escape keys to confirm or cancel delete operation
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleDeleteConfirm();
+                        } else if (e.key === 'Escape') {
+                            setIsDeleteDialogOpen(false);
+                        }
+                    }}
+                    tabIndex={0}
+                >
                     <DialogHeader>
                         <DialogTitle>
-                            Delete {node.isFolder ? 'Folder' : 'File'}
+                            Delete {node.isFolder
+                                ? 'Folder'
+                                : node.type === 'sheet'
+                                    ? 'Sheet'
+                                    : node.type === 'form'
+                                        ? 'Form'
+                                        : node.type === 'upload'
+                                            ? 'Upload'
+                                            : 'File'}
                         </DialogTitle>
                         <DialogDescription>
-                            Are you sure you want to delete "
-                            {node.filename || node.name}"?
+                            Are you sure you want to delete "{node.filename || node.name}"?
                             {node.isFolder &&
                                 ' This will also delete all files and folders inside it.'}{' '}
                             This action cannot be undone.
