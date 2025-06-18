@@ -28,12 +28,11 @@ export default function DashboardPage() {
     // Get current user profile to check permissions
     const { data: userProfile } = api.user.getProfile.useQuery()
 
+    const isAdmin = userProfile?.role! === 'admin'
+
     const { data: users, isLoading: isLoadingUsers } =
         api.user.getAllUsers.useQuery(undefined, {
-            enabled:
-                userProfile &&
-                'role' in userProfile &&
-                userProfile.role === 'admin',
+            enabled: isAdmin,
         })
     const { data: programData, isLoading: isLoadingPrograms } =
         api.files.getProgramsWithDetails.useQuery({
@@ -56,10 +55,7 @@ export default function DashboardPage() {
             programs &&
             childCounts &&
             updateTimes &&
-            ((userProfile &&
-                'role' in userProfile &&
-                userProfile.role !== 'admin') ||
-                !isLoadingUsers) // Only wait for users if admin
+            (isAdmin || !isLoadingUsers) // Only wait for users if admin
 
         if (allQueriesComplete) {
             const endTime = performance.now()
@@ -76,7 +72,7 @@ export default function DashboardPage() {
         childCounts,
         updateTimes,
         startTime,
-        userProfile && 'role' in userProfile ? userProfile.role : undefined,
+        isAdmin,
     ])
 
     return (
@@ -93,13 +89,15 @@ export default function DashboardPage() {
                         </p>
                     </div>
                 </div>
-                <Button
-                    className="gap-2"
-                    onClick={() => setIsNewFileDialogOpen(true)}
-                >
-                    <Plus size={16} />
-                    New Program
-                </Button>
+                {isAdmin && (
+                    <Button
+                        className="gap-2"
+                        onClick={() => setIsNewFileDialogOpen(true)}
+                    >
+                        <Plus size={16} />
+                        New Program
+                    </Button>
+                )}
             </div>
 
             <NewFileDialog
@@ -108,69 +106,67 @@ export default function DashboardPage() {
                 fileType={FILE_TYPES.PROGRAMME}
             />
 
-            {userProfile &&
-                'role' in userProfile &&
-                userProfile.role === 'admin' && (
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
-                        <Card>
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium">
-                                    Total Programs
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-3xl font-bold">
-                                    {isLoadingPrograms ? (
-                                        <div className="h-8 w-16 animate-pulse bg-muted rounded" />
-                                    ) : (
-                                        programs?.length
-                                    )}
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Active programs in your workspace
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium">
-                                    Users
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-3xl font-bold">
-                                    {isLoadingUsers ? (
-                                        <div className="h-8 w-16 animate-pulse bg-muted rounded" />
-                                    ) : (
-                                        users?.length
-                                    )}
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Total team members
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium">
-                                    Pages Created
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-3xl font-bold">
-                                    {isLoadingPages ? (
-                                        <div className="h-8 w-16 animate-pulse bg-muted rounded" />
-                                    ) : (
-                                        pagesInLast30Days
-                                    )}
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    In the last 30 days
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </div>
-                )}
+            {isAdmin && (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">
+                                Total Programs
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-bold">
+                                {isLoadingPrograms ? (
+                                    <div className="h-8 w-16 animate-pulse bg-muted rounded" />
+                                ) : (
+                                    programs?.length
+                                )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Active programs in your workspace
+                            </p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">
+                                Users
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-bold">
+                                {isLoadingUsers ? (
+                                    <div className="h-8 w-16 animate-pulse bg-muted rounded" />
+                                ) : (
+                                    users?.length
+                                )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Total team members
+                            </p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">
+                                Pages Created
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-bold">
+                                {isLoadingPages ? (
+                                    <div className="h-8 w-16 animate-pulse bg-muted rounded" />
+                                ) : (
+                                    pagesInLast30Days
+                                )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                In the last 30 days
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             <div className="grid gap-6 md:grid-cols-7 mb-8">
                 <div className="md:col-span-4">
@@ -182,13 +178,17 @@ export default function DashboardPage() {
                     ) : programs?.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-[400px] text-center">
                             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                                <Folders size={24} className="text-muted-foreground" />
+                                <Folders
+                                    size={24}
+                                    className="text-muted-foreground"
+                                />
                             </div>
                             <h3 className="mt-4 text-lg font-medium">
                                 No programs yet
                             </h3>
                             <p className="mt-2 text-sm text-muted-foreground max-w-sm">
-                                Create your first program to get started with organizing your workspace.
+                                Create your first program to get started with
+                                organizing your workspace.
                             </p>
                         </div>
                     ) : (
