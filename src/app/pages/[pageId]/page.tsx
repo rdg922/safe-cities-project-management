@@ -141,8 +141,7 @@ export default function PageView() {
                     fileId: pageId,
                     content: newContent,
                 })
-            }, 10 * 1000) // <--- 10 length of wait before auto saving is applied.
-            // this means after 10 seconds of no activity, it auto saves!
+            }, 500) // <--- .5 seconds of wait before saving
         },
         [
             pageId,

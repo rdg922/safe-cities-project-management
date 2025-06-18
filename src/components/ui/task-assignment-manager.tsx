@@ -5,7 +5,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { Input } from '~/components/ui/input'
 import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
-import { Users, X, CalendarIcon } from 'lucide-react'
+import { Users, X, CalendarIcon, Loader2 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 import { UserAssignmentDropdown } from '~/components/ui/user-assignment-dropdown'
 import { api } from '~/trpc/react'
@@ -31,9 +31,9 @@ export interface AssignedUser {
 }
 
 export interface TaskAssignmentData {
-    priority: 'low' | 'medium' | 'high' | null
+    priority: string | null // Updated to match API
     dueDate: Date | string | null
-    assignedUsers: AssignedUser[]
+    assignedUsers?: AssignedUser[] // Made optional since we'll fetch it internally
 }
 
 export interface TaskAssignmentManagerProps {
@@ -56,6 +56,9 @@ export interface TaskAssignmentManagerProps {
     fileId?: number | null
     taskId?: string | null
     onTaskIdGenerated?: (taskId: string) => void
+
+    // Internal assignment fetching (for existing tasks)
+    fetchAssignments?: boolean
 
     // UI configuration
     showPriority?: boolean
@@ -82,6 +85,7 @@ export function TaskAssignmentManager({
     fileId,
     taskId,
     onTaskIdGenerated,
+    fetchAssignments = false,
     showPriority = true,
     showDueDate = true,
     showAssignments = true,
@@ -105,7 +109,33 @@ export function TaskAssignmentManager({
     const syncInProgress = useRef(false)
     const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-    const { priority, dueDate, assignedUsers } = taskData
+    const { priority, dueDate, assignedUsers: passedAssignedUsers } = taskData
+
+    // Fetch task assignments if requested
+    const {
+        data: fetchedAssignments,
+        isLoading: isLoadingAssignments,
+        isRefetching: isRefetchingAssignments,
+        refetch: refetchAssignments,
+    } = api.tasks.getTaskAssignments.useQuery(
+        { fileId: fileId!, taskId: taskId! },
+        {
+            enabled: fetchAssignments && !!fileId && !!taskId,
+            refetchOnWindowFocus: false,
+        }
+    )
+
+    // Use fetched assignments if available, otherwise use passed ones
+    const assignedUsers: AssignedUser[] = React.useMemo(() => {
+        if (fetchAssignments && fetchedAssignments) {
+            return fetchedAssignments.map((assignment) => ({
+                id: assignment.user.id,
+                name: assignment.user.name,
+                email: assignment.user.email,
+            }))
+        }
+        return passedAssignedUsers || []
+    }, [fetchAssignments, fetchedAssignments, passedAssignedUsers])
 
     // Generate or use existing task ID
     const currentTaskId = React.useMemo(() => {
@@ -118,10 +148,35 @@ export function TaskAssignmentManager({
     }, [taskId, onTaskIdGenerated])
 
     // Database sync mutations (only used when enableDatabaseSync is true)
-    const assignTaskMutation = api.tasks.assignTask.useMutation()
-    const updateTaskDueDateMutation = api.tasks.updateTaskDueDate.useMutation()
-    const updateTaskPriorityMutation =
-        api.tasks.updateTaskPriority.useMutation()
+    const assignTaskMutation = api.tasks.assignTask.useMutation({
+        onSuccess: () => {
+            if (fetchAssignments && refetchAssignments) {
+                refetchAssignments()
+            }
+        },
+    })
+    const updateTaskDueDateMutation = api.tasks.updateTaskDueDate.useMutation({
+        onSuccess: () => {
+            if (fetchAssignments && refetchAssignments) {
+                refetchAssignments()
+            }
+        },
+    })
+    const updateTaskPriorityMutation = api.tasks.updateTaskPriority.useMutation(
+        {
+            onSuccess: () => {
+                if (fetchAssignments && refetchAssignments) {
+                    refetchAssignments()
+                }
+            },
+        }
+    )
+
+    // Track if any mutations are loading
+    const isMutating =
+        assignTaskMutation.isPending ||
+        updateTaskDueDateMutation.isPending ||
+        updateTaskPriorityMutation.isPending
 
     // Improved database sync with better error handling and deduplication
     const performDatabaseSync = useCallback(async () => {
@@ -288,6 +343,13 @@ export function TaskAssignmentManager({
         if (enableDatabaseSync) {
             pendingSync.current.users = currentUsers
         }
+
+        // Refetch assignments after a short delay to allow for sync
+        if (fetchAssignments && refetchAssignments) {
+            setTimeout(() => {
+                refetchAssignments()
+            }, 500)
+        }
     }
 
     // Handle clear all assignments
@@ -300,6 +362,13 @@ export function TaskAssignmentManager({
         // Mark for database sync
         if (enableDatabaseSync) {
             pendingSync.current.users = []
+        }
+
+        // Refetch assignments after a short delay to allow for sync
+        if (fetchAssignments && refetchAssignments) {
+            setTimeout(() => {
+                refetchAssignments()
+            }, 500)
         }
     }
 
@@ -316,6 +385,13 @@ export function TaskAssignmentManager({
         if (enableDatabaseSync) {
             pendingSync.current.priority = typedPriority
         }
+
+        // Refetch assignments after a short delay to allow for sync
+        if (fetchAssignments && refetchAssignments) {
+            setTimeout(() => {
+                refetchAssignments()
+            }, 500)
+        }
     }
 
     // Handle due date change
@@ -331,6 +407,13 @@ export function TaskAssignmentManager({
         if (enableDatabaseSync) {
             pendingSync.current.dueDate = newDate
         }
+
+        // Refetch assignments after a short delay to allow for sync
+        if (fetchAssignments && refetchAssignments) {
+            setTimeout(() => {
+                refetchAssignments()
+            }, 500)
+        }
     }
 
     return (
@@ -341,13 +424,25 @@ export function TaskAssignmentManager({
                 className
             )}
         >
+            {/* Loading indicator when mutations are pending or assignments are loading */}
+            {(isMutating ||
+                isLoadingAssignments ||
+                isRefetchingAssignments) && (
+                <Loader2
+                    className={cn(
+                        compact ? 'h-3 w-3' : 'h-4 w-4',
+                        'animate-spin text-muted-foreground'
+                    )}
+                />
+            )}
+
             {/* Priority Selector */}
             <Select
                 value={priority || 'medium'}
                 onValueChange={handlePriorityChange}
                 open={isPriorityOpen}
                 onOpenChange={setIsPriorityOpen}
-                disabled={disabled || !onPriorityChange}
+                disabled={disabled || !onPriorityChange || isMutating}
             >
                 <SelectTrigger
                     className={cn(
@@ -387,7 +482,7 @@ export function TaskAssignmentManager({
                     <Button
                         variant="outline"
                         size={compact ? 'sm' : 'default'}
-                        disabled={disabled || !onDueDateChange}
+                        disabled={disabled || !onDueDateChange || isMutating}
                         className={cn(
                             compact ? 'h-6 px-2 text-xs' : 'h-8 px-3 text-sm',
                             'border',
@@ -435,8 +530,8 @@ export function TaskAssignmentManager({
                 availableUsers={availableUsers}
                 onUserToggle={handleUserToggle}
                 onClearAll={handleClearAll}
-                isLoading={isLoading}
-                disabled={disabled || !onUsersChange}
+                isLoading={isLoading || isLoadingAssignments || isMutating}
+                disabled={disabled || !onUsersChange || isMutating}
                 compact={compact}
                 buttonClassName={buttonClassName}
             />

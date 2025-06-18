@@ -48,8 +48,8 @@ type Task = {
     id: number
     taskId: string
     dueDate: Date | null
-    priority: 'low' | 'medium' | 'high' | null
-    status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+    priority: string | null
+    status: string | null // Updated to match API return type
     notes: string | null
     file: {
         id: number
@@ -81,7 +81,11 @@ export default function TasksCalendarPage() {
     const calendarStart = startOfWeek(monthStart)
     const calendarEnd = endOfWeek(monthEnd)
 
-    const { data: tasks, isLoading } = api.tasks.getMyTasks.useQuery({
+    const {
+        data: tasks,
+        isLoading,
+        refetch: refetchTasks,
+    } = api.tasks.getMyTasks.useQuery({
         startDate: calendarStart,
         endDate: calendarEnd,
         status: statusFilter === 'all' ? undefined : (statusFilter as any),
@@ -99,21 +103,24 @@ export default function TasksCalendarPage() {
 
     const { data: users } = api.user.getAllUsers.useQuery()
 
-    // Task mutations
+    // Task mutations with proper refetch logic
     const assignTaskMutation = api.tasks.assignTask.useMutation({
         onSuccess: () => {
             refetchSelectedDate()
+            refetchTasks()
         },
     })
     const updateTaskDueDateMutation = api.tasks.updateTaskDueDate.useMutation({
         onSuccess: () => {
             refetchSelectedDate()
+            refetchTasks()
         },
     })
     const updateTaskPriorityMutation = api.tasks.updateTaskPriority.useMutation(
         {
             onSuccess: () => {
                 refetchSelectedDate()
+                refetchTasks()
             },
         }
     )
@@ -131,7 +138,7 @@ export default function TasksCalendarPage() {
         }
     }
 
-    const getStatusColor = (status: string) => {
+    const getStatusColor = (status: string | null) => {
         switch (status) {
             case 'completed':
                 return 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300'
@@ -139,8 +146,10 @@ export default function TasksCalendarPage() {
                 return 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
             case 'cancelled':
                 return 'bg-gray-50 text-gray-700 dark:bg-gray-950 dark:text-gray-300'
-            default:
+            case 'pending':
                 return 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
+            default:
+                return 'bg-gray-50 text-gray-700 dark:bg-gray-950 dark:text-gray-300'
         }
     }
 
@@ -163,17 +172,16 @@ export default function TasksCalendarPage() {
 
     // Editable Task Item Component
     const EditableTaskItem = ({ task }: { task: Task }) => {
-        const currentAssignees: AssignedUser[] =
-            task.assignments?.map((a) => ({
-                id: a.assignee.id,
-                name: a.assignee.name,
-                email: a.assignee.email,
-            })) || []
+        // Track if any mutations are in progress for this task
+        const isMutating =
+            assignTaskMutation.isPending ||
+            updateTaskDueDateMutation.isPending ||
+            updateTaskPriorityMutation.isPending
 
         const taskData: TaskAssignmentData = {
             priority: task.priority,
             dueDate: task.dueDate,
-            assignedUsers: currentAssignees,
+            // No longer passing assignedUsers - will be fetched internally
         }
 
         const handlePriorityChange = (
@@ -221,7 +229,9 @@ export default function TasksCalendarPage() {
                     <Badge
                         className={cn('text-xs', getStatusColor(task.status))}
                     >
-                        {task.status.replace('_', ' ')}
+                        {task.status
+                            ? task.status.replace('_', ' ')
+                            : 'no status'}
                     </Badge>
                 </div>
 
@@ -232,7 +242,10 @@ export default function TasksCalendarPage() {
                         onPriorityChange={handlePriorityChange}
                         onDueDateChange={handleDueDateChange}
                         onUsersChange={handleUsersChange}
-                        isLoading={!users}
+                        fetchAssignments={true}
+                        fileId={task.file.id}
+                        taskId={task.taskId}
+                        isLoading={!users || isMutating}
                         compact={true}
                         className="flex items-center gap-2"
                     />
