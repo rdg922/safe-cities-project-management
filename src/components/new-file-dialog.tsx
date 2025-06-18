@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
     FileText,
@@ -11,8 +11,10 @@ import {
     Plus,
     ChevronDown,
     UploadCloud,
+    AlertTriangle,
 } from 'lucide-react'
 import { Button } from '~/components/ui/button'
+import { Card, CardContent } from '~/components/ui/card'
 import {
     Dialog,
     DialogContent,
@@ -42,6 +44,7 @@ import { api } from '~/trpc/react'
 import { navigateToFile } from '~/lib/navigation-utils'
 import { ultraFastFileCreationInvalidation } from '~/lib/streamlined-cache-invalidation'
 import { uploadFileToSupabase } from '~/components/supabase-utils/uploadFile'
+import { useBatchPermissions } from '~/hooks/use-batch-permissions'
 
 export type NewFileType =
     | 'page'
@@ -85,6 +88,27 @@ export function NewFileDialog({
     const { data: fileTree = [], isLoading: isLoadingFileTree } =
         api.files.getFilteredFileTree.useQuery()
     const utils = api.useUtils()
+
+    // Get batch permissions for all files in the tree
+    const { getPermissions } = useBatchPermissions(fileTree)
+
+    // Count files where user has edit permissions
+    const editableFilesCount = useMemo(() => {
+        const countEditableFiles = (files: typeof fileTree): number => {
+            let count = 0
+            for (const file of files) {
+                const permissions = getPermissions(file.id)
+                if (permissions.canEdit) {
+                    count++
+                }
+                if (file.children) {
+                    count += countEditableFiles(file.children)
+                }
+            }
+            return count
+        }
+        return countEditableFiles(fileTree)
+    }, [fileTree, getPermissions])
 
     // Get user profile to check permissions
     const { data: userProfile } = api.user.getProfile.useQuery()
@@ -152,7 +176,8 @@ export function NewFileDialog({
             if (!selectedFile) return
             setIsUploading(true)
             try {
-                const { path, publicUrl } = await uploadFileToSupabase(selectedFile)
+                const { path, publicUrl } =
+                    await uploadFileToSupabase(selectedFile)
                 createFileMutation.mutate({
                     name: selectedFile.name,
                     type: FILE_TYPES.UPLOAD,
@@ -345,13 +370,17 @@ export function NewFileDialog({
                                     id="file-name"
                                     value={fileName}
                                     onChange={(e) => {
-                                        const value = e.target.value;
+                                        const value = e.target.value
                                         if (value.length <= 50) {
-                                            setFileName(value);
+                                            setFileName(value)
                                         }
                                     }}
                                     placeholder={config.placeholder}
-                                    className={fileName.length === 50 ? "border-red-500" : ""}
+                                    className={
+                                        fileName.length === 50
+                                            ? 'border-red-500'
+                                            : ''
+                                    }
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
                                             if (
@@ -404,6 +433,37 @@ export function NewFileDialog({
                                 <div className="border rounded-md p-4 text-center text-muted-foreground">
                                     Loading file tree...
                                 </div>
+                            ) : editableFilesCount === 0 ? (
+                                <div className="space-y-3">
+                                    <div className="text-center text-muted-foreground">
+                                        No folders or programmes available for
+                                        editing
+                                    </div>
+                                    <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+                                        <CardContent className="p-4">
+                                            <div className="flex items-start gap-3">
+                                                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                                                <div className="text-sm">
+                                                    <p className="font-medium text-amber-800 dark:text-amber-200 mb-1">
+                                                        No edit permissions
+                                                        available
+                                                    </p>
+                                                    <p className="text-amber-700 dark:text-amber-300">
+                                                        You need edit access to
+                                                        at least one shared
+                                                        folder or programme to
+                                                        create new files. Please
+                                                        contact an administrator
+                                                        to request access or
+                                                        have them create a
+                                                        shared workspace for
+                                                        you.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
                             ) : (
                                 <FileTreeSelector
                                     files={fileTree}
@@ -444,7 +504,8 @@ export function NewFileDialog({
                                   isUploading
                                 : !fileName.trim() ||
                                   (selectedType !== 'programme' &&
-                                      selectedParentId === null) ||
+                                      (selectedParentId === null ||
+                                          editableFilesCount === 0)) ||
                                   (selectedType === 'programme' &&
                                       !canCreateProgramme)) ||
                             createFileMutation.isPending
