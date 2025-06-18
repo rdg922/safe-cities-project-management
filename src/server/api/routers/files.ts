@@ -1,5 +1,9 @@
 import { eq, sql, desc, asc, ne, and, isNotNull, inArray } from 'drizzle-orm'
 import { z } from 'zod'
+import { generateJSON } from '@tiptap/html'
+import { StarterKit } from '@tiptap/starter-kit'
+import { TaskList } from '@tiptap/extension-task-list'
+import { TaskItem } from '@tiptap/extension-task-item'
 
 import {
     createTRPCRouter,
@@ -19,6 +23,7 @@ import {
     filePermissions,
     effectivePermissions,
     notifications,
+    taskAssignments,
 } from '~/server/db/schema'
 import {
     getUserPermissionContext,
@@ -31,6 +36,144 @@ import {
 } from '~/lib/permissions-optimized'
 import { clearAllPermissionCaches } from '~/lib/permissions-ultra-fast'
 import { TRPCError } from '@trpc/server'
+
+// Server-safe TaskItem extension with assignable attributes (no React components)
+const ServerTaskItem = TaskItem.extend({
+    name: 'taskItem',
+    addAttributes() {
+        return {
+            ...this.parent?.(),
+            assignedUsers: {
+                default: [],
+                parseHTML: (element) => {
+                    const assignedUsers = element.getAttribute(
+                        'data-assigned-users'
+                    )
+                    try {
+                        return assignedUsers ? JSON.parse(assignedUsers) : []
+                    } catch {
+                        return []
+                    }
+                },
+            },
+            dueDate: {
+                default: null,
+                parseHTML: (element) => element.getAttribute('data-due-date'),
+            },
+            priority: {
+                default: 'medium',
+                parseHTML: (element) =>
+                    element.getAttribute('data-priority') || 'medium',
+            },
+            taskId: {
+                default: null,
+                parseHTML: (element) => element.getAttribute('data-task-id'),
+            },
+        }
+    },
+})
+
+// Helper function to extract and sync task assignments from content
+async function syncTaskAssignmentsFromContent(
+    db: any,
+    fileId: number,
+    content: string,
+    assignedBy: string
+) {
+    try {
+        let parsed: any
+
+        // Check if content is already JSON
+        if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
+            try {
+                parsed = JSON.parse(content)
+            } catch {
+                // If JSON parsing fails, treat as HTML
+                parsed = null
+            }
+        }
+
+        // If not JSON or JSON parsing failed, convert HTML to JSON using TipTap
+        if (!parsed) {
+            parsed = generateJSON(content, [
+                StarterKit,
+                TaskList,
+                ServerTaskItem,
+            ])
+        }
+
+        const tasks: Array<{
+            taskId: string
+            assignedUsers: Array<{ id: string; name: string; email: string }>
+            dueDate?: string
+            priority?: string
+        }> = []
+
+        function traverseNodes(node: any) {
+            if (node.type === 'taskItem' && node.attrs) {
+                const {
+                    taskId,
+                    assignedUsers = [],
+                    dueDate,
+                    priority,
+                } = node.attrs
+                if (taskId && assignedUsers.length > 0) {
+                    tasks.push({
+                        taskId,
+                        assignedUsers,
+                        dueDate,
+                        priority: priority || 'medium',
+                    })
+                }
+            }
+
+            if (node.content) {
+                node.content.forEach(traverseNodes)
+            }
+        }
+
+        if (parsed.content) {
+            parsed.content.forEach(traverseNodes)
+        } else if (Array.isArray(parsed)) {
+            parsed.forEach(traverseNodes)
+        } else if (parsed.type) {
+            traverseNodes(parsed)
+        }
+
+        // Remove all existing assignments for this file
+        await db
+            .delete(taskAssignments)
+            .where(eq(taskAssignments.fileId, fileId))
+
+        // Create new assignments based on the content
+        if (tasks.length > 0) {
+            const assignments = tasks.flatMap((task) =>
+                task.assignedUsers.map((user) => ({
+                    fileId,
+                    taskId: task.taskId,
+                    userId: user.id,
+                    assignedBy,
+                    dueDate: task.dueDate ? new Date(task.dueDate) : null,
+                    priority: task.priority || 'medium',
+                    status: 'pending' as const,
+                }))
+            )
+
+            await db.insert(taskAssignments).values(assignments)
+        }
+
+        return {
+            tasksRestored: tasks.length,
+            assignmentsCreated: tasks.reduce(
+                (sum, task) => sum + task.assignedUsers.length,
+                0
+            ),
+        }
+    } catch (error) {
+        console.error('Error syncing task assignments from content:', error)
+        return { tasksRestored: 0, assignmentsCreated: 0 }
+    }
+}
 
 export const filesRouter = createTRPCRouter({
     // Create a new file (page, sheet, folder, form, or upload)
@@ -1123,6 +1266,17 @@ export const filesRouter = createTRPCRouter({
                         updatedAt: new Date(),
                     })
                     .where(eq(pageContent.fileId, input.fileId))
+
+                // For page content, sync task assignments from the restored content
+                if (file.type === FILE_TYPES.PAGE) {
+                    const taskSyncResult = await syncTaskAssignmentsFromContent(
+                        ctx.db,
+                        input.fileId,
+                        versionToRestore.content,
+                        userId
+                    )
+                    console.log('Task assignments synced:', taskSyncResult)
+                }
             }
 
             // Update the file's updatedAt timestamp
@@ -1134,7 +1288,10 @@ export const filesRouter = createTRPCRouter({
                 })
                 .where(eq(files.id, input.fileId))
 
-            return { restoredToVersion: versionToRestore.version }
+            return {
+                restoredToVersion: versionToRestore.version,
+                taskAssignmentsRestored: file.type === FILE_TYPES.PAGE,
+            }
         }),
 
     // Keep old endpoint for backward compatibility
@@ -1218,6 +1375,18 @@ export const filesRouter = createTRPCRouter({
                         updatedAt: new Date(),
                     })
                     .where(eq(pageContent.fileId, input.fileId))
+
+                // Sync task assignments from the restored content
+                const taskSyncResult = await syncTaskAssignmentsFromContent(
+                    ctx.db,
+                    input.fileId,
+                    versionToRestore.content,
+                    userId
+                )
+                console.log(
+                    'Task assignments synced during page restore:',
+                    taskSyncResult
+                )
             }
 
             // Update the file's updatedAt timestamp
@@ -1232,6 +1401,7 @@ export const filesRouter = createTRPCRouter({
             return {
                 success: true,
                 restoredToVersion: versionToRestore.version,
+                taskAssignmentsRestored: true,
             }
         }),
 

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Bell, Home, MessageSquare, Users } from 'lucide-react'
+import { Bell, Home, MessageSquare, Users, Calendar } from 'lucide-react'
 import {
     SidebarGroup,
     SidebarMenu,
@@ -16,6 +16,7 @@ interface NavigationMenuProps {
 
 const navigationItems = [
     { href: '/dashboard', label: 'Dashboard', icon: Home, adminOnly: false },
+    { href: '/tasks', label: 'My Tasks', icon: Calendar, adminOnly: false },
     {
         href: '/notifications',
         label: 'Notifications',

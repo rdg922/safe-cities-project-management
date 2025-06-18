@@ -445,6 +445,40 @@ export const formSheetSyncs = createTable(
     ]
 )
 
+// Task assignments: links tasks to multiple users
+export const taskAssignments = createTable(
+    'task_assignment',
+    (d) => ({
+        id: d.serial().primaryKey(),
+        fileId: d
+            .integer()
+            .references(() => files.id, { onDelete: 'cascade' })
+            .notNull(),
+        taskId: d.varchar({ length: 256 }).notNull(), // TipTap node ID
+        userId: d
+            .text()
+            .references(() => users.id, { onDelete: 'cascade' })
+            .notNull(),
+        assignedBy: d
+            .text()
+            .references(() => users.id, { onDelete: 'set null' }),
+        dueDate: d.timestamp(), // Optional due date for the task
+        priority: d.varchar({ length: 20 }).default('medium'), // low, medium, high
+        status: d.varchar({ length: 20 }).default('pending'), // pending, in_progress, completed, cancelled
+        notes: d.text(), // Optional notes about the assignment
+        createdAt: d.timestamp().notNull().defaultNow(),
+        updatedAt: d.timestamp().defaultNow(),
+    }),
+    (t) => [
+        index('task_assignment_file_idx').on(t.fileId),
+        index('task_assignment_task_idx').on(t.taskId),
+        index('task_assignment_user_idx').on(t.userId),
+        index('task_assignment_due_date_idx').on(t.dueDate),
+        index('task_assignment_status_idx').on(t.status),
+        unique('task_assignment_unique').on(t.fileId, t.taskId, t.userId),
+    ]
+)
+
 // TypeScript types for better type safety
 export type File = {
     id: number
@@ -591,6 +625,20 @@ export type Notification = {
     updatedAt: Date | null
 }
 
+export type TaskAssignment = {
+    id: number
+    fileId: number
+    taskId: string
+    userId: string
+    assignedBy: string | null
+    dueDate: Date | null
+    priority: 'low' | 'medium' | 'high'
+    status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+    notes: string | null
+    createdAt: Date
+    updatedAt: Date | null
+}
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
     filePermissions: many(filePermissions),
@@ -599,6 +647,8 @@ export const usersRelations = relations(users, ({ many }) => ({
     messages: many(messages),
     comments: many(comments),
     formSubmissions: many(formSubmissions),
+    assignedTasks: many(taskAssignments, { relationName: 'assignedTasks' }),
+    assignedByTasks: many(taskAssignments, { relationName: 'assignedByUser' }),
 }))
 
 export const filesRelations = relations(files, ({ one, many }) => ({
@@ -615,6 +665,7 @@ export const filesRelations = relations(files, ({ one, many }) => ({
     messages: many(messages),
     comments: many(comments),
     syncedFromForms: many(formSheetSyncs),
+    taskAssignments: many(taskAssignments),
     createdBy: one(users, {
         fields: [files.createdBy],
         references: [users.id],
@@ -782,3 +833,23 @@ export const formSheetSyncsRelations = relations(formSheetSyncs, ({ one }) => ({
         references: [files.id],
     }),
 }))
+
+export const taskAssignmentsRelations = relations(
+    taskAssignments,
+    ({ one }) => ({
+        file: one(files, {
+            fields: [taskAssignments.fileId],
+            references: [files.id],
+        }),
+        user: one(users, {
+            fields: [taskAssignments.userId],
+            references: [users.id],
+            relationName: 'assignedTasks',
+        }),
+        assignedBy: one(users, {
+            fields: [taskAssignments.assignedBy],
+            references: [users.id],
+            relationName: 'assignedByUser',
+        }),
+    })
+)

@@ -85,6 +85,14 @@ export default function PageView() {
         },
     })
 
+    // Task assignments sync mutation
+    const syncTaskAssignmentsMutation =
+        api.tasks.syncTaskAssignmentsFromContent.useMutation({
+            onError: (error) => {
+                console.error('Failed to sync task assignments:', error)
+            },
+        })
+
     // Debounced content update using useRef to store timer
     const contentUpdateTimerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -127,10 +135,21 @@ export default function PageView() {
                     fileId: pageId,
                     content: newContent,
                 })
+
+                // Also sync task assignments from the content
+                syncTaskAssignmentsMutation.mutate({
+                    fileId: pageId,
+                    content: newContent,
+                })
             }, 10 * 1000) // <--- 10 length of wait before auto saving is applied.
             // this means after 10 seconds of no activity, it auto saves!
         },
-        [pageId, userPermission, updatePageMutation]
+        [
+            pageId,
+            userPermission,
+            updatePageMutation,
+            syncTaskAssignmentsMutation,
+        ]
     )
 
     // Clean up timer on unmount
@@ -143,15 +162,25 @@ export default function PageView() {
     }, [])
 
     // Handle version restoration
-    const handleVersionRestore = useCallback((restoredContent: string) => {
-        setContent(restoredContent)
-        setIsVersionHistoryOpen(false)
-        toast({
-            title: 'Version restored',
-            description:
-                'The page content has been restored to the selected version.',
-        })
-    }, [])
+    const handleVersionRestore = useCallback(
+        (restoredContent: string) => {
+            setContent(restoredContent)
+            setIsVersionHistoryOpen(false)
+
+            // Sync task assignments for the restored content
+            syncTaskAssignmentsMutation.mutate({
+                fileId: pageId,
+                content: restoredContent,
+            })
+
+            toast({
+                title: 'Version restored',
+                description:
+                    'The page content has been restored to the selected version and task assignments have been synced.',
+            })
+        },
+        [pageId, syncTaskAssignmentsMutation]
+    )
 
     // Determine if the editor should be read-only based on permissions
     // Default to readOnly while loading OR when userPermission is null/undefined
@@ -289,6 +318,7 @@ export default function PageView() {
                     initialContent={content}
                     readOnly={isReadOnly}
                     onUpdate={handleContentChange}
+                    fileId={pageId}
                 />
             </div>
 

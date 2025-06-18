@@ -6,6 +6,7 @@ import { permissionsRouter } from '~/server/api/routers/permissions'
 import { notificationsRouter } from '~/server/api/routers/notifications'
 import { commentsRouter } from '~/server/api/routers/comments'
 import { formsRouter } from '~/server/api/routers/forms'
+import { tasksRouter } from '~/server/api/routers/tasks'
 import { createCallerFactory, createTRPCRouter } from '~/server/api/trpc'
 
 /**
@@ -22,6 +23,7 @@ export const appRouter = createTRPCRouter({
     notification: notificationsRouter, // Robust notifications
     comments: commentsRouter, // Comments system with notifications
     forms: formsRouter, // Forms system
+    tasks: tasksRouter, // Task assignments system
 })
 
 // export type definition of API

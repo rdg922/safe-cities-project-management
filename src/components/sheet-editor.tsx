@@ -84,7 +84,7 @@ export function SheetEditor({
                     fileId: sheetId,
                     content: JSON.stringify(sheetData),
                 })
-            }, 5000) // Debounce for 5 seconds
+            }, 500) // Debounce for .5 seconds
         },
         [sheetId, updateMutation, onSavingStatusChange]
     )
