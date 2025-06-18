@@ -58,9 +58,20 @@ export function FileHeader({
         setRenamingValue(filename)
     }, [filename])
 
+    const utils = api.useUtils()
     const updateFileMutation = api.files.update.useMutation({
         onSuccess: () => {
             setDisplayTitle(renamingValue)
+            // Update just the name in the cached query data
+            utils.files.getById.setData(
+                { id: fileId, expectedType: 'sheet' },
+                (oldData) => {
+                    if (oldData) {
+                        return { ...oldData, name: renamingValue }
+                    }
+                    return oldData
+                }
+            )
             toast({
                 title: 'File renamed',
                 description: `File successfully renamed to "${renamingValue}"`,
@@ -104,7 +115,9 @@ export function FileHeader({
     const handleDownload = async () => {
         try {
             // Get the actual content of the file
-            await downloadFile(content, `${filename}.pdf`)
+            if (content) {
+                await downloadFile(content, `${filename}.pdf`)
+            }
         } catch (error) {
             console.error('Error downloading file:', error)
             // You might want to show a toast notification here
