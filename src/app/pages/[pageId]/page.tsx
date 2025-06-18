@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { toast } from '~/hooks/use-toast'
 import { SimpleEditor } from '~/components/tiptap-templates/simple/simple-editor'
 import { FileHeader } from '~/components/file-header'
-import { VersionHistory } from '~/components/version-history/version-history'
+import { VersionHistory } from '~/components/version-history'
 import { api } from '~/trpc/react'
 
 type Permission = 'view' | 'comment' | 'edit'
@@ -120,15 +120,14 @@ export default function PageView() {
                 clearTimeout(contentUpdateTimerRef.current)
             }
 
-            // Set new timer for debounced save, this determines how long to wait before saving the version
+            // Set new timer for debounced save, this determines how long to wait before saving
             contentUpdateTimerRef.current = setTimeout(() => {
-                setSavingStatus('saving') // =Saving status is set only right before saving
+                setSavingStatus('saving') // Saving status is set only right before saving
                 updatePageMutation.mutate({
                     fileId: pageId,
                     content: newContent,
                 })
-            }, 10 * 1000) // <--- 10 length of wait before auto saving is applied.
-            // this means after 10 seconds of no activity, it auto saves!
+            }, 500) // Auto-save after 100ms of no activity (only if content changed)
         },
         [pageId, userPermission, updatePageMutation]
     )

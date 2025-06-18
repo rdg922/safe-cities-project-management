@@ -30,6 +30,7 @@ import {
     getFileDescendantsFast,
 } from '~/lib/permissions-optimized'
 import { clearAllPermissionCaches } from '~/lib/permissions-ultra-fast'
+import { saveVersionHistoryWithDeduplication } from '~/lib/version-history-utils'
 import { TRPCError } from '@trpc/server'
 
 export const filesRouter = createTRPCRouter({
@@ -383,7 +384,8 @@ export const filesRouter = createTRPCRouter({
 
             if (currentPage && currentPage.content) {
                 // Save current content to version history before updating
-                await ctx.db.insert(pageVersionHistory).values({
+                // This will update the timestamp if the same content already exists
+                await saveVersionHistoryWithDeduplication(ctx.db, {
                     fileId: input.fileId,
                     content: currentPage.content,
                     version: currentPage.version ?? 1,
@@ -490,7 +492,8 @@ export const filesRouter = createTRPCRouter({
 
             if (currentSheet && currentSheet.content) {
                 // Save current content to version history before updating
-                await ctx.db.insert(pageVersionHistory).values({
+                // This will update the timestamp if the same content already exists
+                await saveVersionHistoryWithDeduplication(ctx.db, {
                     fileId: input.fileId,
                     content: currentSheet.content,
                     version: currentSheet.version ?? 1,
@@ -1094,7 +1097,7 @@ export const filesRouter = createTRPCRouter({
             }
 
             // Save current content as a new version
-            await ctx.db.insert(pageVersionHistory).values({
+            await saveVersionHistoryWithDeduplication(ctx.db, {
                 fileId: input.fileId,
                 content: currentContent,
                 version: currentVersion,
@@ -1201,7 +1204,7 @@ export const filesRouter = createTRPCRouter({
 
             if (currentPage && currentPage.content) {
                 // Save current content to version history before restoring
-                await ctx.db.insert(pageVersionHistory).values({
+                await saveVersionHistoryWithDeduplication(ctx.db, {
                     fileId: input.fileId,
                     content: currentPage.content,
                     version: currentPage.version ?? 1,

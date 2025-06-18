@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { api } from '~/trpc/react'
 import { SheetEditor } from '~/components/sheet-editor'
 import { FileHeader } from '~/components/file-header'
-import { VersionHistory } from '~/components/version-history/version-history'
+import { VersionHistory } from '~/components/version-history'
 import { createEmptySheet, type SheetData } from '~/lib/sheet-utils'
 import { toast } from '~/hooks/use-toast'
 
