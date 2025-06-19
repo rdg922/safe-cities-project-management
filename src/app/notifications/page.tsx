@@ -224,13 +224,13 @@ export default function NotificationsPage() {
         <div className="container mx-auto p-6">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
-                    {state === 'collapsed' && <SidebarTrigger />}
+                    {(state === 'collapsed' || isMobile) && <SidebarTrigger />}
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">
                             Notifications
                         </h1>
                         <p className="text-muted-foreground mt-1">
-                            Stay updated on comments and changes
+                            Stay up to date with your notifications
                         </p>
                         {stats && (
                             <div className="flex gap-2 mt-2">

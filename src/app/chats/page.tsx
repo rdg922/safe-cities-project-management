@@ -43,7 +43,7 @@ export default function ChatsPage() {
         <div className="container mx-auto p-6">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
-                    {state === 'collapsed' && <SidebarTrigger />}
+                    {(state === 'collapsed' || isMobile) && <SidebarTrigger />}
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">
                             Chats

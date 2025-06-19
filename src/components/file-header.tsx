@@ -53,6 +53,7 @@ export function FileHeader({
     const [displayTitle, setDisplayTitle] = useState(filename)
     const editableRef = useRef<HTMLDivElement>(null)
     const { state } = useSidebar();
+    const isMobile = useMobile();
 
     // Update display title when filename prop changes
     useEffect(() => {
@@ -130,7 +131,7 @@ export function FileHeader({
         <>
             <div className="flex items-center justify-between p-4 border-b bg-background">
                 <div className="flex items-center gap-4">
-                    {state === 'collapsed' && (
+                    {(state === 'collapsed' || isMobile) && (
                         <div>
                             <SidebarTrigger />
                         </div>
