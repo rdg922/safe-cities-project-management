@@ -150,7 +150,10 @@ export const pageVersionHistory = createTable(
         index('page_version_created_at_idx').on(t.createdAt),
         index('page_version_content_hash_idx').on(t.contentHash),
         // Unique constraint to prevent duplicate content for the same file based on hash
-        unique('page_version_file_content_hash_unique').on(t.fileId, t.contentHash),
+        unique('page_version_file_content_hash_unique').on(
+            t.fileId,
+            t.contentHash
+        ),
     ]
 )
 

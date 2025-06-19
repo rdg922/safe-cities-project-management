@@ -31,7 +31,7 @@ export async function saveVersionHistoryWithDeduplication(
     }
 ) {
     const contentHash = createContentHash(content)
-    
+
     try {
         // Check if this exact content hash already exists for this file
         const existingVersion =

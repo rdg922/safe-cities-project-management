@@ -24,11 +24,13 @@ import {
     getUserPermissionContext,
     getAccessibleFiles,
     getUsersWithFileAccess,
+    hasPermissionInContext,
 } from '~/lib/permissions-simple'
 import {
     rebuildEffectivePermissionsForUser,
     getFileDescendantsFast,
 } from '~/lib/permissions-optimized'
+import { getFileAncestors } from '~/lib/permissions'
 import { clearAllPermissionCaches } from '~/lib/permissions-ultra-fast'
 import { saveVersionHistoryWithDeduplication } from '~/lib/version-history-utils'
 import { TRPCError } from '@trpc/server'
@@ -302,12 +304,19 @@ export const filesRouter = createTRPCRouter({
 
             // Check if user has at least view permission on this file
             const permissionContext = await getUserPermissionContext(userId)
-            const accessibleFiles = await getAccessibleFiles(
+
+            // Get file ancestors to check for inherited permissions
+            const ancestors = await getFileAncestors(input.id)
+            const ancestorIds = ancestors.map((ancestor) => ancestor.id) // Exclude the file itself
+
+            const hasAccess = hasPermissionInContext(
                 permissionContext,
-                [file]
+                input.id,
+                'view',
+                ancestorIds
             )
 
-            if (!accessibleFiles.has(input.id)) {
+            if (!hasAccess) {
                 throw new TRPCError({
                     code: 'FORBIDDEN',
                     message:
