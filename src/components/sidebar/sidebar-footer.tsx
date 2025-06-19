@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { MoreHorizontal, UserCircle, LogOut, Settings } from 'lucide-react'
+import { MoreHorizontal, UserCircle, LogOut, PlayCircle } from 'lucide-react'
 import { useUser } from '@clerk/nextjs'
 import { SignOutButton } from '@clerk/nextjs'
 import { Button } from '~/components/ui/button'
@@ -57,8 +57,18 @@ export function SidebarFooterComponent({
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
                             <Link href="/profile">
-                                <UserCircle size={16} className="mr-2" />
-                                Profile
+                                <div className='flex items-center'>
+                                    <UserCircle size={16} className="mr-2" />
+                                        Profile
+                                </div>
+                            </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href="/tutorials">
+                                <div className='flex items-center'>
+                                    <PlayCircle size={16} className="mr-2" />
+                                        Tutorials
+                                </div>
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem>

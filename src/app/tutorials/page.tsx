@@ -24,15 +24,15 @@ export default function TutorialsPage() {
     const isMobile = useMobile();
 
   return (
-    <div className="container mx-auto p-6 max-w-2xl">
+    <div className="p-6 w-full">
       <div className="flex items-center gap-4 mb-4">
         {(state === 'collapsed' || isMobile) && <SidebarTrigger />}
         <h1 className="text-3xl font-bold">Tutorial Videos</h1>
       </div>
       <p className="mb-8 text-muted-foreground">Learn how to use the platform with these short videos.</p>
-      <div className="space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {tutorials.map((video) => (
-          <div key={video.id} className="border rounded-lg p-4 shadow-sm">
+          <div key={video.id} className="border rounded-lg p-4 shadow-sm flex flex-col">
             <h2 className="text-xl font-semibold mb-2">{video.title}</h2>
             <p className="mb-4 text-muted-foreground">{video.description}</p>
             <div className="aspect-video w-full rounded overflow-hidden">
