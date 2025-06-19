@@ -6,8 +6,11 @@ import { api } from '~/trpc/react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Button } from '~/components/ui/button'
 import { Download, File as FileIcon } from 'lucide-react'
+import { SidebarTrigger } from '~/components/ui/sidebar'
+import { useMobile } from '~/hooks/use-mobile'
 
 export default function UploadPage() {
+    const isMobile = useMobile()
     const { uploadId } = useParams<{ uploadId: string }>()
     const idNum = Number(uploadId)
     const {
@@ -145,6 +148,7 @@ export default function UploadPage() {
     return (
         <div className="max-w-2xl mx-auto py-8 px-4">
             <div className="mb-6 text-2xl font-bold flex items-center gap-2">
+                {isMobile && <SidebarTrigger />}
                 <FileIcon className="w-6 h-6" />
                 {file.name}
                 <div className="mt-4 text-sm text-muted-foreground">
