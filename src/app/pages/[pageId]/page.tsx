@@ -59,6 +59,7 @@ export default function PageView() {
     const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
     const [localPermission, setLocalPermission] = useState<Permission>('view')
     const [hasInitialContentLoaded, setHasInitialContentLoaded] = useState(false)
+    const [lastSyncedContent, setLastSyncedContent] = useState<string>('');
 
     // Version history state
     const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
@@ -72,6 +73,7 @@ export default function PageView() {
             setSavingStatus('saved')
             // Reset status after a delay
             setTimeout(() => setSavingStatus('idle'), 3 * 1000)
+            setLastSyncedContent(content)
         },
         onError: (error) => {
             setSavingStatus('idle')
@@ -89,14 +91,15 @@ export default function PageView() {
     // Update content when page data loads, but only once
     useEffect(() => {
         if (page?.content?.content && !hasInitialContentLoaded) {
-            setContent(page.content.content)
-            setHasInitialContentLoaded(true)
+            setContent(page.content.content);
+            setLastSyncedContent(page.content.content);
+            setHasInitialContentLoaded(true);
         }
         if (page?.content?.updatedAt && !lastSyncedAt) {
-            setLastSyncedAt(page.content.updatedAt ? page.content.updatedAt.toISOString() : null)
+            setLastSyncedAt(page.content.updatedAt ? page.content.updatedAt.toISOString() : null);
         }
-    }, [page?.content?.content, page?.content?.updatedAt, hasInitialContentLoaded, lastSyncedAt])
-
+    }, [page?.content?.content, page?.content?.updatedAt, hasInitialContentLoaded, lastSyncedAt]);
+    
     // Update local permission when user permission loads
     useEffect(() => {
         if (userPermission) {
@@ -124,7 +127,7 @@ export default function PageView() {
                     fileId: pageId,
                     content: newContent,
                 })
-            }, 500)
+            }, 1500) // 1.5 seconds debounce interval (server waits 1.5 seconds after no more keystroke to save)
         },
         [pageId, userPermission, updatePageMutation]
     )
@@ -138,35 +141,42 @@ export default function PageView() {
         }
     }, [])
 
-    // Live-ish sync: poll for remote updates
+    // When polling for remote updates:
     useEffect(() => {
-        if (!pageId || !lastSyncedAt) return
-
+        if (!pageId || !lastSyncedAt) return;
+    
         const interval = setInterval(async () => {
             try {
-                const res = await fetch(`/api/pages/last-updated?pageId=${pageId}`)
-                if (!res.ok) return
-                const data = await res.json()
+                const res = await fetch(`/api/pages/last-updated?pageId=${pageId}`);
+                if (!res.ok) return;
+                const data = await res.json();
                 if (data.lastUpdated && data.lastUpdated !== lastSyncedAt) {
-                    setContent(data.content)
-                    setLastSyncedAt(data.lastUpdated)
+                    // Only update local content if the user hasn't typed since last sync
+                    if (content === lastSyncedContent) {
+                        setContent(data.content);
+                        setLastSyncedContent(data.content);
+                        setLastSyncedAt(data.lastUpdated);
+                    } else {
+                        // Optionally, show a non-intrusive toast: "Remote changes detected, please save or reload."
+                        // Or set a "stale" flag in UI to let user choose when/how to resolve
+                    }
                 }
             } catch (e) {
                 // ignore polling errors
             }
-        }, 5 * 1000) // every 5 seconds
-
-        return () => clearInterval(interval)
-    }, [pageId, lastSyncedAt])
+        }, 5 * 1000);
+    
+        return () => clearInterval(interval);
+    }, [pageId, lastSyncedAt, content, lastSyncedContent]);
 
     // Handle version restoration
     const handleVersionRestore = useCallback((restoredContent: string) => {
         setContent(restoredContent)
+        setLastSyncedContent(restoredContent)
         setIsVersionHistoryOpen(false)
         toast({
             title: 'Version restored',
-            description:
-                'The page content has been restored to the selected version.',
+            description: 'The page content has been restored to the selected version.',
         })
     }, [])
 
