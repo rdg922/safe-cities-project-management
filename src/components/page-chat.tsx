@@ -78,7 +78,7 @@ function PageChatContent({ pageTitle, fileId: validatedFileId }: PageChatProps) 
             // Only poll if tab is visible
             if (document.hidden) return
             void refetchMessages()
-        }, 10000) // Poll every 10 seconds instead of 3
+        }, 10 * 1000) // Poll every 10 seconds instead of 3
 
         // Cleanup interval and event listener on unmount
         return () => {
