@@ -6,27 +6,39 @@ import { useMobile } from '~/hooks/use-mobile';
 const tutorials = [
   {
     id: '1',
-    title: 'Getting Started',
-    description: 'A quick overview of the platform.',
-    url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    title: 'How to use the Users Tab (Admin)',
+    description: 'A quick guide on managing users in the admin panel.',
+    url: 'https://www.youtube.com/embed/IOphHXF4Ye8?si=CMypY5cTeLIW52JP',
   },
   {
     id: '2',
-    title: 'How to Collaborate',
-    description: 'Learn how to work with your team.',
-    url: 'https://www.youtube.com/embed/9bZkp7q19f0',
+    title: 'How to Assign Permissions for Users (Admin)',
+    description: 'Learn how to assign permissions to users effectively.',
+    url: 'https://www.youtube.com/embed/vrFepzT1BZ4?si=nDAkZGbm9BoRGb2O',
   },
   {
     id: '3',
-    title: 'Managing Files',
-    description: 'Tips for organizing and managing your files efficiently.',
-    url: 'https://www.youtube.com/embed/3JZ_D3ELwOQ',
+    title: 'How to create programs and pages',
+    description: 'Step-by-step guide to creating programs and pages in the platform.',
+    url: 'https://www.youtube.com/embed/k9IzdB8-NRI?si=BMo5dNwqQyRps_kT',
   },
   {
     id: '4',
-    title: 'Advanced Features',
-    description: 'Discover advanced features to boost your productivity.',
-    url: 'https://www.youtube.com/embed/L_jWHffIx5E',
+    title: 'How to use forms',
+    description: 'A comprehensive guide on using forms within the platform.',
+    url: 'https://www.youtube.com/embed/5zQfg6RrMBI?si=PvFsSTS5n3qSZSjO',
+  },
+    {
+    id: '5',
+    title: 'How to use pages',
+    description: 'A detailed tutorial on navigating and utilizing pages effectively.',
+    url: 'https://www.youtube.com/embed/tm2cFtIpj-Y?si=CiID5GgnVLFHTN7C',
+  },
+    {
+    id: '6',
+    title: 'How to use chats',
+    description: 'An introduction to using the chat feature for communication.',
+    url: 'https://www.youtube.com/embed/frxgid2qgEY?si=54p40cYt2ChAZlOs',
   },
 ];
 
