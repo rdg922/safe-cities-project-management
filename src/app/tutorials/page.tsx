@@ -16,6 +16,18 @@ const tutorials = [
     description: 'Learn how to work with your team.',
     url: 'https://www.youtube.com/embed/9bZkp7q19f0',
   },
+  {
+    id: '3',
+    title: 'Managing Files',
+    description: 'Tips for organizing and managing your files efficiently.',
+    url: 'https://www.youtube.com/embed/3JZ_D3ELwOQ',
+  },
+  {
+    id: '4',
+    title: 'Advanced Features',
+    description: 'Discover advanced features to boost your productivity.',
+    url: 'https://www.youtube.com/embed/L_jWHffIx5E',
+  },
 ];
 
 export default function TutorialsPage() {
@@ -32,7 +44,7 @@ export default function TutorialsPage() {
       <p className="mb-8 text-muted-foreground">Learn how to use the platform with these short videos.</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {tutorials.map((video) => (
-          <div key={video.id} className="border rounded-lg p-4 shadow-sm flex flex-col">
+          <div key={video.id} className="border rounded-lg p-4 shadow-sm">
             <h2 className="text-xl font-semibold mb-2">{video.title}</h2>
             <p className="mb-4 text-muted-foreground">{video.description}</p>
             <div className="aspect-video w-full rounded overflow-hidden">
@@ -41,7 +53,6 @@ export default function TutorialsPage() {
                 height="315"
                 src={video.url}
                 title={video.title}
-                frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               ></iframe>
