@@ -135,21 +135,6 @@ export default function OnboardingPage() {
                                         </p>
                                     </div>
                                 </div>
-
-                                <div className="flex items-start gap-3">
-                                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 mt-0.5">
-                                        <Mail className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <h4 className="text-sm font-medium">
-                                            Email Notification
-                                        </h4>
-                                        <p className="text-xs text-muted-foreground">
-                                            You'll receive email confirmation
-                                            once your account is approved
-                                        </p>
-                                    </div>
-                                </div>
                             </div>
 
                             <Separator />
@@ -162,7 +147,11 @@ export default function OnboardingPage() {
                                     variant="outline"
                                     className="w-full"
                                     size="sm"
-                                    onClick={() => window.open('mailto:safecitiessa@aol.com')}
+                                    onClick={() =>
+                                        window.open(
+                                            'mailto:safecitiessa@aol.com'
+                                        )
+                                    }
                                     // this is where we want to send the @gmail thing
                                 >
                                     <Mail className="w-4 h-4 mr-2" />
@@ -172,7 +161,7 @@ export default function OnboardingPage() {
                                     <Button
                                         variant="destructive"
                                         className="w-full hover:bg-destructive/90"
-                                        size="sm"  
+                                        size="sm"
                                     >
                                         <LogOut
                                             size={16}
