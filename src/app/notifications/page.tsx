@@ -343,7 +343,7 @@ export default function NotificationsPage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <div className="divide-y">
+                            <div className="max-h-[60vh] overflow-y-auto divide-y">
                                 {getFilteredNotifications().map(
                                     (notification) => (
                                         <div
