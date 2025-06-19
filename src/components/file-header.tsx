@@ -6,11 +6,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Eye, MessageSquare, MoreHorizontal, PenSquare, Share2, Users, Download, History, Save } from 'lucide-react'
 import { useChatToggle } from '~/hooks/use-chat-toggle'
 import { ShareModal } from '~/components/share-modal'
-import { SidebarTrigger, useSidebar } from './ui/sidebar'
+import { useSidebar } from './ui/sidebar'
 import { useMobile } from '~/hooks/use-mobile'
 import { downloadFile } from '~/utils/pdfExport.client'
 import { api } from '~/trpc/react'
 import { toast } from '~/hooks/use-toast'
+import { SidebarTrigger } from './ui/sidebar'
 
 type Permission = 'view' | 'comment' | 'edit'
 
@@ -51,6 +52,7 @@ export function FileHeader({
     const [renamingValue, setRenamingValue] = useState(filename)
     const [displayTitle, setDisplayTitle] = useState(filename)
     const editableRef = useRef<HTMLDivElement>(null)
+    const { state } = useSidebar();
 
     // Update display title when filename prop changes
     useEffect(() => {
@@ -128,9 +130,11 @@ export function FileHeader({
         <>
             <div className="flex items-center justify-between p-4 border-b bg-background">
                 <div className="flex items-center gap-4">
-                    <div>
-                        <SidebarTrigger />
-                    </div>
+                    {state === 'collapsed' && (
+                        <div>
+                            <SidebarTrigger />
+                        </div>
+                    )}
                     {isRenaming ? (
                         <div
                             ref={editableRef}

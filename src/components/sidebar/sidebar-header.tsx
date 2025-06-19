@@ -2,7 +2,7 @@
 
 import { Plus } from 'lucide-react'
 import { Button } from '~/components/ui/button'
-import { SidebarHeader, SidebarTrigger } from '~/components/ui/sidebar'
+import { SidebarHeader, SidebarTrigger, useSidebar } from '~/components/ui/sidebar'
 import { ThemeToggle } from '../tiptap-templates/simple/theme-toggle'
 import { SafeCities } from '../SafeCities'
 import { useMobile } from '~/hooks/use-mobile'
@@ -15,6 +15,7 @@ export function SidebarHeaderComponent({
     onNewFileClick,
 }: SidebarHeaderComponentProps) {
     const isMobile = useMobile()
+    const { state } = useSidebar();
 
     return (
         <SidebarHeader className="flex flex-col gap-4 p-4">
@@ -34,7 +35,7 @@ export function SidebarHeaderComponent({
                 </div>
                 <div className="flex items-center gap-2">
                     <ThemeToggle />
-                    <SidebarTrigger />
+                    {state === 'expanded' && <SidebarTrigger />}
                 </div>
             </div>
             <Button

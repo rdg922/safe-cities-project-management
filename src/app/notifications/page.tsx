@@ -24,11 +24,12 @@ import {
 import { toast } from '~/hooks/use-toast'
 import { useState, useEffect } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { SidebarTrigger } from '~/components/ui/sidebar'
+import { SidebarTrigger, useSidebar } from '~/components/ui/sidebar'
 import { useMobile } from '~/hooks/use-mobile'
 
 export default function NotificationsPage() {
     const isMobile = useMobile()
+    const { state } = useSidebar()
 
     // Fetch notifications from backend with polling for real-time updates
     const {
@@ -223,7 +224,7 @@ export default function NotificationsPage() {
         <div className="container mx-auto p-6">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
-                    {isMobile && <SidebarTrigger />}
+                    {state === 'collapsed' && <SidebarTrigger />}
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">
                             Notifications

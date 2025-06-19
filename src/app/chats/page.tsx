@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { toast } from '~/hooks/use-toast'
 import { formatDistanceToNow } from 'date-fns'
-import { SidebarTrigger } from '~/components/ui/sidebar'
+import { SidebarTrigger, useSidebar } from '~/components/ui/sidebar'
 import { useMobile } from '~/hooks/use-mobile'
 import { ThemeToggle } from '~/components/tiptap-templates/simple/theme-toggle'
 
@@ -20,6 +20,7 @@ export default function ChatsPage() {
     } = api.chat.getRecentChats.useQuery()
     const [searchQuery, setSearchQuery] = useState('')
     const isMobile = useMobile()
+    const { state } = useSidebar();
 
     // Filter chats based on search query
     const filteredChats = (recentChats || []).filter(
@@ -42,7 +43,7 @@ export default function ChatsPage() {
         <div className="container mx-auto p-6">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
-                    {isMobile && <SidebarTrigger />}
+                    {state === 'collapsed' && <SidebarTrigger />}
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">
                             Chats
