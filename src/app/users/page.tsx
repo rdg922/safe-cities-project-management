@@ -167,14 +167,6 @@ export default function UsersPage() {
                         Manage users and their permissions
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    {isMobile && <SidebarTrigger />}
-                    <ThemeToggle />
-                    <Button className="gap-2">
-                        <UserPlus size={16} />
-                        Invite User
-                    </Button>
-                </div>
             </div>
 
             <div className="flex items-center justify-between mb-6">
