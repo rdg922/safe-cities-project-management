@@ -1,21 +1,26 @@
 import { z } from 'zod'
-import { eq, ne, and, desc, asc, sql, inArray } from 'drizzle-orm'
+import { eq, ne, and, desc, asc, sql, inArray, gt } from 'drizzle-orm'
 
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc'
 import { messages, files, users, notifications, filePermissions } from '~/server/db/schema'
 
 export const chatRouter = createTRPCRouter({
-    // Get messages for a specific file
+    // Get messages for a specific file (with optional since and limit for fast incremental fetching)
     getFileMessages: protectedProcedure
         .input(
             z.object({
-                fileId: z
-                    .number()
-                    .int()
-                    .positive('File ID must be a positive integer'),
+                fileId: z.number().int().positive('File ID must be a positive integer'),
+                since: z.string().datetime().optional(), // ISO timestamp
+                limit: z.number().int().min(1).max(100).optional(), // max 100 per page
             })
         )
         .query(async ({ ctx, input }) => {
+            const whereParts = [eq(messages.fileId, input.fileId)]
+            if (input.since) {
+                whereParts.push(gt(messages.createdAt, new Date(input.since)))
+            }
+            const whereClause = and(...whereParts)
+
             const fileMessages = await ctx.db
                 .select({
                     id: messages.id,
@@ -31,8 +36,9 @@ export const chatRouter = createTRPCRouter({
                 })
                 .from(messages)
                 .leftJoin(users, eq(messages.userId, users.id))
-                .where(eq(messages.fileId, input.fileId))
+                .where(whereClause)
                 .orderBy(asc(messages.createdAt))
+                .limit(input.limit || 50) // Default to 50
 
             return fileMessages
         }),
@@ -196,18 +202,20 @@ export const chatRouter = createTRPCRouter({
         // Group by file
         const chatsByFile = recentChats.reduce(
             (acc, { message, file, user }) => {
-                const fileId = message.fileId
-                if (!acc[fileId]) {
-                    acc[fileId] = {
-                        file,
-                        lastMessage: {
-                            ...message,
-                            user,
-                        },
-                        unreadCount: 0, // You can implement unread count logic later
+                const fileId = message.fileId;
+                if (fileId !== null && fileId !== undefined) {
+                    if (!acc[fileId]) {
+                        acc[fileId] = {
+                            file,
+                            lastMessage: {
+                                ...message,
+                                user,
+                            },
+                            unreadCount: 0,
+                        };
                     }
                 }
-                return acc
+                return acc;
             },
             {} as Record<number, any>
         )

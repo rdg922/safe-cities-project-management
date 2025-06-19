@@ -13,7 +13,7 @@ type Permission = 'view' | 'comment' | 'edit'
 export default function PageView() {
     const params = useParams()
     const router = useRouter()
-    const pageId = Number(params.pageId as string)
+    const pageId = Number((params?.pageId ?? '') as string)
 
     // Fetch page data using tRPC with type validation
     const {
@@ -56,24 +56,22 @@ export default function PageView() {
         )
 
     const [content, setContent] = useState<string>('')
+    const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
     const [localPermission, setLocalPermission] = useState<Permission>('view')
-    const [hasInitialContentLoaded, setHasInitialContentLoaded] =
-        useState(false)
+    const [hasInitialContentLoaded, setHasInitialContentLoaded] = useState(false)
 
     // Version history state
     const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
 
     // Add state to track saving status
-    const [savingStatus, setSavingStatus] = useState<
-        'idle' | 'saving' | 'saved'
-    >('idle')
+    const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
 
     // Add mutation hook for updating the page
     const updatePageMutation = api.files.updatePageContent.useMutation({
         onSuccess: () => {
             setSavingStatus('saved')
             // Reset status after a delay
-            setTimeout(() => setSavingStatus('idle'), 3000)
+            setTimeout(() => setSavingStatus('idle'), 3 * 1000)
         },
         onError: (error) => {
             setSavingStatus('idle')
@@ -91,14 +89,13 @@ export default function PageView() {
     // Update content when page data loads, but only once
     useEffect(() => {
         if (page?.content?.content && !hasInitialContentLoaded) {
-            console.log(
-                'Setting initial page content:',
-                page.content.content.substring(0, 100)
-            )
             setContent(page.content.content)
             setHasInitialContentLoaded(true)
         }
-    }, [page?.content?.content, hasInitialContentLoaded])
+        if (page?.content?.updatedAt && !lastSyncedAt) {
+            setLastSyncedAt(page.content.updatedAt ? page.content.updatedAt.toISOString() : null)
+        }
+    }, [page?.content?.content, page?.content?.updatedAt, hasInitialContentLoaded, lastSyncedAt])
 
     // Update local permission when user permission loads
     useEffect(() => {
@@ -120,14 +117,14 @@ export default function PageView() {
                 clearTimeout(contentUpdateTimerRef.current)
             }
 
-            // Set new timer for debounced save, this determines how long to wait before saving
+            // Set new timer for debounced save
             contentUpdateTimerRef.current = setTimeout(() => {
-                setSavingStatus('saving') // Saving status is set only right before saving
+                setSavingStatus('saving')
                 updatePageMutation.mutate({
                     fileId: pageId,
                     content: newContent,
                 })
-            }, 500) // Auto-save after 100ms of no activity (only if content changed)
+            }, 500)
         },
         [pageId, userPermission, updatePageMutation]
     )
@@ -141,6 +138,27 @@ export default function PageView() {
         }
     }, [])
 
+    // Live-ish sync: poll for remote updates
+    useEffect(() => {
+        if (!pageId || !lastSyncedAt) return
+
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/pages/last-updated?pageId=${pageId}`)
+                if (!res.ok) return
+                const data = await res.json()
+                if (data.lastUpdated && data.lastUpdated !== lastSyncedAt) {
+                    setContent(data.content)
+                    setLastSyncedAt(data.lastUpdated)
+                }
+            } catch (e) {
+                // ignore polling errors
+            }
+        }, 5 * 1000) // every 5 seconds
+
+        return () => clearInterval(interval)
+    }, [pageId, lastSyncedAt])
+
     // Handle version restoration
     const handleVersionRestore = useCallback((restoredContent: string) => {
         setContent(restoredContent)
@@ -153,8 +171,6 @@ export default function PageView() {
     }, [])
 
     // Determine if the editor should be read-only based on permissions
-    // Default to readOnly while loading OR when userPermission is null/undefined
-    // Only allow editing when userPermission is explicitly 'edit' or 'comment'
     const isReadOnly =
         isPermissionLoading ||
         (userPermission !== 'edit' && userPermission !== 'comment')
