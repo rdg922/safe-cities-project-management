@@ -135,6 +135,7 @@ export const pageVersionHistory = createTable(
             .references(() => files.id, { onDelete: 'cascade' })
             .notNull(),
         content: d.text().notNull(),
+        contentHash: d.varchar({ length: 64 }).notNull(), // SHA-256 hash of content
         version: d.integer().notNull(),
         createdBy: d
             .text()
@@ -147,8 +148,9 @@ export const pageVersionHistory = createTable(
         index('page_version_file_version_idx').on(t.fileId, t.version),
         index('page_version_created_by_idx').on(t.createdBy),
         index('page_version_created_at_idx').on(t.createdAt),
-        // Unique constraint to prevent duplicate content for the same file
-        unique('page_version_file_content_unique').on(t.fileId, t.content),
+        index('page_version_content_hash_idx').on(t.contentHash),
+        // Unique constraint to prevent duplicate content for the same file based on hash
+        unique('page_version_file_content_hash_unique').on(t.fileId, t.contentHash),
     ]
 )
 
