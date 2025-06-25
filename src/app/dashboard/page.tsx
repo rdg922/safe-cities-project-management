@@ -12,19 +12,10 @@ import { formatDistanceToNow } from 'date-fns'
 import { SidebarTrigger, useSidebar } from '~/components/ui/sidebar'
 import { useMobile } from '~/hooks/use-mobile'
 
-// Add performance measurement utility
-const measureQuery = (name: string, startTime: number) => {
-    const endTime = performance.now()
-    console.log(`Query ${name} took ${(endTime - startTime).toFixed(2)}ms`)
-}
-
 export default function DashboardPage() {
     const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false)
     const isMobile = useMobile()
     const { state } = useSidebar()
-
-    // Start measuring total page load time
-    const startTime = useMemo(() => performance.now(), [])
 
     // Get current user profile to check permissions
     const { data: userProfile } = api.user.getProfile.useQuery()
@@ -46,35 +37,6 @@ export default function DashboardPage() {
 
     const { data: notificationData, isLoading: isLoadingNotifications } =
         api.notification.getAll.useQuery({ limit: 5 })
-
-    // Measure total page load time when all data is loaded
-    useEffect(() => {
-        const allQueriesComplete =
-            !isLoadingPrograms &&
-            !isLoadingPages &&
-            !isLoadingNotifications &&
-            programs &&
-            childCounts &&
-            updateTimes &&
-            (isAdmin || !isLoadingUsers) // Only wait for users if admin
-
-        if (allQueriesComplete) {
-            const endTime = performance.now()
-            console.log('=== Dashboard Load Time ===')
-            console.log(`Total time: ${(endTime - startTime).toFixed(2)}ms`)
-            console.log('========================')
-        }
-    }, [
-        isLoadingUsers,
-        isLoadingPrograms,
-        isLoadingPages,
-        isLoadingNotifications,
-        programs,
-        childCounts,
-        updateTimes,
-        startTime,
-        isAdmin,
-    ])
 
     return (
         <div className="container mx-auto p-6">
